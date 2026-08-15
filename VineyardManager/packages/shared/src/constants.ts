@@ -1,0 +1,74 @@
+export const USER_ROLES = ["power_user", "manager", "viewer"] as const;
+
+export const VINE_STATUSES = ["active", "replaced", "removed"] as const;
+
+export const ACTIVITY_TYPES = [
+  "pruning",
+  "watering",
+  "fertilization",
+  "pest_prevention",
+  "weed_prevention",
+  "harvest",
+  "health_observation",
+  "vine_replacement",
+  "winterization",
+  "other",
+] as const;
+
+export const ACTIVITY_SCOPES = [
+  "vineyard",
+  "block",
+  "row",
+  "variety",
+  "vine",
+] as const;
+
+export const ACTIVITY_SOURCES = ["manual", "ai_suggested", "imported"] as const;
+
+export const HEALTH_COLORS = ["green", "yellow", "orange", "red"] as const;
+
+export const HEALTH_SCORE_DEFAULTS = {
+  greenMin: 80,
+  yellowMin: 70,
+  orangeMin: 60,
+} as const;
+
+export const TASK_TYPES = ["maintenance", "weather", "health_summary"] as const;
+
+export const TASK_STATUSES = [
+  "pending",
+  "sent",
+  "acknowledged",
+  "dismissed",
+] as const;
+
+export const WATERING_METHODS = [
+  "drip",
+  "flooding",
+  "hose",
+  "sprinkler",
+] as const;
+
+export const HARVEST_CONDITIONS = [
+  "best",
+  "better",
+  "good",
+  "pest_damage",
+  "unusable",
+] as const;
+
+export const API_PREFIX = "/api/v1";
+
+export function healthColorFromScore(
+  score: number,
+  thresholds: {
+    greenMin: number;
+    yellowMin: number;
+    orangeMin: number;
+  } = HEALTH_SCORE_DEFAULTS,
+): (typeof HEALTH_COLORS)[number] {
+  if (score >= thresholds.greenMin) return "green";
+  if (score >= thresholds.yellowMin) return "yellow";
+  if (score >= thresholds.orangeMin) return "orange";
+  return "red";
+}

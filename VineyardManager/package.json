@@ -1,0 +1,27 @@
+{
+  "name": "vineyard-manager",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Operations platform for a small vineyard: map, health, tasks, harvests, and field-ready logging.",
+  "packageManager": "pnpm@10.14.0",
+  "engines": {
+    "node": ">=20.11.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "dev:web": "pnpm --filter @vineyard/web dev",
+    "dev:api": "pnpm --filter @vineyard/api dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.5.6",
+    "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  }
+}

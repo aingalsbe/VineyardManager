@@ -1,0 +1,74 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+.npm/
+.yarn/
+.yarn/cache
+.pnp.*
+
+# Builds and caches
+dist/
+build/
+out/
+coverage/
+*.tsbuildinfo
+.turbo/
+.cache/
+.vite/
+.eslintcache
+*.local
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Tests
+playwright-report/
+test-results/
+blob-report/
+
+# Editors
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# Future mobile / native
+.expo/
+.expo-shared/
+android/
+ios/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+# Python leftovers (if FastAPI experiments are added later)
+__pycache__/
+.venv/
+venv/
+*.pyc
+
+# Misc
+*.tgz
+.temp/
+.tmp/
