@@ -11,9 +11,10 @@ The first users are power users who know the vineyard well — they set up rows 
 | Web | React + Vite + TypeScript + Tailwind CSS | Fast local UI, shadcn/ui-ready |
 | API | Express + TypeScript | Same language as the web app and `@vineyard/shared`; easy to keep the `/api/v1` contract explicit |
 | Shared | Zod + TypeScript types | One source of truth for roles, activities, health colors, and payloads |
+| Database | PostgreSQL + Prisma | Versioned migrations in `apps/api/prisma` |
 | Workspace | pnpm + Turborepo | Install once, run `web` and `api` together |
 
-PostgreSQL, auth, weather, and the Android/Expo client come later. The folders and shared types are shaped so those pieces drop in without a rewrite.
+Auth, weather, and the Android/Expo client come later. Blocks and scheduled tasks are the first persisted slice.
 
 ## Repository layout
 
@@ -53,6 +54,15 @@ copy apps\web\.env.example apps\web\.env
 
 On macOS / Linux use `cp` instead of `copy`.
 
+Start Postgres and apply the committed migrations:
+
+```bash
+docker compose up -d
+pnpm db:migrate:deploy
+```
+
+Use `pnpm db:migrate` only when you are creating a new migration. Do not edit SQL that has already been committed.
+
 ## Develop
 
 ```bash
@@ -75,6 +85,8 @@ Run one app at a time with `pnpm dev:web` or `pnpm dev:api`.
 | `pnpm build` | Production build |
 | `pnpm typecheck` | TypeScript across the workspace |
 | `pnpm lint` | Package lint scripts (TypeScript for now) |
+| `pnpm db:migrate` | Create / apply Prisma migrations |
+| `pnpm db:migrate:deploy` | Apply committed migrations |
 
 ## Domain starting points
 

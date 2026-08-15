@@ -33,7 +33,7 @@ It is **not** a marketplace product. It is **not** a computer-vision leaf scanne
 - Web: React + Vite + TypeScript + Tailwind CSS v4. shadcn/ui goes in `apps/web/src/components/ui`.
 - API: Express + TypeScript. Chosen so web, API, and shared stay in one type system. Do not switch to FastAPI/Nest/tRPC unless asked.
 - Workspace: pnpm + Turborepo.
-- Future data store: PostgreSQL. Prefer Prisma when persistence is added. JSONB is fine for activity details, health thresholds, and notification prefs.
+- Persistence: PostgreSQL + Prisma. Schema and migrations live in `apps/api/prisma`. Never rewrite a committed migration; add a new one. JSONB is fine for activity details, health thresholds, and notification prefs.
 - Future AI: SpaceXAI / xAI first (`build-with-ai` skill). Keep assistant calls behind an API module named `assistant`.
 
 ## Vineyard language

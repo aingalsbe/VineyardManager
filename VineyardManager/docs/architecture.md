@@ -1,7 +1,7 @@
 # Architecture
 
 ```text
-Web (React + Vite)  ←→  API (Express /api/v1)  ←→  PostgreSQL (later)
+Web (React + Vite)  ←→  API (Express /api/v1)  ←→  PostgreSQL (Prisma)
 Android / Expo  ↗                              ↘  Weather + assistant
                      ↑
               Offline outbox (SQLite) on mobile
@@ -12,10 +12,13 @@ Android / Expo  ↗                              ↘  Weather + assistant
 - `apps/web` — Vite dev server on `:5173`, proxies `/api` → `:3001`
 - `apps/api` — Express on `:3001`
 - `packages/shared` — types and Zod schemas used by both
+- `apps/api/prisma` — PostgreSQL schema + versioned migrations
 
-## Persistence (not wired yet)
+## Persistence
 
-PostgreSQL with UUID primary keys, soft deletes, and JSONB for activity details and health thresholds. Prisma is the intended ORM when the first CRUD slice lands.
+PostgreSQL with UUID primary keys, soft deletes, and JSONB for notification prefs and health thresholds. Prisma owns the schema. Never edit a committed migration; add a new one.
+
+First tables: `users`, `vineyards`, `blocks`, `tasks`. Local database: `docker compose up -d` then `pnpm db:migrate`.
 
 ## Auth (not wired yet)
 

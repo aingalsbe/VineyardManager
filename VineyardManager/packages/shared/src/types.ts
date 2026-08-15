@@ -180,9 +180,10 @@ export interface HealthReason {
   severity: HealthColor;
 }
 
-export interface ScheduledTask {
+export interface ScheduledTask extends Audited {
   id: string;
   vineyardId: string;
+  blockId?: string | null;
   userId?: string | null;
   type: TaskType;
   title: string;
@@ -190,7 +191,6 @@ export interface ScheduledTask {
   dueAt: string;
   status: TaskStatus;
   relatedActivityType?: ActivityType | null;
-  createdAt: string;
 }
 
 export interface ApiErrorBody {

@@ -31,12 +31,12 @@ Prefer explicit foreign keys, soft deletes, and audit timestamps. UUIDs for all 
 
 ## Block (parcel)
 
-Optional grouping of rows (irrigation zone, hillside, named block).
+Optional grouping of rows (irrigation zone, hillside, named block). Persisted in `blocks`. Unique `(vineyardId, code)`.
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | id | UUID | PK |
-| vineyardId | UUID | FK |
+| vineyardId | UUID | FK → Vineyard |
 | code | string | unique per vineyard |
 | name | string | |
 | notes | string? | |
@@ -126,17 +126,21 @@ Activity `details` examples:
 
 ## Scheduled task / notification
 
+Persisted in `tasks`. Vineyard-wide when `blockId` is null; otherwise scoped to a block.
+
 | Field | Type | Notes |
 | --- | --- | --- |
 | id | UUID | PK |
-| vineyardId | UUID | FK |
-| userId | UUID? | null = all eligible roles |
+| vineyardId | UUID | FK → Vineyard |
+| blockId | UUID? | FK → Block; null = whole vineyard |
+| userId | UUID? | FK → User; null = all eligible roles |
 | type | `maintenance` \| `weather` \| `health_summary` | |
 | title / body | string | |
 | dueAt | timestamptz | |
 | status | `pending` \| `sent` \| `acknowledged` \| `dismissed` | |
-| relatedActivityType | string? | |
-| createdAt | timestamptz | |
+| relatedActivityType | activity type enum? | |
+| createdAt / updatedAt | timestamptz | |
+| deletedAt | timestamptz? | |
 
 ## Relationships
 
@@ -144,6 +148,11 @@ Activity `details` examples:
 User 1──* Vineyard
 Vineyard 1──* Block 1──* Row 1──* Vine
 Vineyard 1──* Variety
+Vineyard 1──* Task
+Block 1──* Task          (optional scope)
+User 1──* Task           (optional assignee)
 Row / Vine / Variety / Block *──* Activity (via scope)
 Vineyard / Block / Row / Vine 1──* HealthSnapshot
 ```
+
+Schema and migrations: `apps/api/prisma`. Initial migration covers User, Vineyard, Block, and Task.

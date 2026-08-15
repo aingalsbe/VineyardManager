@@ -1,0 +1,125 @@
+// Initial persistence slice: blocks (parcels) and scheduled tasks.
+// User + Vineyard exist so foreign keys stay real. Add rows/vines/activities later.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  power_user
+  manager
+  viewer
+}
+
+enum TaskType {
+  maintenance
+  weather
+  health_summary
+}
+
+enum TaskStatus {
+  pending
+  sent
+  acknowledged
+  dismissed
+}
+
+enum ActivityType {
+  pruning
+  watering
+  fertilization
+  pest_prevention
+  weed_prevention
+  harvest
+  health_observation
+  vine_replacement
+  winterization
+  other
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique
+  passwordHash      String    @map("password_hash")
+  displayName       String    @map("display_name")
+  role              UserRole
+  notificationPrefs Json      @map("notification_prefs")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  ownedVineyards Vineyard[] @relation("VineyardOwner")
+  assignedTasks  Task[]
+
+  @@map("users")
+}
+
+model Vineyard {
+  id               String    @id @default(uuid()) @db.Uuid
+  ownerId          String    @map("owner_id") @db.Uuid
+  name             String
+  address          String
+  lat              Decimal?  @db.Decimal(9, 6)
+  lng              Decimal?  @db.Decimal(9, 6)
+  timezone         String
+  healthThresholds Json      @map("health_thresholds")
+  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  owner  User    @relation("VineyardOwner", fields: [ownerId], references: [id])
+  blocks Block[]
+  tasks  Task[]
+
+  @@index([ownerId])
+  @@map("vineyards")
+}
+
+model Block {
+  id         String    @id @default(uuid()) @db.Uuid
+  vineyardId String    @map("vineyard_id") @db.Uuid
+  code       String
+  name       String
+  notes      String?
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  tasks    Task[]
+
+  @@unique([vineyardId, code])
+  @@index([vineyardId])
+  @@map("blocks")
+}
+
+/// Scheduled work or notification. Vineyard-wide, or scoped to a block.
+model Task {
+  id                  String        @id @default(uuid()) @db.Uuid
+  vineyardId          String        @map("vineyard_id") @db.Uuid
+  blockId             String?       @map("block_id") @db.Uuid
+  userId              String?       @map("user_id") @db.Uuid
+  type                TaskType
+  title               String
+  body                String
+  dueAt               DateTime      @map("due_at") @db.Timestamptz(6)
+  status              TaskStatus    @default(pending)
+  relatedActivityType ActivityType? @map("related_activity_type")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt           DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  block    Block?   @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([vineyardId, dueAt])
+  @@index([userId, status])
+  @@index([blockId])
+  @@map("tasks")
+}

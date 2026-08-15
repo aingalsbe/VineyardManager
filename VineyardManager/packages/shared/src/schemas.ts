@@ -41,6 +41,16 @@ export const createBlockSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
+export const createTaskSchema = z.object({
+  blockId: z.string().uuid().optional(),
+  userId: z.string().uuid().optional(),
+  type: taskTypeSchema,
+  title: z.string().min(1).max(200),
+  body: z.string().min(1).max(4000),
+  dueAt: z.string().datetime(),
+  relatedActivityType: activityTypeSchema.optional(),
+});
+
 export const createRowSchema = z.object({
   code: z.string().min(1).max(16),
   label: z.string().max(80).optional(),
