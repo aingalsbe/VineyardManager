@@ -29,6 +29,13 @@ enum TaskStatus {
   dismissed
 }
 
+enum BlockStatus {
+  active
+  fallow
+  replanting
+  retired
+}
+
 enum ActivityType {
   pruning
   watering
@@ -81,14 +88,18 @@ model Vineyard {
 }
 
 model Block {
-  id         String    @id @default(uuid()) @db.Uuid
-  vineyardId String    @map("vineyard_id") @db.Uuid
-  code       String
-  name       String
-  notes      String?
-  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id          String      @id @default(uuid()) @db.Uuid
+  vineyardId  String      @map("vineyard_id") @db.Uuid
+  code        String
+  name        String
+  variety     String
+  acreage     Decimal     @db.Decimal(6, 2)
+  plantedYear Int         @map("planted_year")
+  status      BlockStatus @default(active)
+  notes       String?
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(6)
 
   vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
   tasks    Task[]

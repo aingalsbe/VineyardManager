@@ -2,6 +2,13 @@ export const USER_ROLES = ["power_user", "manager", "viewer"] as const;
 
 export const VINE_STATUSES = ["active", "replaced", "removed"] as const;
 
+export const BLOCK_STATUSES = [
+  "active",
+  "fallow",
+  "replanting",
+  "retired",
+] as const;
+
 export const ACTIVITY_TYPES = [
   "pruning",
   "watering",

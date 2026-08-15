@@ -3,6 +3,7 @@ import {
   ACTIVITY_SCOPES,
   ACTIVITY_SOURCES,
   ACTIVITY_TYPES,
+  BLOCK_STATUSES,
   HARVEST_CONDITIONS,
   HEALTH_COLORS,
   TASK_STATUSES,
@@ -14,6 +15,7 @@ import {
 
 export const userRoleSchema = z.enum(USER_ROLES);
 export const vineStatusSchema = z.enum(VINE_STATUSES);
+export const blockStatusSchema = z.enum(BLOCK_STATUSES);
 export const activityTypeSchema = z.enum(ACTIVITY_TYPES);
 export const activityScopeSchema = z.enum(ACTIVITY_SCOPES);
 export const activitySourceSchema = z.enum(ACTIVITY_SOURCES);
@@ -38,6 +40,10 @@ export const createVineyardSchema = z.object({
 export const createBlockSchema = z.object({
   code: z.string().min(1).max(32),
   name: z.string().min(1).max(120),
+  variety: z.string().min(1).max(80),
+  acreage: z.number().positive(),
+  plantedYear: z.number().int().min(1900).max(2100),
+  status: blockStatusSchema.default("active"),
   notes: z.string().max(2000).optional(),
 });
 

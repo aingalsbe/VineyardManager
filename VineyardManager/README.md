@@ -63,6 +63,12 @@ pnpm db:migrate:deploy
 
 Use `pnpm db:migrate` only when you are creating a new migration. Do not edit SQL that has already been committed.
 
+Load sample vineyard data (idempotent — safe to re-run):
+
+```bash
+pnpm db:seed
+```
+
 ## Develop
 
 ```bash
@@ -87,6 +93,7 @@ Run one app at a time with `pnpm dev:web` or `pnpm dev:api`.
 | `pnpm lint` | Package lint scripts (TypeScript for now) |
 | `pnpm db:migrate` | Create / apply Prisma migrations |
 | `pnpm db:migrate:deploy` | Apply committed migrations |
+| `pnpm db:seed` | Load sample users, vineyard, blocks, and tasks |
 
 ## Domain starting points
 

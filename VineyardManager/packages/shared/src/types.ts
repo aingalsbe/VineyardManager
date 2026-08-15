@@ -7,12 +7,14 @@ import type {
   TASK_STATUSES,
   TASK_TYPES,
   USER_ROLES,
+  BLOCK_STATUSES,
   VINE_STATUSES,
   WATERING_METHODS,
 } from "./constants.js";
 
 export type UserRole = (typeof USER_ROLES)[number];
 export type VineStatus = (typeof VINE_STATUSES)[number];
+export type BlockStatus = (typeof BLOCK_STATUSES)[number];
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 export type ActivityScope = (typeof ACTIVITY_SCOPES)[number];
 export type ActivitySource = (typeof ACTIVITY_SOURCES)[number];
@@ -64,6 +66,10 @@ export interface Block extends Audited {
   vineyardId: string;
   code: string;
   name: string;
+  variety: string;
+  acreage: number;
+  plantedYear: number;
+  status: BlockStatus;
   notes?: string | null;
 }
 

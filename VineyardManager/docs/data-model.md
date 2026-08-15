@@ -39,6 +39,10 @@ Optional grouping of rows (irrigation zone, hillside, named block). Persisted in
 | vineyardId | UUID | FK → Vineyard |
 | code | string | unique per vineyard |
 | name | string | |
+| variety | string | primary grape until Variety rows exist |
+| acreage | decimal | acres |
+| plantedYear | int | first planting year |
+| status | `active` \| `fallow` \| `replanting` \| `retired` | |
 | notes | string? | |
 | createdAt / updatedAt | timestamptz | |
 | deletedAt | timestamptz? | |
