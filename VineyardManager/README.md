@@ -21,7 +21,7 @@ Auth, weather, and the Android/Expo client come later. Blocks and scheduled task
 ```text
 VineyardManager/
 ├── apps/
-│   ├── web/          # React + Vite frontend
+│   ├── web/          # React + Vite app shell (routed pages)
 │   └── api/          # Express API
 ├── packages/
 │   └── shared/       # Types, Zod schemas, constants
@@ -71,7 +71,7 @@ pnpm dev
 
 That starts both apps:
 
-- Web: http://localhost:5173
+- Web: http://localhost:5173 — Dashboard, Blocks, Tasks, Log work, Setup, Settings
 - API: http://localhost:3001
 - Health check: http://localhost:3001/api/v1/health
 
