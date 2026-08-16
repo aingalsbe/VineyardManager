@@ -1,13 +1,17 @@
 import { Router } from "express";
 import { createVineyardSchema } from "@vineyard/shared";
+import { prisma } from "../../db/prisma.js";
+import { serializeVineyard } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 
 export const vineyardsRouter = Router();
 
-// Persistence lands in the first CRUD slice. These handlers keep the
-// /api/v1 contract and shared schemas in place until then.
-vineyardsRouter.get("/", (_req, res) => {
-  res.json({ data: [] });
+vineyardsRouter.get("/", async (_req, res) => {
+  const vineyards = await prisma.vineyard.findMany({
+    where: { deletedAt: null },
+    orderBy: { name: "asc" },
+  });
+  res.json({ data: vineyards.map(serializeVineyard) });
 });
 
 vineyardsRouter.post("/", (req, res) => {
