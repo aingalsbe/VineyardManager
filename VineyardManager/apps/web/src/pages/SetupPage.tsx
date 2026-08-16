@@ -8,7 +8,7 @@ const steps = [
   },
   {
     title: "Map rows",
-    body: "Create rows (L1, S1, …), vine counts, spacing, orientation, and which block they belong to.",
+    body: "Create rows (L1, S1, …) with variety, length in feet and inches, and vine count.",
   },
   {
     title: "Calendar",

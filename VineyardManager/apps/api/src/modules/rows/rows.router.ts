@@ -1,14 +1,14 @@
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
-import { serializeBlock } from "../../lib/serialize.js";
+import { serializeRow } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 
-export const blocksRouter = Router({ mergeParams: true });
+export const rowsRouter = Router({ mergeParams: true });
 
 const vineyardIdParam = z.string().uuid();
 
-blocksRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
+rowsRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
   const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
 
   const vineyard = await prisma.vineyard.findFirst({
@@ -20,10 +20,10 @@ blocksRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
     throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
   }
 
-  const blocks = await prisma.block.findMany({
+  const rows = await prisma.row.findMany({
     where: { vineyardId, deletedAt: null },
     orderBy: { code: "asc" },
   });
 
-  res.json({ data: blocks.map(serializeBlock) });
+  res.json({ data: rows.map(serializeRow) });
 });

@@ -3,7 +3,7 @@ import {
   ACTIVITY_SCOPES,
   ACTIVITY_SOURCES,
   ACTIVITY_TYPES,
-  BLOCK_STATUSES,
+  ROW_STATUSES,
   HARVEST_CONDITIONS,
   HEALTH_COLORS,
   TASK_STATUSES,
@@ -15,7 +15,7 @@ import {
 
 export const userRoleSchema = z.enum(USER_ROLES);
 export const vineStatusSchema = z.enum(VINE_STATUSES);
-export const blockStatusSchema = z.enum(BLOCK_STATUSES);
+export const rowStatusSchema = z.enum(ROW_STATUSES);
 export const activityTypeSchema = z.enum(ACTIVITY_TYPES);
 export const activityScopeSchema = z.enum(ACTIVITY_SCOPES);
 export const activitySourceSchema = z.enum(ACTIVITY_SOURCES);
@@ -37,35 +37,26 @@ export const createVineyardSchema = z.object({
   lng: z.number().min(-180).max(180).optional(),
 });
 
-export const createBlockSchema = z.object({
+export const createRowSchema = z.object({
   code: z.string().min(1).max(32),
   name: z.string().min(1).max(120),
   variety: z.string().min(1).max(80),
-  acreage: z.number().positive(),
+  lengthFeet: z.number().int().nonnegative(),
+  lengthInches: z.number().int().min(0).max(11),
+  vineCount: z.number().int().nonnegative(),
   plantedYear: z.number().int().min(1900).max(2100),
-  status: blockStatusSchema.default("active"),
+  status: rowStatusSchema.default("active"),
   notes: z.string().max(2000).optional(),
 });
 
 export const createTaskSchema = z.object({
-  blockId: z.string().uuid().optional(),
+  rowId: z.string().uuid().optional(),
   userId: z.string().uuid().optional(),
   type: taskTypeSchema,
   title: z.string().min(1).max(200),
   body: z.string().min(1).max(4000),
   dueAt: z.string().datetime(),
   relatedActivityType: activityTypeSchema.optional(),
-});
-
-export const createRowSchema = z.object({
-  code: z.string().min(1).max(16),
-  label: z.string().max(80).optional(),
-  vineCount: z.number().int().positive(),
-  spacingFt: z.number().positive(),
-  orientation: z.string().max(16).optional(),
-  varietyId: z.string().uuid().optional(),
-  blockId: z.string().uuid().optional(),
-  sortOrder: z.number().int().nonnegative().optional(),
 });
 
 export const createActivitySchema = z.object({

@@ -22,7 +22,7 @@ export function ActivitiesPage() {
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Log work"
-        description="Apply an activity to the whole vineyard, a block, a variety, a row, or a single vine. Date defaults to today."
+        description="Apply an activity to the whole vineyard, a variety, a row, or a single vine. Date defaults to today."
       />
 
       <div className="mb-4 flex flex-wrap gap-2">

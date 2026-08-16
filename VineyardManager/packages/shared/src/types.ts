@@ -7,14 +7,14 @@ import type {
   TASK_STATUSES,
   TASK_TYPES,
   USER_ROLES,
-  BLOCK_STATUSES,
+  ROW_STATUSES,
   VINE_STATUSES,
   WATERING_METHODS,
 } from "./constants.js";
 
 export type UserRole = (typeof USER_ROLES)[number];
 export type VineStatus = (typeof VINE_STATUSES)[number];
-export type BlockStatus = (typeof BLOCK_STATUSES)[number];
+export type RowStatus = (typeof ROW_STATUSES)[number];
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 export type ActivityScope = (typeof ACTIVITY_SCOPES)[number];
 export type ActivitySource = (typeof ACTIVITY_SOURCES)[number];
@@ -66,10 +66,6 @@ export interface Block extends Audited {
   vineyardId: string;
   code: string;
   name: string;
-  variety: string;
-  acreage: number;
-  plantedYear: number;
-  status: BlockStatus;
   notes?: string | null;
 }
 
@@ -91,14 +87,15 @@ export interface Variety extends Audited {
 export interface Row extends Audited {
   id: string;
   vineyardId: string;
-  blockId?: string | null;
   code: string;
-  label?: string | null;
+  name: string;
+  variety: string;
+  lengthFeet: number;
+  lengthInches: number;
   vineCount: number;
-  spacingFt: number;
-  orientation?: string | null;
-  varietyId?: string | null;
-  sortOrder: number;
+  plantedYear: number;
+  status: RowStatus;
+  notes?: string | null;
 }
 
 export interface Vine extends Audited {
@@ -189,7 +186,7 @@ export interface HealthReason {
 export interface ScheduledTask extends Audited {
   id: string;
   vineyardId: string;
-  blockId?: string | null;
+  rowId?: string | null;
   userId?: string | null;
   type: TaskType;
   title: string;

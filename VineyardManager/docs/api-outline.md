@@ -40,16 +40,14 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 | PATCH | `/varieties/{id}` | Update |
 | DELETE | `/varieties/{id}` | Soft-delete |
 
-## Blocks, rows, and vines
+## Rows and vines
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/blocks` | List parcels / blocks |
-| POST | `/vineyards/{vid}/blocks` | Create block |
-| GET | `/vineyards/{vid}/rows` | List rows (counts + health color) |
-| POST | `/vineyards/{vid}/rows` | Create row + bulk vines |
-| GET | `/rows/{id}` | Row + vines |
-| PATCH | `/rows/{id}` | Code, spacing, variety, block |
+| GET | `/vineyards/{vid}/rows` | List rows (length, vine count, variety, status) |
+| POST | `/vineyards/{vid}/rows` | Create row |
+| GET | `/rows/{id}` | Row detail |
+| PATCH | `/rows/{id}` | Code, length, vine count, variety |
 | GET | `/rows/{id}/vines` | List vines |
 | POST | `/rows/{id}/vines` | Add vine |
 | PATCH | `/vines/{id}` | Variety, status, notes |

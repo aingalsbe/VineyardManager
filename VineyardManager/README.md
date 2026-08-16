@@ -14,7 +14,7 @@ The first users are power users who know the vineyard well — they set up rows 
 | Database | PostgreSQL + Prisma | Versioned migrations in `apps/api/prisma` |
 | Workspace | pnpm + Turborepo | Install once, run `web` and `api` together |
 
-Auth, weather, and the Android/Expo client come later. Blocks and scheduled tasks are the first persisted slice.
+Auth, weather, and the Android/Expo client come later. Rows and scheduled tasks are the first persisted slice.
 
 ## Repository layout
 
@@ -77,7 +77,7 @@ pnpm dev
 
 That starts both apps:
 
-- Web: http://localhost:5173 — Dashboard, Blocks, Tasks, Log work, Setup, Settings
+- Web: http://localhost:5173 — Dashboard, Rows, Tasks, Log work, Setup, Settings
 - API: http://localhost:3001
 - Health check: http://localhost:3001/api/v1/health
 
@@ -93,7 +93,7 @@ Run one app at a time with `pnpm dev:web` or `pnpm dev:api`.
 | `pnpm lint` | Package lint scripts (TypeScript for now) |
 | `pnpm db:migrate` | Create / apply Prisma migrations |
 | `pnpm db:migrate:deploy` | Apply committed migrations |
-| `pnpm db:seed` | Load sample users, vineyard, blocks, and tasks |
+| `pnpm db:seed` | Load sample users, vineyard, rows, and tasks |
 
 ## Domain starting points
 
@@ -103,7 +103,7 @@ Shared types already cover the vineyard model from the product docs:
 - Activities (pruning, watering, fertilization, pest / weed work, harvest, observations)
 - Health colors and scores
 - Scheduled tasks and notifications
-- Blocks / parcels as an optional grouping above rows
+- Rows with variety, length, and vine count
 
 See `packages/shared` and `docs/` before adding tables or routes.
 

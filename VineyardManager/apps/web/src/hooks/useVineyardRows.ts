@@ -1,15 +1,15 @@
-import type { Block, Vineyard } from "@vineyard/shared";
+import type { Row, Vineyard } from "@vineyard/shared";
 import { useCallback, useEffect, useState } from "react";
-import { ApiError, listBlocks, listVineyards } from "@/lib/api";
+import { ApiError, listRows, listVineyards } from "@/lib/api";
 
-export type VineyardBlocksState =
+export type VineyardRowsState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "empty-vineyard" }
-  | { status: "ready"; vineyard: Vineyard; blocks: Block[] };
+  | { status: "ready"; vineyard: Vineyard; rows: Row[] };
 
-export function useVineyardBlocks() {
-  const [state, setState] = useState<VineyardBlocksState>({
+export function useVineyardRows() {
+  const [state, setState] = useState<VineyardRowsState>({
     status: "loading",
   });
 
@@ -22,8 +22,8 @@ export function useVineyardBlocks() {
         setState({ status: "empty-vineyard" });
         return;
       }
-      const blocks = await listBlocks(vineyard.id);
-      setState({ status: "ready", vineyard, blocks });
+      const rows = await listRows(vineyard.id);
+      setState({ status: "ready", vineyard, rows });
     } catch (error) {
       const message =
         error instanceof ApiError

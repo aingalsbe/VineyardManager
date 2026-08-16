@@ -1,4 +1,4 @@
-import { API_PREFIX, type Block, type Vineyard } from "@vineyard/shared";
+import { API_PREFIX, type Row, type Vineyard } from "@vineyard/shared";
 
 const apiBase = (import.meta.env.VITE_API_URL ?? API_PREFIX).replace(
   /\/$/,
@@ -59,9 +59,9 @@ export async function listVineyards(): Promise<Vineyard[]> {
   return body.data;
 }
 
-export async function listBlocks(vineyardId: string): Promise<Block[]> {
-  const body = await apiJson<ListResponse<Block>>(
-    `/vineyards/${vineyardId}/blocks`,
+export async function listRows(vineyardId: string): Promise<Row[]> {
+  const body = await apiJson<ListResponse<Row>>(
+    `/vineyards/${vineyardId}/rows`,
   );
   return body.data;
 }

@@ -41,8 +41,8 @@ It is **not** a marketplace product. It is **not** a computer-vision leaf scanne
 Use the product words, not generic farm synonyms:
 
 - **Vineyard** — the property
-- **Block / parcel** — optional grouping of rows (hillside, irrigation zone)
-- **Row** — coded `L1`, `S3`, etc., unique per vineyard
+- **Row** — coded `L1`, `S3`, etc., unique per vineyard; has variety, length, and vine count
+- **Block / parcel** — optional future grouping of rows (hillside, irrigation zone)
 - **Vine** — one plant in a row (`position` is 1-based)
 - **Variety** — Norton, Chardonel, …
 - **Activity** — something that happened

@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ActivitiesPage } from "@/pages/ActivitiesPage";
-import { BlocksPage } from "@/pages/BlocksPage";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { RowsPage } from "@/pages/RowsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { SetupPage } from "@/pages/SetupPage";
@@ -13,7 +13,8 @@ export default function App() {
     <Routes>
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
-        <Route path="blocks" element={<BlocksPage />} />
+        <Route path="rows" element={<RowsPage />} />
+        <Route path="blocks" element={<Navigate to="/rows" replace />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="activities" element={<ActivitiesPage />} />
         <Route path="setup" element={<SetupPage />} />

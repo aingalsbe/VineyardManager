@@ -1,22 +1,22 @@
 import { Link } from "react-router-dom";
-import { BlockCard } from "@/components/blocks/BlockCard";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
+import { RowCard } from "@/components/rows/RowCard";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { useVineyardBlocks } from "@/hooks/useVineyardBlocks";
+import { useVineyardRows } from "@/hooks/useVineyardRows";
 
-export function BlocksPage() {
-  const { state, reload } = useVineyardBlocks();
+export function RowsPage() {
+  const { state, reload } = useVineyardRows();
 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
-        title="Blocks"
+        title="Rows"
         description={
           state.status === "ready"
-            ? `${state.vineyard.name} — parcels grouped by hillside, irrigation zone, or the name you use in the field.`
-            : "Blocks (parcels) group rows by hillside, irrigation zone, or any name you use in the field."
+            ? `${state.vineyard.name} — each row has a variety, length, and vine count.`
+            : "Rows are the working units of the vineyard: variety, length, and how many vines are on the wire."
         }
       />
 
@@ -25,13 +25,13 @@ export function BlocksPage() {
           <Card className="min-h-40 animate-pulse bg-card/70" />
           <Card className="min-h-40 animate-pulse bg-card/70" />
           <Card className="min-h-40 animate-pulse bg-card/70" />
-          <p className="sr-only">Loading blocks</p>
+          <p className="sr-only">Loading rows</p>
         </div>
       ) : null}
 
       {state.status === "error" ? (
         <EmptyState
-          title="Could not load blocks"
+          title="Could not load rows"
           action={
             <Button type="button" onClick={() => void reload()}>
               Try again
@@ -54,29 +54,29 @@ export function BlocksPage() {
         >
           Create a vineyard, then run{" "}
           <code className="text-foreground">pnpm db:seed</code> to load sample
-          blocks.
+          rows.
         </EmptyState>
       ) : null}
 
-      {state.status === "ready" && state.blocks.length === 0 ? (
+      {state.status === "ready" && state.rows.length === 0 ? (
         <EmptyState
-          title="No blocks yet"
+          title="No rows yet"
           action={
             <Button asChild variant="outline">
               <Link to="/setup">Go to setup</Link>
             </Button>
           }
         >
-          {state.vineyard.name} has no parcels. Add blocks in setup, or re-run
-          the seed.
+          {state.vineyard.name} has no rows. Add them in setup, or re-run the
+          seed.
         </EmptyState>
       ) : null}
 
-      {state.status === "ready" && state.blocks.length > 0 ? (
+      {state.status === "ready" && state.rows.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2">
-          {state.blocks.map((block) => (
-            <li key={block.id}>
-              <BlockCard block={block} />
+          {state.rows.map((row) => (
+            <li key={row.id}>
+              <RowCard row={row} />
             </li>
           ))}
         </ul>

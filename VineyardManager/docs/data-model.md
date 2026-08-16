@@ -31,21 +31,7 @@ Prefer explicit foreign keys, soft deletes, and audit timestamps. UUIDs for all 
 
 ## Block (parcel)
 
-Optional grouping of rows (irrigation zone, hillside, named block). Persisted in `blocks`. Unique `(vineyardId, code)`.
-
-| Field | Type | Notes |
-| --- | --- | --- |
-| id | UUID | PK |
-| vineyardId | UUID | FK → Vineyard |
-| code | string | unique per vineyard |
-| name | string | |
-| variety | string | primary grape until Variety rows exist |
-| acreage | decimal | acres |
-| plantedYear | int | first planting year |
-| status | `active` \| `fallow` \| `replanting` \| `retired` | |
-| notes | string? | |
-| createdAt / updatedAt | timestamptz | |
-| deletedAt | timestamptz? | |
+Optional future grouping of rows (irrigation zone, hillside). Not persisted yet.
 
 ## Variety
 
@@ -61,18 +47,21 @@ Optional grouping of rows (irrigation zone, hillside, named block). Persisted in
 
 ## Row
 
+Persisted in `rows`. Unique `(vineyardId, code)`. Codes like `L1` / `S3`.
+
 | Field | Type | Notes |
 | --- | --- | --- |
 | id | UUID | PK |
-| vineyardId | UUID | FK |
-| blockId | UUID? | FK → Block |
+| vineyardId | UUID | FK → Vineyard |
 | code | string | `L1`, `S3` — unique per vineyard |
-| label | string? | |
-| vineCount | int | |
-| spacingFt | decimal | |
-| orientation | string? | N/S, E/W |
-| varietyId | UUID? | primary variety; vines may override |
-| sortOrder | int | map render order |
+| name | string | |
+| variety | string | primary grape |
+| lengthFeet | int | row length, feet |
+| lengthInches | int | 0–11 leftover inches |
+| vineCount | int | whole number of vines on the row |
+| plantedYear | int | first planting year |
+| status | `active` \| `fallow` \| `replanting` \| `retired` | |
+| notes | string? | |
 | createdAt / updatedAt | timestamptz | |
 | deletedAt | timestamptz? | |
 
@@ -130,13 +119,13 @@ Activity `details` examples:
 
 ## Scheduled task / notification
 
-Persisted in `tasks`. Vineyard-wide when `blockId` is null; otherwise scoped to a block.
+Persisted in `tasks`. Vineyard-wide when `rowId` is null; otherwise scoped to a row.
 
 | Field | Type | Notes |
 | --- | --- | --- |
 | id | UUID | PK |
 | vineyardId | UUID | FK → Vineyard |
-| blockId | UUID? | FK → Block; null = whole vineyard |
+| rowId | UUID? | FK → Row; null = whole vineyard |
 | userId | UUID? | FK → User; null = all eligible roles |
 | type | `maintenance` \| `weather` \| `health_summary` | |
 | title / body | string | |
@@ -150,13 +139,13 @@ Persisted in `tasks`. Vineyard-wide when `blockId` is null; otherwise scoped to 
 
 ```text
 User 1──* Vineyard
-Vineyard 1──* Block 1──* Row 1──* Vine
+Vineyard 1──* Row 1──* Vine
 Vineyard 1──* Variety
 Vineyard 1──* Task
-Block 1──* Task          (optional scope)
+Row 1──* Task            (optional scope)
 User 1──* Task           (optional assignee)
-Row / Vine / Variety / Block *──* Activity (via scope)
-Vineyard / Block / Row / Vine 1──* HealthSnapshot
+Row / Vine / Variety *──* Activity (via scope)
+Vineyard / Row / Vine 1──* HealthSnapshot
 ```
 
-Schema and migrations: `apps/api/prisma`. Initial migration covers User, Vineyard, Block, and Task.
+Schema and migrations: `apps/api/prisma`. Live tables: User, Vineyard, Row, and Task.

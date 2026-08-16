@@ -2,7 +2,7 @@ export const USER_ROLES = ["power_user", "manager", "viewer"] as const;
 
 export const VINE_STATUSES = ["active", "replaced", "removed"] as const;
 
-export const BLOCK_STATUSES = [
+export const ROW_STATUSES = [
   "active",
   "fallow",
   "replanting",
@@ -65,6 +65,10 @@ export const HARVEST_CONDITIONS = [
 ] as const;
 
 export const API_PREFIX = "/api/v1";
+
+export function formatRowLength(feet: number, inches: number): string {
+  return `${feet} ft ${inches} in`;
+}
 
 export function healthColorFromScore(
   score: number,

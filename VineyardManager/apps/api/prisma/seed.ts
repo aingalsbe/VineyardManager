@@ -1,7 +1,7 @@
 import {
   ActivityType,
-  BlockStatus,
   PrismaClient,
+  RowStatus,
   TaskStatus,
   TaskType,
   UserRole,
@@ -37,67 +37,81 @@ const defaultThresholds = {
   orangeMin: 60,
 };
 
-const blocks: {
+const rows: {
   code: string;
   name: string;
   variety: string;
-  acreage: string;
+  lengthFeet: number;
+  lengthInches: number;
+  vineCount: number;
   plantedYear: number;
-  status: BlockStatus;
+  status: RowStatus;
   notes: string;
 }[] = [
   {
-    code: "B1",
+    code: "L1",
     name: "North Slope",
     variety: "Norton",
-    acreage: "1.20",
+    lengthFeet: 180,
+    lengthInches: 0,
+    vineCount: 20,
     plantedYear: 2014,
-    status: BlockStatus.active,
+    status: RowStatus.active,
     notes: "Best sun. Primary red for the home crush.",
   },
   {
-    code: "B2",
+    code: "L2",
     name: "Creek Bench",
     variety: "Chardonel",
-    acreage: "0.80",
+    lengthFeet: 156,
+    lengthInches: 6,
+    vineCount: 18,
     plantedYear: 2016,
-    status: BlockStatus.active,
+    status: RowStatus.active,
     notes: "Cooler air drainage toward the creek. Watch late frost.",
   },
   {
-    code: "B3",
+    code: "S1",
     name: "Hilltop East",
     variety: "Vignoles",
-    acreage: "0.60",
+    lengthFeet: 92,
+    lengthInches: 3,
+    vineCount: 11,
     plantedYear: 2018,
-    status: BlockStatus.active,
+    status: RowStatus.active,
     notes: "Tight clusters — bunch rot scouting in wet weeks.",
   },
   {
-    code: "B4",
+    code: "S2",
     name: "Road Front",
     variety: "Chambourcin",
-    acreage: "1.00",
+    lengthFeet: 148,
+    lengthInches: 0,
+    vineCount: 16,
     plantedYear: 2012,
-    status: BlockStatus.replanting,
-    notes: "Crown gall took the west end. Replacing 18 vines this spring.",
+    status: RowStatus.replanting,
+    notes: "Crown gall took the west end. Replacing vines this spring.",
   },
   {
-    code: "B5",
+    code: "S3",
     name: "West Trellis",
     variety: "Traminette",
-    acreage: "0.50",
+    lengthFeet: 88,
+    lengthInches: 9,
+    vineCount: 11,
     plantedYear: 2019,
-    status: BlockStatus.active,
+    status: RowStatus.active,
     notes: "Newest high cordon. Still filling the wire.",
   },
   {
-    code: "B6",
+    code: "L3",
     name: "Old Home Row",
     variety: "Concord",
-    acreage: "0.40",
+    lengthFeet: 120,
+    lengthInches: 6,
+    vineCount: 18,
     plantedYear: 2008,
-    status: BlockStatus.fallow,
+    status: RowStatus.fallow,
     notes: "Juice grapes. Resting a season after Japanese beetle pressure.",
   },
 ];
@@ -119,7 +133,7 @@ async function resetSeededRows() {
 
   if (vineyardIds.length > 0) {
     await prisma.task.deleteMany({ where: { vineyardId: { in: vineyardIds } } });
-    await prisma.block.deleteMany({ where: { vineyardId: { in: vineyardIds } } });
+    await prisma.row.deleteMany({ where: { vineyardId: { in: vineyardIds } } });
     await prisma.vineyard.deleteMany({ where: { id: { in: vineyardIds } } });
   }
 }
@@ -174,25 +188,25 @@ async function main() {
     },
   });
 
-  const createdBlocks = await Promise.all(
-    blocks.map((block) =>
-      prisma.block.create({
+  const createdRows = await Promise.all(
+    rows.map((row) =>
+      prisma.row.create({
         data: {
           vineyardId: vineyard.id,
-          ...block,
+          ...row,
         },
       }),
     ),
   );
 
-  const byCode = new Map(createdBlocks.map((block) => [block.code, block]));
+  const byCode = new Map(createdRows.map((row) => [row.code, row]));
 
-  const blockId = (code: string): string => {
-    const block = byCode.get(code);
-    if (!block) {
-      throw new Error(`Seed is missing block ${code}`);
+  const rowId = (code: string): string => {
+    const row = byCode.get(code);
+    if (!row) {
+      throw new Error(`Seed is missing row ${code}`);
     }
-    return block.id;
+    return row.id;
   };
 
   const due = (isoDate: string) => new Date(`${isoDate}T14:00:00-05:00`);
@@ -201,7 +215,7 @@ async function main() {
     data: [
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B1"),
+        rowId: rowId("L1"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.pruning,
@@ -212,7 +226,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B2"),
+        rowId: rowId("L2"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.pest_prevention,
@@ -223,7 +237,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B3"),
+        rowId: rowId("S1"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.watering,
@@ -234,18 +248,18 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B4"),
+        rowId: rowId("S2"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.vine_replacement,
-        title: "Replace 18 Chambourcin vines",
+        title: "Replace Chambourcin vines on Road Front",
         body: "Holes dug on the west end. Grafted vines in the cooler. Finish planting and water in.",
         dueAt: due("2026-04-20"),
         status: WORK.inProgress,
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B5"),
+        rowId: rowId("S3"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.fertilization,
@@ -256,7 +270,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B5"),
+        rowId: rowId("S3"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.weed_prevention,
@@ -267,7 +281,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B2"),
+        rowId: rowId("L2"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.winterization,
@@ -278,7 +292,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B1"),
+        rowId: rowId("L1"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.harvest,
@@ -289,7 +303,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B3"),
+        rowId: rowId("S1"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.harvest,
@@ -300,7 +314,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B2"),
+        rowId: rowId("L2"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.harvest,
@@ -311,7 +325,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: blockId("B2"),
+        rowId: rowId("L2"),
         userId: manager.id,
         type: TaskType.weather,
         title: "Late frost watch — Creek Bench",
@@ -321,27 +335,24 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        blockId: null,
+        rowId: null,
         userId: owner.id,
         type: TaskType.health_summary,
         title: "Weekly vineyard health digest",
-        body: "Whole-property summary for the growing season. No block scope.",
+        body: "Whole-property summary for the growing season. No row scope.",
         dueAt: due("2026-08-17"),
         status: WORK.pending,
       },
     ],
   });
 
-  const [blockCount, taskCount] = await Promise.all([
-    prisma.block.count({ where: { vineyardId: vineyard.id } }),
+  const [rowCount, taskCount] = await Promise.all([
+    prisma.row.count({ where: { vineyardId: vineyard.id } }),
     prisma.task.count({ where: { vineyardId: vineyard.id } }),
   ]);
 
   console.log(
-    `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${blockCount} blocks, ${taskCount} tasks.`,
-  );
-  console.log(
-    "Harvests are stored as completed maintenance tasks (relatedActivityType = harvest). There is no harvest table yet.",
+    `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks.`,
   );
 }
 

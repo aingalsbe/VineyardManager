@@ -1,5 +1,5 @@
-// Initial persistence slice: blocks (parcels) and scheduled tasks.
-// User + Vineyard exist so foreign keys stay real. Add rows/vines/activities later.
+// Persistence slice: vineyard rows and scheduled tasks.
+// User + Vineyard exist so foreign keys stay real. Parcel groupings can return later.
 
 generator client {
   provider = "prisma-client-js"
@@ -29,7 +29,7 @@ enum TaskStatus {
   dismissed
 }
 
-enum BlockStatus {
+enum RowStatus {
   active
   fallow
   replanting
@@ -79,41 +79,43 @@ model Vineyard {
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  owner  User    @relation("VineyardOwner", fields: [ownerId], references: [id])
-  blocks Block[]
-  tasks  Task[]
+  owner User  @relation("VineyardOwner", fields: [ownerId], references: [id])
+  rows  Row[]
+  tasks Task[]
 
   @@index([ownerId])
   @@map("vineyards")
 }
 
-model Block {
-  id          String      @id @default(uuid()) @db.Uuid
-  vineyardId  String      @map("vineyard_id") @db.Uuid
-  code        String
-  name        String
-  variety     String
-  acreage     Decimal     @db.Decimal(6, 2)
-  plantedYear Int         @map("planted_year")
-  status      BlockStatus @default(active)
-  notes       String?
-  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?   @map("deleted_at") @db.Timestamptz(6)
+model Row {
+  id           String    @id @default(uuid()) @db.Uuid
+  vineyardId   String    @map("vineyard_id") @db.Uuid
+  code         String
+  name         String
+  variety      String
+  lengthFeet   Int       @map("length_feet")
+  lengthInches Int       @map("length_inches")
+  vineCount    Int       @map("vine_count")
+  plantedYear  Int       @map("planted_year")
+  status       RowStatus @default(active)
+  notes        String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
   tasks    Task[]
 
   @@unique([vineyardId, code])
   @@index([vineyardId])
-  @@map("blocks")
+  @@map("rows")
 }
 
-/// Scheduled work or notification. Vineyard-wide, or scoped to a block.
+/// Scheduled work or notification. Vineyard-wide, or scoped to a row.
 model Task {
   id                  String        @id @default(uuid()) @db.Uuid
   vineyardId          String        @map("vineyard_id") @db.Uuid
-  blockId             String?       @map("block_id") @db.Uuid
+  rowId               String?       @map("row_id") @db.Uuid
   userId              String?       @map("user_id") @db.Uuid
   type                TaskType
   title               String
@@ -126,11 +128,11 @@ model Task {
   deletedAt           DateTime?     @map("deleted_at") @db.Timestamptz(6)
 
   vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
-  block    Block?   @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  row      Row?     @relation(fields: [rowId], references: [id], onDelete: SetNull)
   user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([vineyardId, dueAt])
   @@index([userId, status])
-  @@index([blockId])
+  @@index([rowId])
   @@map("tasks")
 }
