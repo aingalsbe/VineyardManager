@@ -72,14 +72,26 @@ export const createRowSchema = z.object({
 export const updateRowSchema = createRowSchema;
 
 export const createTaskSchema = z.object({
-  rowId: z.string().uuid().optional(),
-  userId: z.string().uuid().optional(),
-  type: taskTypeSchema,
-  title: z.string().min(1).max(200),
-  body: z.string().min(1).max(4000),
-  dueAt: z.string().datetime(),
-  relatedActivityType: activityTypeSchema.optional(),
+  rowId: z
+    .union([z.string().uuid(), z.literal("")])
+    .optional()
+    .transform((value) => (value ? value : null)),
+  type: taskTypeSchema.default("maintenance"),
+  title: z.string().trim().min(1, "Enter a title").max(200),
+  body: z
+    .string()
+    .max(4000)
+    .optional()
+    .transform((value) => value?.trim() ?? ""),
+  dueAt: z.string().min(1, "Enter a due date"),
+  status: taskStatusSchema.default("pending"),
+  relatedActivityType: z
+    .union([activityTypeSchema, z.literal("")])
+    .optional()
+    .transform((value) => (value ? value : null)),
 });
+
+export const updateTaskSchema = createTaskSchema.partial();
 
 export const createActivitySchema = z.object({
   scopeType: activityScopeSchema,

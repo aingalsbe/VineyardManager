@@ -1,5 +1,9 @@
-import type { Row, Vineyard } from "@prisma/client";
-import type { Row as RowDto, Vineyard as VineyardDto } from "@vineyard/shared";
+import type { Row, Task, Vineyard } from "@prisma/client";
+import type {
+  Row as RowDto,
+  ScheduledTask,
+  Vineyard as VineyardDto,
+} from "@vineyard/shared";
 
 function decimalToNumber(value: { toString(): string } | null): number | null {
   if (value == null) return null;
@@ -39,5 +43,28 @@ export function serializeRow(record: Row): RowDto {
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,
+  };
+}
+
+export function serializeTask(
+  record: Task & {
+    row?: { id: string; code: string; name: string } | null;
+  },
+): ScheduledTask {
+  return {
+    id: record.id,
+    vineyardId: record.vineyardId,
+    rowId: record.rowId,
+    userId: record.userId,
+    type: record.type,
+    title: record.title,
+    body: record.body,
+    dueAt: record.dueAt.toISOString(),
+    status: record.status,
+    relatedActivityType: record.relatedActivityType,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    deletedAt: record.deletedAt?.toISOString() ?? null,
+    row: record.row ?? null,
   };
 }

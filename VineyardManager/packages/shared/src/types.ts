@@ -194,6 +194,11 @@ export interface ScheduledTask extends Audited {
   dueAt: string;
   status: TaskStatus;
   relatedActivityType?: ActivityType | null;
+  row?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
 }
 
 export interface ApiErrorBody {

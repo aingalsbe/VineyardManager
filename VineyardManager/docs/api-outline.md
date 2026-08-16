@@ -78,6 +78,14 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 | POST | `/vineyards/{vid}/assistant/suggest-schedule` | Next maintenance window |
 | GET | `/vineyards/{vid}/assistant/history` | Past interactions |
 
+## Tasks
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/vineyards/{vid}/tasks` | List tasks (`?rowId=` `?status=`) |
+| POST | `/vineyards/{vid}/tasks` | Create task (optional `rowId`) |
+| PATCH | `/vineyards/{vid}/tasks/{id}` | Edit fields or change status |
+
 ## Notifications and schedule
 
 | Method | Path | Description |

@@ -1,4 +1,10 @@
-import { API_PREFIX, type Row, type Vineyard } from "@vineyard/shared";
+import {
+  API_PREFIX,
+  type Row,
+  type ScheduledTask,
+  type TaskStatus,
+  type Vineyard,
+} from "@vineyard/shared";
 
 const apiBase = (import.meta.env.VITE_API_URL ?? API_PREFIX).replace(
   /\/$/,
@@ -96,6 +102,52 @@ export async function updateRow(
 ): Promise<Row> {
   const body = await apiJson<{ data: Row }>(
     `/vineyards/${vineyardId}/rows/${rowId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+  return body.data;
+}
+
+export type TaskWritePayload = {
+  rowId?: string | null;
+  type: ScheduledTask["type"];
+  title: string;
+  body?: string;
+  dueAt: string;
+  status: TaskStatus;
+  relatedActivityType?: ScheduledTask["relatedActivityType"];
+};
+
+export async function listTasks(vineyardId: string): Promise<ScheduledTask[]> {
+  const body = await apiJson<ListResponse<ScheduledTask>>(
+    `/vineyards/${vineyardId}/tasks`,
+  );
+  return body.data;
+}
+
+export async function createTask(
+  vineyardId: string,
+  payload: TaskWritePayload,
+): Promise<ScheduledTask> {
+  const body = await apiJson<{ data: ScheduledTask }>(
+    `/vineyards/${vineyardId}/tasks`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+  return body.data;
+}
+
+export async function updateTask(
+  vineyardId: string,
+  taskId: string,
+  payload: Partial<TaskWritePayload>,
+): Promise<ScheduledTask> {
+  const body = await apiJson<{ data: ScheduledTask }>(
+    `/vineyards/${vineyardId}/tasks/${taskId}`,
     {
       method: "PATCH",
       body: JSON.stringify(payload),

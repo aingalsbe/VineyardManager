@@ -49,6 +49,20 @@ export const TASK_STATUSES = [
   "dismissed",
 ] as const;
 
+export const TASK_STATUS_LABELS: Record<(typeof TASK_STATUSES)[number], string> =
+  {
+    pending: "Not started",
+    sent: "In progress",
+    acknowledged: "Complete",
+    dismissed: "Dismissed",
+  };
+
+export const TASK_TYPE_LABELS: Record<(typeof TASK_TYPES)[number], string> = {
+  maintenance: "Maintenance",
+  weather: "Weather",
+  health_summary: "Health summary",
+};
+
 export const WATERING_METHODS = [
   "drip",
   "flooding",
