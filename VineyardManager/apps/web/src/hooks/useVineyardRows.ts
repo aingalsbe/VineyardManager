@@ -13,8 +13,10 @@ export function useVineyardRows() {
     status: "loading",
   });
 
-  const load = useCallback(async () => {
-    setState({ status: "loading" });
+  const load = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setState({ status: "loading" });
+    }
     try {
       const vineyards = await listVineyards();
       const vineyard = vineyards[0];

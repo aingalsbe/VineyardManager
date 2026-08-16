@@ -65,3 +65,41 @@ export async function listRows(vineyardId: string): Promise<Row[]> {
   );
   return body.data;
 }
+
+export type RowWritePayload = {
+  code: string;
+  name: string;
+  variety: string;
+  lengthFeet: number;
+  lengthInches: number;
+  vineCount: number;
+  plantedYear: number;
+  status: Row["status"];
+  notes?: string;
+};
+
+export async function createRow(
+  vineyardId: string,
+  payload: RowWritePayload,
+): Promise<Row> {
+  const body = await apiJson<{ data: Row }>(`/vineyards/${vineyardId}/rows`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function updateRow(
+  vineyardId: string,
+  rowId: string,
+  payload: RowWritePayload,
+): Promise<Row> {
+  const body = await apiJson<{ data: Row }>(
+    `/vineyards/${vineyardId}/rows/${rowId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+  return body.data;
+}

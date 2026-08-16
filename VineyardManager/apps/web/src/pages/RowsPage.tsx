@@ -1,22 +1,46 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import type { Row } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { RowCard } from "@/components/rows/RowCard";
+import { RowFormDialog } from "@/components/rows/RowFormDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 
 export function RowsPage() {
   const { state, reload } = useVineyardRows();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<Row | null>(null);
+
+  const openCreate = () => {
+    setEditing(null);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (row: Row) => {
+    setEditing(row);
+    setDialogOpen(true);
+  };
+
+  const vineyardReady = state.status === "ready";
 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Rows"
         description={
-          state.status === "ready"
+          vineyardReady
             ? `${state.vineyard.name} — each row has a variety, length, and vine count.`
             : "Rows are the working units of the vineyard: variety, length, and how many vines are on the wire."
+        }
+        actions={
+          vineyardReady ? (
+            <Button type="button" onClick={openCreate}>
+              New row
+            </Button>
+          ) : null
         }
       />
 
@@ -58,28 +82,37 @@ export function RowsPage() {
         </EmptyState>
       ) : null}
 
-      {state.status === "ready" && state.rows.length === 0 ? (
+      {vineyardReady && state.rows.length === 0 ? (
         <EmptyState
           title="No rows yet"
           action={
-            <Button asChild variant="outline">
-              <Link to="/setup">Go to setup</Link>
+            <Button type="button" onClick={openCreate}>
+              New row
             </Button>
           }
         >
-          {state.vineyard.name} has no rows. Add them in setup, or re-run the
-          seed.
+          {state.vineyard.name} has no rows yet. Add the first one.
         </EmptyState>
       ) : null}
 
-      {state.status === "ready" && state.rows.length > 0 ? (
+      {vineyardReady && state.rows.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2">
           {state.rows.map((row) => (
             <li key={row.id}>
-              <RowCard row={row} />
+              <RowCard row={row} onEdit={openEdit} />
             </li>
           ))}
         </ul>
+      ) : null}
+
+      {vineyardReady ? (
+        <RowFormDialog
+          vineyardId={state.vineyard.id}
+          row={editing}
+          open={dialogOpen}
+          onClose={() => setDialogOpen(false)}
+          onSaved={() => reload({ silent: true })}
+        />
       ) : null}
     </div>
   );

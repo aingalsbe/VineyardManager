@@ -46,8 +46,7 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 | --- | --- | --- |
 | GET | `/vineyards/{vid}/rows` | List rows (length, vine count, variety, status) |
 | POST | `/vineyards/{vid}/rows` | Create row |
-| GET | `/rows/{id}` | Row detail |
-| PATCH | `/rows/{id}` | Code, length, vine count, variety |
+| PATCH | `/vineyards/{vid}/rows/{id}` | Update row fields |
 | GET | `/rows/{id}/vines` | List vines |
 | POST | `/rows/{id}/vines` | Add vine |
 | PATCH | `/vines/{id}` | Variety, status, notes |

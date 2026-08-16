@@ -1,5 +1,6 @@
 import { formatRowLength, type Row, type RowStatus } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 
 const statusVariant: Record<
@@ -12,7 +13,13 @@ const statusVariant: Record<
   retired: "muted",
 };
 
-export function RowCard({ row }: { row: Row }) {
+export function RowCard({
+  row,
+  onEdit,
+}: {
+  row: Row;
+  onEdit: (row: Row) => void;
+}) {
   return (
     <Card>
       <div className="flex items-start justify-between gap-3">
@@ -21,9 +28,19 @@ export function RowCard({ row }: { row: Row }) {
           <CardTitle className="mt-0.5">{row.name}</CardTitle>
           <CardDescription>{row.variety}</CardDescription>
         </div>
-        <Badge variant={statusVariant[row.status]} className="capitalize">
-          {row.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={statusVariant[row.status]} className="capitalize">
+            {row.status}
+          </Badge>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onEdit(row)}
+          >
+            Edit
+          </Button>
+        </div>
       </div>
       <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
         <div>

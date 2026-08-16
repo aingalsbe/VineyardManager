@@ -38,16 +38,38 @@ export const createVineyardSchema = z.object({
 });
 
 export const createRowSchema = z.object({
-  code: z.string().min(1).max(32),
-  name: z.string().min(1).max(120),
-  variety: z.string().min(1).max(80),
-  lengthFeet: z.number().int().nonnegative(),
-  lengthInches: z.number().int().min(0).max(11),
-  vineCount: z.number().int().nonnegative(),
-  plantedYear: z.number().int().min(1900).max(2100),
+  code: z
+    .string()
+    .trim()
+    .min(1, "Enter a row code")
+    .max(32)
+    .transform((value) => value.toUpperCase()),
+  name: z.string().trim().min(1, "Enter a name").max(120),
+  variety: z.string().trim().min(1, "Enter a variety").max(80),
+  lengthFeet: z.coerce.number().int().nonnegative("Feet cannot be negative"),
+  lengthInches: z.coerce
+    .number()
+    .int()
+    .min(0, "Inches must be 0–11")
+    .max(11, "Inches must be 0–11"),
+  vineCount: z.coerce.number().int().nonnegative("Vine count cannot be negative"),
+  plantedYear: z.coerce
+    .number()
+    .int()
+    .min(1900, "Enter a planting year")
+    .max(2100, "Enter a planting year"),
   status: rowStatusSchema.default("active"),
-  notes: z.string().max(2000).optional(),
+  notes: z
+    .string()
+    .max(2000)
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim();
+      return trimmed ? trimmed : undefined;
+    }),
 });
+
+export const updateRowSchema = createRowSchema;
 
 export const createTaskSchema = z.object({
   rowId: z.string().uuid().optional(),
