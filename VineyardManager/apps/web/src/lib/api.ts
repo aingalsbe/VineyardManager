@@ -1,5 +1,6 @@
 import {
   API_PREFIX,
+  type Harvest,
   type Row,
   type ScheduledTask,
   type TaskStatus,
@@ -154,4 +155,46 @@ export async function updateTask(
     },
   );
   return body.data;
+}
+
+export type HarvestWritePayload = {
+  rowId: string;
+  harvestedAt: string;
+  yieldAmount: number;
+  yieldUnit: Harvest["yieldUnit"];
+  notes?: string;
+  crew?: string;
+};
+
+export async function listHarvests(rowId?: string): Promise<Harvest[]> {
+  const query = rowId ? `?rowId=${encodeURIComponent(rowId)}` : "";
+  const body = await apiJson<ListResponse<Harvest>>(`/harvests${query}`);
+  return body.data;
+}
+
+export async function createHarvest(
+  payload: HarvestWritePayload,
+): Promise<Harvest> {
+  const body = await apiJson<{ data: Harvest }>("/harvests", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function updateHarvest(
+  harvestId: string,
+  payload: Partial<HarvestWritePayload>,
+): Promise<Harvest> {
+  const body = await apiJson<{ data: Harvest }>(`/harvests/${harvestId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function deleteHarvest(harvestId: string): Promise<void> {
+  await apiJson<{ data: Harvest }>(`/harvests/${harvestId}`, {
+    method: "DELETE",
+  });
 }

@@ -36,6 +36,16 @@ enum RowStatus {
   retired
 }
 
+enum YieldUnit {
+  lb
+  kg
+  lug
+  bin
+  flat
+  bushel
+  other
+}
+
 enum ActivityType {
   pruning
   watering
@@ -79,9 +89,10 @@ model Vineyard {
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  owner User  @relation("VineyardOwner", fields: [ownerId], references: [id])
-  rows  Row[]
-  tasks Task[]
+  owner    User      @relation("VineyardOwner", fields: [ownerId], references: [id])
+  rows     Row[]
+  tasks    Task[]
+  harvests Harvest[]
 
   @@index([ownerId])
   @@map("vineyards")
@@ -103,8 +114,9 @@ model Row {
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  vineyard Vineyard  @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
   tasks    Task[]
+  harvests Harvest[]
 
   @@unique([vineyardId, code])
   @@index([vineyardId])
@@ -135,4 +147,25 @@ model Task {
   @@index([userId, status])
   @@index([rowId])
   @@map("tasks")
+}
+
+model Harvest {
+  id           String    @id @default(uuid()) @db.Uuid
+  rowId        String    @map("row_id") @db.Uuid
+  vineyardId   String    @map("vineyard_id") @db.Uuid
+  harvestedAt  DateTime  @map("harvested_at") @db.Timestamptz(6)
+  yieldAmount  Decimal   @map("yield_amount") @db.Decimal(8, 2)
+  yieldUnit    YieldUnit @map("yield_unit")
+  notes        String?
+  crew         String?
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  row      Row      @relation(fields: [rowId], references: [id], onDelete: Restrict)
+  vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+
+  @@index([rowId, harvestedAt])
+  @@index([vineyardId, harvestedAt])
+  @@map("harvests")
 }

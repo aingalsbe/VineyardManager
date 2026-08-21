@@ -78,7 +78,34 @@ export const HARVEST_CONDITIONS = [
   "unusable",
 ] as const;
 
+export const YIELD_UNITS = [
+  "lb",
+  "kg",
+  "lug",
+  "bin",
+  "flat",
+  "bushel",
+  "other",
+] as const;
+
+export const YIELD_UNIT_LABELS: Record<(typeof YIELD_UNITS)[number], string> = {
+  lb: "Pounds (lb)",
+  kg: "Kilograms (kg)",
+  lug: "Lug",
+  bin: "Bin",
+  flat: "Flat",
+  bushel: "Bushel",
+  other: "Other",
+};
+
 export const API_PREFIX = "/api/v1";
+
+export function formatYield(amount: number, unit: (typeof YIELD_UNITS)[number]): string {
+  const formatted = new Intl.NumberFormat(undefined, {
+    maximumFractionDigits: 2,
+  }).format(amount);
+  return `${formatted} ${unit}`;
+}
 
 export function formatRowLength(feet: number, inches: number): string {
   return `${feet} ft ${inches} in`;

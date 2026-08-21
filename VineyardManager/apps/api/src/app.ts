@@ -3,6 +3,7 @@ import express from "express";
 import { API_PREFIX } from "@vineyard/shared";
 import { config } from "./config.js";
 import { errorHandler } from "./middleware/error-handler.js";
+import { harvestsRouter } from "./modules/harvests/harvests.router.js";
 import { healthRouter } from "./modules/health/health.router.js";
 import { rowsRouter } from "./modules/rows/rows.router.js";
 import { tasksRouter } from "./modules/tasks/tasks.router.js";
@@ -15,6 +16,7 @@ export function createApp() {
   app.use(express.json());
 
   app.use(healthRouter);
+  app.use(`${API_PREFIX}/harvests`, harvestsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/rows`, rowsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/tasks`, tasksRouter);
   app.use(`${API_PREFIX}/vineyards`, vineyardsRouter);

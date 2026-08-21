@@ -10,6 +10,7 @@ import type {
   ROW_STATUSES,
   VINE_STATUSES,
   WATERING_METHODS,
+  YIELD_UNITS,
 } from "./constants.js";
 
 export type UserRole = (typeof USER_ROLES)[number];
@@ -23,6 +24,7 @@ export type TaskType = (typeof TASK_TYPES)[number];
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type WateringMethod = (typeof WATERING_METHODS)[number];
 export type HarvestCondition = (typeof HARVEST_CONDITIONS)[number];
+export type YieldUnit = (typeof YIELD_UNITS)[number];
 
 export interface Audited {
   createdAt: string;
@@ -96,6 +98,22 @@ export interface Row extends Audited {
   plantedYear: number;
   status: RowStatus;
   notes?: string | null;
+}
+
+export interface Harvest extends Audited {
+  id: string;
+  rowId: string;
+  vineyardId: string;
+  harvestedAt: string;
+  yieldAmount: number;
+  yieldUnit: YieldUnit;
+  notes?: string | null;
+  crew?: string | null;
+  row?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
 }
 
 export interface Vine extends Audited {

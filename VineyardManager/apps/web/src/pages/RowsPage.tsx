@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type { Row } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
+import { HarvestFormDialog } from "@/components/harvests/HarvestFormDialog";
 import { RowCard } from "@/components/rows/RowCard";
 import { RowFormDialog } from "@/components/rows/RowFormDialog";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ export function RowsPage() {
   const { state, reload } = useVineyardRows();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
+  const [harvestRow, setHarvestRow] = useState<Row | null>(null);
 
   const openCreate = () => {
     setEditing(null);
@@ -99,20 +101,34 @@ export function RowsPage() {
         <ul className="grid gap-4 sm:grid-cols-2">
           {state.rows.map((row) => (
             <li key={row.id}>
-              <RowCard row={row} onEdit={openEdit} />
+              <RowCard
+                row={row}
+                onEdit={openEdit}
+                onRecordHarvest={setHarvestRow}
+              />
             </li>
           ))}
         </ul>
       ) : null}
 
       {vineyardReady ? (
-        <RowFormDialog
-          vineyardId={state.vineyard.id}
-          row={editing}
-          open={dialogOpen}
-          onClose={() => setDialogOpen(false)}
-          onSaved={() => reload({ silent: true })}
-        />
+        <>
+          <RowFormDialog
+            vineyardId={state.vineyard.id}
+            row={editing}
+            open={dialogOpen}
+            onClose={() => setDialogOpen(false)}
+            onSaved={() => reload({ silent: true })}
+          />
+          <HarvestFormDialog
+            rows={state.rows}
+            harvest={null}
+            presetRowId={harvestRow?.id}
+            open={harvestRow !== null}
+            onClose={() => setHarvestRow(null)}
+            onSaved={() => reload({ silent: true })}
+          />
+        </>
       ) : null}
     </div>
   );

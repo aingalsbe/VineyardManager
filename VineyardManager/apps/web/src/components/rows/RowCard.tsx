@@ -16,9 +16,11 @@ const statusVariant: Record<
 export function RowCard({
   row,
   onEdit,
+  onRecordHarvest,
 }: {
   row: Row;
   onEdit: (row: Row) => void;
+  onRecordHarvest: (row: Row) => void;
 }) {
   return (
     <Card>
@@ -39,6 +41,14 @@ export function RowCard({
             onClick={() => onEdit(row)}
           >
             Edit
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => onRecordHarvest(row)}
+          >
+            Record harvest
           </Button>
         </div>
       </div>

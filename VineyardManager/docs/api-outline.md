@@ -51,6 +51,18 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 | POST | `/rows/{id}/vines` | Add vine |
 | PATCH | `/vines/{id}` | Variety, status, notes |
 
+## Harvests
+
+First-class harvest records (not Activities). `vineyardId` is copied from the row on create.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/harvests` | List (`?rowId=` optional) |
+| GET | `/harvests/{id}` | Detail |
+| POST | `/harvests` | Create (`rowId`, date, yield, unit, notes, crew) |
+| PATCH | `/harvests/{id}` | Update fields |
+| DELETE | `/harvests/{id}` | Soft-delete |
+
 ## Activities
 
 | Method | Path | Description |

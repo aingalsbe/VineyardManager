@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ActivitiesPage } from "@/pages/ActivitiesPage";
 import { DashboardPage } from "@/pages/DashboardPage";
+import { HarvestsPage } from "@/pages/HarvestsPage";
 import { RowsPage } from "@/pages/RowsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { SettingsPage } from "@/pages/SettingsPage";
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="rows" element={<RowsPage />} />
         <Route path="blocks" element={<Navigate to="/rows" replace />} />
         <Route path="tasks" element={<TasksPage />} />
+        <Route path="harvests" element={<HarvestsPage />} />
         <Route path="activities" element={<ActivitiesPage />} />
         <Route path="setup" element={<SetupPage />} />
         <Route path="settings" element={<SettingsPage />} />

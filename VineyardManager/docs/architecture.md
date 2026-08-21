@@ -18,7 +18,7 @@ Android / Expo  ↗                              ↘  Weather + assistant
 
 PostgreSQL with UUID primary keys, soft deletes, and JSONB for notification prefs and health thresholds. Prisma owns the schema. Never edit a committed migration; add a new one.
 
-First tables: `users`, `vineyards`, `rows`, `tasks`. Local database: `docker compose up -d` then `pnpm db:migrate`.
+First tables: `users`, `vineyards`, `rows`, `tasks`, `harvests`. Local database: `docker compose up -d` then `pnpm db:migrate`.
 
 ## Auth (not wired yet)
 

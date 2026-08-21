@@ -1,5 +1,6 @@
-import type { Row, Task, Vineyard } from "@prisma/client";
+import type { Harvest, Row, Task, Vineyard } from "@prisma/client";
 import type {
+  Harvest as HarvestDto,
   Row as RowDto,
   ScheduledTask,
   Vineyard as VineyardDto,
@@ -62,6 +63,27 @@ export function serializeTask(
     dueAt: record.dueAt.toISOString(),
     status: record.status,
     relatedActivityType: record.relatedActivityType,
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
+    deletedAt: record.deletedAt?.toISOString() ?? null,
+    row: record.row ?? null,
+  };
+}
+
+export function serializeHarvest(
+  record: Harvest & {
+    row?: { id: string; code: string; name: string } | null;
+  },
+): HarvestDto {
+  return {
+    id: record.id,
+    rowId: record.rowId,
+    vineyardId: record.vineyardId,
+    harvestedAt: record.harvestedAt.toISOString(),
+    yieldAmount: Number(record.yieldAmount.toString()),
+    yieldUnit: record.yieldUnit,
+    notes: record.notes,
+    crew: record.crew,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,

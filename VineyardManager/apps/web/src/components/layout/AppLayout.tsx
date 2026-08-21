@@ -1,6 +1,7 @@
 import {
   CalendarCheck,
   ClipboardList,
+  Grape,
   LayoutDashboard,
   Map,
   Settings2,
@@ -13,6 +14,7 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/rows", label: "Rows", icon: Map },
   { to: "/tasks", label: "Tasks", icon: CalendarCheck },
+  { to: "/harvests", label: "Harvests", icon: Grape },
   { to: "/activities", label: "Log work", icon: ClipboardList },
   { to: "/setup", label: "Setup", icon: Settings2 },
 ] as const;

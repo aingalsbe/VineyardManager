@@ -5,6 +5,7 @@ import {
   TaskStatus,
   TaskType,
   UserRole,
+  YieldUnit,
 } from "@prisma/client";
 
 const prisma = new PrismaClient();
@@ -132,6 +133,9 @@ async function resetSeededRows() {
   const vineyardIds = vineyards.map((vineyard) => vineyard.id);
 
   if (vineyardIds.length > 0) {
+    await prisma.harvest.deleteMany({
+      where: { vineyardId: { in: vineyardIds } },
+    });
     await prisma.task.deleteMany({ where: { vineyardId: { in: vineyardIds } } });
     await prisma.row.deleteMany({ where: { vineyardId: { in: vineyardIds } } });
     await prisma.vineyard.deleteMany({ where: { id: { in: vineyardIds } } });
@@ -346,13 +350,55 @@ async function main() {
     ],
   });
 
-  const [rowCount, taskCount] = await Promise.all([
+  await prisma.harvest.createMany({
+    data: [
+      {
+        vineyardId: vineyard.id,
+        rowId: rowId("L1"),
+        harvestedAt: due("2025-09-18"),
+        yieldAmount: 842,
+        yieldUnit: YieldUnit.lb,
+        notes: "Mostly best/better clusters. Held for the home red.",
+        crew: "Aaron + Maya",
+      },
+      {
+        vineyardId: vineyard.id,
+        rowId: rowId("L2"),
+        harvestedAt: due("2025-08-22"),
+        yieldAmount: 12,
+        yieldUnit: YieldUnit.lug,
+        notes: "Pressed the same afternoon.",
+        crew: "Aaron",
+      },
+      {
+        vineyardId: vineyard.id,
+        rowId: rowId("S1"),
+        harvestedAt: due("2025-09-06"),
+        yieldAmount: 310,
+        yieldUnit: YieldUnit.lb,
+        notes: "Sorted bunch rot on the lower wires in the barn.",
+        crew: "Maya Chen",
+      },
+      {
+        vineyardId: vineyard.id,
+        rowId: rowId("L3"),
+        harvestedAt: due("2024-09-02"),
+        yieldAmount: 6.5,
+        yieldUnit: YieldUnit.bushel,
+        notes: "Last Concord pick before the rest year.",
+        crew: "Family",
+      },
+    ],
+  });
+
+  const [rowCount, taskCount, harvestCount] = await Promise.all([
     prisma.row.count({ where: { vineyardId: vineyard.id } }),
     prisma.task.count({ where: { vineyardId: vineyard.id } }),
+    prisma.harvest.count({ where: { vineyardId: vineyard.id } }),
   ]);
 
   console.log(
-    `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks.`,
+    `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks, ${harvestCount} harvests.`,
   );
 }
 

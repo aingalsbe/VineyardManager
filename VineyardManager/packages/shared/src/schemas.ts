@@ -11,6 +11,7 @@ import {
   USER_ROLES,
   VINE_STATUSES,
   WATERING_METHODS,
+  YIELD_UNITS,
 } from "./constants.js";
 
 export const userRoleSchema = z.enum(USER_ROLES);
@@ -22,6 +23,7 @@ export const activitySourceSchema = z.enum(ACTIVITY_SOURCES);
 export const healthColorSchema = z.enum(HEALTH_COLORS);
 export const taskTypeSchema = z.enum(TASK_TYPES);
 export const taskStatusSchema = z.enum(TASK_STATUSES);
+export const yieldUnitSchema = z.enum(YIELD_UNITS);
 
 export const healthThresholdsSchema = z.object({
   greenMin: z.number().min(0).max(100),
@@ -107,6 +109,31 @@ export const wateringDetailsSchema = z.object({
   method: z.enum(WATERING_METHODS),
   volumeGal: z.number().nonnegative().optional(),
 });
+
+export const createHarvestSchema = z.object({
+  rowId: z.string().uuid("Select a row"),
+  harvestedAt: z.string().min(1, "Enter a harvest date"),
+  yieldAmount: z.coerce.number().positive("Enter a yield amount"),
+  yieldUnit: yieldUnitSchema,
+  notes: z
+    .string()
+    .max(2000)
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim();
+      return trimmed ? trimmed : undefined;
+    }),
+  crew: z
+    .string()
+    .max(200)
+    .optional()
+    .transform((value) => {
+      const trimmed = value?.trim();
+      return trimmed ? trimmed : undefined;
+    }),
+});
+
+export const updateHarvestSchema = createHarvestSchema.partial();
 
 export const harvestDetailsSchema = z.object({
   weightLb: z.number().nonnegative(),
