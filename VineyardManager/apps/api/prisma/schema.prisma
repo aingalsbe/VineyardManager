@@ -89,10 +89,11 @@ model Vineyard {
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  owner    User      @relation("VineyardOwner", fields: [ownerId], references: [id])
-  rows     Row[]
-  tasks    Task[]
-  harvests Harvest[]
+  owner      User       @relation("VineyardOwner", fields: [ownerId], references: [id])
+  rows       Row[]
+  tasks      Task[]
+  harvests   Harvest[]
+  activities Activity[]
 
   @@index([ownerId])
   @@map("vineyards")
@@ -114,9 +115,10 @@ model Row {
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  vineyard Vineyard  @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
-  tasks    Task[]
-  harvests Harvest[]
+  vineyard   Vineyard   @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  tasks      Task[]
+  harvests   Harvest[]
+  activities Activity[]
 
   @@unique([vineyardId, code])
   @@index([vineyardId])
@@ -168,4 +170,28 @@ model Harvest {
   @@index([rowId, harvestedAt])
   @@index([vineyardId, harvestedAt])
   @@map("harvests")
+}
+
+model Activity {
+  id           String       @id @default(uuid()) @db.Uuid
+  vineyardId   String       @map("vineyard_id") @db.Uuid
+  rowId        String?      @map("row_id") @db.Uuid
+  scopeType    String       @map("scope_type")
+  scopeId      String       @map("scope_id") @db.Uuid
+  activityType ActivityType @map("activity_type")
+  performedAt  DateTime     @map("performed_at") @db.Timestamptz(6)
+  performedBy  String?      @map("performed_by") @db.Uuid
+  details      Json
+  source       String       @default("manual")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  row      Row?     @relation(fields: [rowId], references: [id], onDelete: SetNull)
+
+  @@index([vineyardId, performedAt])
+  @@index([rowId])
+  @@index([activityType])
+  @@map("activities")
 }

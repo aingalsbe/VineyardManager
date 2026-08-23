@@ -65,13 +65,13 @@ First-class harvest records (not Activities). `vineyardId` is copied from the ro
 
 ## Activities
 
+Work log (not Harvests). Scope for this slice is **vineyard** or **row** only.
+
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/activities` | Filter by type, date, scope |
-| POST | `/vineyards/{vid}/activities` | Create (`scopeType` + `scopeId` + `details`) |
-| POST | `/vineyards/{vid}/activities/bulk` | Same activity on many rows/vines |
+| GET | `/vineyards/{vid}/activities` | List (`?rowId=` `?activityType=` `?scopeType=`), newest first |
+| POST | `/vineyards/{vid}/activities` | Create (`scopeType`, `scopeId`, `activityType`, `performedAt?`, `details`) |
 | GET | `/activities/{id}` | Detail |
-| PATCH | `/activities/{id}` | Limited edit |
 | DELETE | `/activities/{id}` | Soft-delete |
 
 ## Health and dashboard

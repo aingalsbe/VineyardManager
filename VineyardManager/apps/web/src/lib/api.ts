@@ -1,5 +1,9 @@
 import {
   API_PREFIX,
+  type Activity,
+  type ActivityScope,
+  type ActivitySource,
+  type ActivityType,
   type Harvest,
   type Row,
   type ScheduledTask,
@@ -195,6 +199,50 @@ export async function updateHarvest(
 
 export async function deleteHarvest(harvestId: string): Promise<void> {
   await apiJson<{ data: Harvest }>(`/harvests/${harvestId}`, {
+    method: "DELETE",
+  });
+}
+
+export type ActivityWritePayload = {
+  scopeType: ActivityScope;
+  scopeId: string;
+  activityType: ActivityType;
+  performedAt?: string;
+  details?: Record<string, unknown>;
+  source?: ActivitySource;
+};
+
+export async function listActivities(
+  vineyardId: string,
+  filters?: { rowId?: string; activityType?: ActivityType; scopeType?: ActivityScope },
+): Promise<Activity[]> {
+  const params = new URLSearchParams();
+  if (filters?.rowId) params.set("rowId", filters.rowId);
+  if (filters?.activityType) params.set("activityType", filters.activityType);
+  if (filters?.scopeType) params.set("scopeType", filters.scopeType);
+  const query = params.toString();
+  const body = await apiJson<ListResponse<Activity>>(
+    `/vineyards/${vineyardId}/activities${query ? `?${query}` : ""}`,
+  );
+  return body.data;
+}
+
+export async function createActivity(
+  vineyardId: string,
+  payload: ActivityWritePayload,
+): Promise<Activity> {
+  const body = await apiJson<{ data: Activity }>(
+    `/vineyards/${vineyardId}/activities`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+  return body.data;
+}
+
+export async function deleteActivity(id: string): Promise<void> {
+  await apiJson<{ data: Activity }>(`/activities/${id}`, {
     method: "DELETE",
   });
 }

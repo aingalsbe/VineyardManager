@@ -99,10 +99,12 @@ export const createActivitySchema = z.object({
   scopeType: activityScopeSchema,
   scopeId: z.string().uuid(),
   activityType: activityTypeSchema,
-  performedAt: z.string().datetime().optional(),
+  performedAt: z.string().optional(),
   details: z.record(z.unknown()).default({}),
   source: activitySourceSchema.default("manual"),
 });
+
+export const updateActivitySchema = createActivitySchema.partial();
 
 export const wateringDetailsSchema = z.object({
   durationMin: z.number().positive(),

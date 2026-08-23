@@ -32,6 +32,22 @@ export const ACTIVITY_SCOPES = [
 
 export const ACTIVITY_SOURCES = ["manual", "ai_suggested", "imported"] as const;
 
+export const ACTIVITY_TYPE_LABELS: Record<
+  (typeof ACTIVITY_TYPES)[number],
+  string
+> = {
+  pruning: "Pruning",
+  watering: "Watering",
+  fertilization: "Fertilization",
+  pest_prevention: "Pest prevention",
+  weed_prevention: "Weed prevention",
+  harvest: "Harvest",
+  health_observation: "Health observation",
+  vine_replacement: "Vine replacement",
+  winterization: "Winterization",
+  other: "Other",
+};
+
 export const HEALTH_COLORS = ["green", "yellow", "orange", "red"] as const;
 
 export const HEALTH_SCORE_DEFAULTS = {

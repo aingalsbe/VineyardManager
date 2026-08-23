@@ -129,13 +129,19 @@ export interface Vine extends Audited {
 export interface Activity extends Audited {
   id: string;
   vineyardId: string;
+  rowId?: string | null;
   scopeType: ActivityScope;
   scopeId: string;
   activityType: ActivityType;
   performedAt: string;
-  performedBy: string;
+  performedBy?: string | null;
   details: ActivityDetails;
   source: ActivitySource;
+  row?: {
+    id: string;
+    code: string;
+    name: string;
+  } | null;
 }
 
 export type ActivityDetails =

@@ -133,6 +133,9 @@ async function resetSeededRows() {
   const vineyardIds = vineyards.map((vineyard) => vineyard.id);
 
   if (vineyardIds.length > 0) {
+    await prisma.activity.deleteMany({
+      where: { vineyardId: { in: vineyardIds } },
+    });
     await prisma.harvest.deleteMany({
       where: { vineyardId: { in: vineyardIds } },
     });
@@ -391,14 +394,54 @@ async function main() {
     ],
   });
 
-  const [rowCount, taskCount, harvestCount] = await Promise.all([
+  await prisma.activity.createMany({
+    data: [
+      {
+        vineyardId: vineyard.id,
+        rowId: null,
+        scopeType: "vineyard",
+        scopeId: vineyard.id,
+        activityType: ActivityType.watering,
+        performedAt: due("2026-08-10"),
+        details: {
+          notes: "Whole-property drip cycle after a dry week.",
+          durationMin: 45,
+          method: "drip",
+        },
+        source: "manual",
+      },
+      {
+        vineyardId: vineyard.id,
+        rowId: rowId("L1"),
+        scopeType: "row",
+        scopeId: rowId("L1"),
+        activityType: ActivityType.pruning,
+        performedAt: due("2026-03-08"),
+        details: { notes: "Spur prune Norton on North Slope." },
+        source: "manual",
+      },
+      {
+        vineyardId: vineyard.id,
+        rowId: rowId("L2"),
+        scopeType: "row",
+        scopeId: rowId("L2"),
+        activityType: ActivityType.health_observation,
+        performedAt: due("2026-07-12"),
+        details: { notes: "Japanese beetles on Chardonel. Surround already on." },
+        source: "manual",
+      },
+    ],
+  });
+
+  const [rowCount, taskCount, harvestCount, activityCount] = await Promise.all([
     prisma.row.count({ where: { vineyardId: vineyard.id } }),
     prisma.task.count({ where: { vineyardId: vineyard.id } }),
     prisma.harvest.count({ where: { vineyardId: vineyard.id } }),
+    prisma.activity.count({ where: { vineyardId: vineyard.id } }),
   ]);
 
   console.log(
-    `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks, ${harvestCount} harvests.`,
+    `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks, ${harvestCount} harvests, ${activityCount} activities.`,
   );
 }
 
