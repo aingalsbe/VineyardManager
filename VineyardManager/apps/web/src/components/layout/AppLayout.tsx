@@ -7,7 +7,10 @@ import {
   Settings2,
   SlidersHorizontal,
 } from "lucide-react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Navigate, Outlet, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { clearAuthToken, getAuthToken, logout } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -53,7 +56,53 @@ function NavItem({
   );
 }
 
+function formatRole(role: string): string {
+  return role.replaceAll("_", " ");
+}
+
 export function AppLayout() {
+  const navigate = useNavigate();
+  const { state } = useCurrentUser();
+  const user = state.status === "ready" ? state.user : null;
+
+  if (!getAuthToken()) {
+    return <Navigate to="/login" replace />;
+  }
+
+  async function onSignOut() {
+    try {
+      await logout();
+    } catch {
+      // Clear the local session even if the API call fails.
+    }
+    clearAuthToken();
+    navigate("/login", { replace: true });
+  }
+
+  const account = (
+    <div className="space-y-2 px-3 py-2">
+      {user ? (
+        <div>
+          <p className="font-medium">{user.displayName}</p>
+          <p className="text-sm text-muted capitalize">{formatRole(user.role)}</p>
+        </div>
+      ) : (
+        <p className="text-sm text-muted">
+          {state.status === "loading" ? "Loading account…" : "Signed in"}
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="w-full"
+        onClick={() => void onSignOut()}
+      >
+        Sign out
+      </Button>
+    </div>
+  );
+
   return (
     <div className="min-h-screen md:grid md:grid-cols-[16.5rem_1fr]">
       <aside className="hidden border-r border-border bg-card px-4 py-6 md:flex md:flex-col">
@@ -65,18 +114,42 @@ export function AppLayout() {
             <NavItem key={item.to} {...item} />
           ))}
         </nav>
-        <nav className="flex flex-col gap-1" aria-label="Account">
-          {secondaryNav.map((item) => (
-            <NavItem key={item.to} {...item} />
-          ))}
-        </nav>
+        <div className="mt-4 border-t border-border pt-4">
+          {account}
+          <nav className="mt-2 flex flex-col gap-1" aria-label="Account">
+            {secondaryNav.map((item) => (
+              <NavItem key={item.to} {...item} />
+            ))}
+          </nav>
+        </div>
       </aside>
 
       <div className="flex min-h-screen flex-col">
         <header className="border-b border-border bg-card px-4 py-3 md:hidden">
-          <p className="text-sm font-semibold tracking-wide text-primary uppercase">
-            Vineyard Manager
-          </p>
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-semibold tracking-wide text-primary uppercase">
+              Vineyard Manager
+            </p>
+            <div className="text-right">
+              {user ? (
+                <>
+                  <p className="text-sm font-medium">{user.displayName}</p>
+                  <p className="text-xs text-muted capitalize">
+                    {formatRole(user.role)}
+                  </p>
+                </>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="mt-1 h-8 px-2"
+                onClick={() => void onSignOut()}
+              >
+                Sign out
+              </Button>
+            </div>
+          </div>
           <nav
             className="-mx-1 mt-3 flex gap-1 overflow-x-auto pb-1"
             aria-label="Main"
@@ -102,7 +175,7 @@ export function AppLayout() {
         </header>
 
         <main className="flex-1 px-4 py-6 sm:px-8">
-          <Outlet />
+          <Outlet context={{ user }} />
         </main>
       </div>
     </div>

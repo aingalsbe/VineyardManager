@@ -40,6 +40,19 @@ export interface User extends Audited {
   notificationPrefs: NotificationPrefs;
 }
 
+/** Auth serializer shape. Never includes passwordHash. */
+export interface PublicUser {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+}
+
+export interface AuthSession {
+  token: string;
+  user: PublicUser;
+}
+
 export interface NotificationPrefs {
   emailEnabled: boolean;
   pushEnabled: boolean;
@@ -135,6 +148,7 @@ export interface Activity extends Audited {
   activityType: ActivityType;
   performedAt: string;
   performedBy?: string | null;
+  performedByDisplayName?: string | null;
   details: ActivityDetails;
   source: ActivitySource;
   row?: {
@@ -205,6 +219,50 @@ export interface HealthReason {
   code: string;
   message: string;
   severity: HealthColor;
+}
+
+export interface HealthScoreRowInput {
+  id: string;
+  code: string;
+  name: string;
+  status: RowStatus;
+}
+
+export interface HealthScoreTaskInput {
+  id: string;
+  rowId?: string | null;
+  title: string;
+  dueAt: string;
+  status: TaskStatus;
+}
+
+export interface HealthScoreActivityInput {
+  id: string;
+  rowId?: string | null;
+  scopeType: ActivityScope;
+  activityType: ActivityType;
+  performedAt: string;
+  details?: Record<string, unknown> | null;
+}
+
+export interface RowHealth {
+  rowId: string;
+  code: string;
+  name: string;
+  score: number;
+  color: HealthColor;
+  reasons: HealthReason[];
+}
+
+export interface VineyardHealth {
+  vineyardId: string;
+  asOf: string;
+  overall: {
+    score: number;
+    color: HealthColor;
+    reasons: HealthReason[];
+  };
+  rows: RowHealth[];
 }
 
 export interface ScheduledTask extends Audited {

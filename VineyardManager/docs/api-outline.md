@@ -12,13 +12,22 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 
 ## Auth
 
+Bearer JWT (`Authorization: Bearer <token>`). All `/api/v1/*` routes require auth except `GET /health` and `POST /auth/login`.
+
+Shipped:
+
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/auth/register` | Create power user account |
-| POST | `/auth/login` | Email + password → JWT |
-| POST | `/auth/refresh` | Refresh token |
-| POST | `/auth/logout` | Invalidate |
-| GET | `/auth/me` | Current user + role |
+| POST | `/auth/login` | Email + password → `{ data: { token, user } }`. Public. Invalid credentials: `401 UNAUTHORIZED` “Invalid email or password” |
+| POST | `/auth/logout` | Stateless JWT: `{ data: { ok: true } }`. Client discards the token |
+| GET | `/auth/me` | Current user `{ id, email, displayName, role }` (never `passwordHash`) |
+
+Out of this slice:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/auth/register` | Not shipped (no public self-serve signup) |
+| POST | `/auth/refresh` | Not shipped (access token lives 7d; no rotation) |
 
 ## Vineyards
 
@@ -70,17 +79,26 @@ Work log (not Harvests). Scope for this slice is **vineyard** or **row** only.
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/vineyards/{vid}/activities` | List (`?rowId=` `?activityType=` `?scopeType=`), newest first |
-| POST | `/vineyards/{vid}/activities` | Create (`scopeType`, `scopeId`, `activityType`, `performedAt?`, `details`) |
+| POST | `/vineyards/{vid}/activities` | Create (`scopeType`, `scopeId`, `activityType`, `performedAt?`, `details`). `performedBy` is the signed-in user |
 | GET | `/activities/{id}` | Detail |
 | DELETE | `/activities/{id}` | Soft-delete |
 
 ## Health and dashboard
 
+Computed on the fly from rows, tasks, and activities. No HealthSnapshot persistence this slice.
+
+Shipped:
+
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/health` | Overall + per-row color map + reasons |
-| GET | `/rows/{id}/health` | Row + vine scores |
-| POST | `/vineyards/{vid}/health/recalculate` | Rule engine + optional assistant pass |
+| GET | `/vineyards/{vid}/health` | `{ data: { vineyardId, asOf, overall: { score, color, reasons }, rows: [...] } }`. Optional `?asOf=YYYY-MM-DD`. Auth required. |
+
+Out of this slice:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/rows/{id}/health` | Row + vine scores (future) |
+| POST | `/vineyards/{vid}/health/recalculate` | Persist / AI pass (future) |
 
 ## Assistant
 

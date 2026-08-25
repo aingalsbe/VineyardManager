@@ -4,17 +4,38 @@ import {
   type ActivityScope,
   type ActivitySource,
   type ActivityType,
+  type AuthSession,
   type Harvest,
+  type PublicUser,
   type Row,
   type ScheduledTask,
   type TaskStatus,
   type Vineyard,
+  type VineyardHealth,
 } from "@vineyard/shared";
 
 const apiBase = (import.meta.env.VITE_API_URL ?? API_PREFIX).replace(
   /\/$/,
   "",
 );
+
+const AUTH_TOKEN_KEY = "vineyard.auth.token";
+
+export function getAuthToken(): string | null {
+  try {
+    return window.localStorage.getItem(AUTH_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string): void {
+  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
+}
+
+export function clearAuthToken(): void {
+  window.localStorage.removeItem(AUTH_TOKEN_KEY);
+}
 
 export class ApiError extends Error {
   constructor(
@@ -34,11 +55,13 @@ export type ApiHealth = {
 export type ListResponse<T> = { data: T[] };
 
 export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getAuthToken();
   const response = await fetch(`${apiBase}${path}`, {
     ...init,
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init?.headers,
     },
   });
@@ -55,6 +78,12 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // keep status text
     }
+    if (response.status === 401 && path !== "/auth/login") {
+      clearAuthToken();
+      if (window.location.pathname !== "/login") {
+        window.location.assign("/login");
+      }
+    }
     throw new ApiError(code, message);
   }
 
@@ -65,8 +94,37 @@ export function getApiHealth(): Promise<ApiHealth> {
   return apiJson<ApiHealth>("/health");
 }
 
+export async function login(
+  email: string,
+  password: string,
+): Promise<AuthSession> {
+  const body = await apiJson<{ data: AuthSession }>("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+  });
+  return body.data;
+}
+
+export async function logout(): Promise<void> {
+  await apiJson<{ data: { ok: true } }>("/auth/logout", { method: "POST" });
+}
+
+export async function getCurrentUser(): Promise<PublicUser> {
+  const body = await apiJson<{ data: PublicUser }>("/auth/me");
+  return body.data;
+}
+
 export async function listVineyards(): Promise<Vineyard[]> {
   const body = await apiJson<ListResponse<Vineyard>>("/vineyards");
+  return body.data;
+}
+
+export async function getVineyardHealth(
+  vineyardId: string,
+): Promise<VineyardHealth> {
+  const body = await apiJson<{ data: VineyardHealth }>(
+    `/vineyards/${vineyardId}/health`,
+  );
   return body.data;
 }
 

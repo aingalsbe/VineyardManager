@@ -1,7 +1,14 @@
-import { formatRowLength, type Row, type RowStatus } from "@vineyard/shared";
+import {
+  formatRowLength,
+  type HealthColor,
+  type Row,
+  type RowStatus,
+} from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { healthSwatch } from "@/lib/health";
+import { cn } from "@/lib/utils";
 
 const statusVariant: Record<
   RowStatus,
@@ -17,18 +24,36 @@ export function RowCard({
   row,
   onEdit,
   onRecordHarvest,
+  health,
+  highlighted = false,
 }: {
   row: Row;
   onEdit: (row: Row) => void;
   onRecordHarvest: (row: Row) => void;
+  health?: { color: HealthColor; reason?: string } | null;
+  highlighted?: boolean;
 }) {
   return (
-    <Card>
+    <Card className={cn(highlighted && "ring-2 ring-primary")}>
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="text-sm font-medium text-primary">{row.code}</p>
           <CardTitle className="mt-0.5">{row.name}</CardTitle>
           <CardDescription>{row.variety}</CardDescription>
+          {health ? (
+            <p className="mt-2 flex items-start gap-2 text-sm text-muted">
+              <span
+                className={`mt-1 size-2.5 shrink-0 rounded-full ${healthSwatch[health.color]}`}
+                aria-hidden
+              />
+              <span>
+                <span className="font-medium capitalize text-foreground">
+                  {health.color}
+                </span>
+                {health.reason ? ` — ${health.reason}` : ""}
+              </span>
+            </p>
+          ) : null}
         </div>
         <div className="flex items-center gap-2">
           <Badge variant={statusVariant[row.status]} className="capitalize">

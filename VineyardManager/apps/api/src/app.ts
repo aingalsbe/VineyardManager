@@ -7,8 +7,11 @@ import {
   activitiesRouter,
   vineyardActivitiesRouter,
 } from "./modules/activities/activities.router.js";
+import { authRouter, publicAuthRouter } from "./modules/auth/auth.router.js";
+import { requireAuth } from "./modules/auth/auth.middleware.js";
 import { harvestsRouter } from "./modules/harvests/harvests.router.js";
 import { healthRouter } from "./modules/health/health.router.js";
+import { vineyardHealthRouter } from "./modules/health/vineyard-health.router.js";
 import { rowsRouter } from "./modules/rows/rows.router.js";
 import { tasksRouter } from "./modules/tasks/tasks.router.js";
 import { vineyardsRouter } from "./modules/vineyards/vineyards.router.js";
@@ -20,8 +23,12 @@ export function createApp() {
   app.use(express.json());
 
   app.use(healthRouter);
+  app.use(`${API_PREFIX}/auth`, publicAuthRouter);
+  app.use(API_PREFIX, requireAuth);
+  app.use(`${API_PREFIX}/auth`, authRouter);
   app.use(`${API_PREFIX}/harvests`, harvestsRouter);
   app.use(`${API_PREFIX}/activities`, activitiesRouter);
+  app.use(`${API_PREFIX}/vineyards/:vineyardId/health`, vineyardHealthRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/activities`, vineyardActivitiesRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/rows`, rowsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/tasks`, tasksRouter);

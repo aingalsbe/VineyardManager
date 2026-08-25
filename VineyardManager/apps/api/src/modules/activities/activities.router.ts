@@ -9,6 +9,7 @@ import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeActivity } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
+import { getAuthUser } from "../auth/auth.middleware.js";
 
 export const vineyardActivitiesRouter = Router({ mergeParams: true });
 export const activitiesRouter = Router();
@@ -30,6 +31,21 @@ function parsePerformedAt(value: string | undefined): Date {
     throw new HttpError(400, "VALIDATION_ERROR", "Enter a valid date");
   }
   return parsed;
+}
+
+async function performerNamesById(
+  performedByIds: Array<string | null>,
+): Promise<Map<string, string>> {
+  const ids = [
+    ...new Set(performedByIds.filter((id): id is string => Boolean(id))),
+  ];
+  if (ids.length === 0) return new Map();
+
+  const users = await prisma.user.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, displayName: true },
+  });
+  return new Map(users.map((user) => [user.id, user.displayName]));
 }
 
 async function requireVineyard(vineyardId: string) {
@@ -69,7 +85,17 @@ vineyardActivitiesRouter.get(
       orderBy: { performedAt: "desc" },
     });
 
-    res.json({ data: activities.map(serializeActivity) });
+    const names = await performerNamesById(
+      activities.map((activity) => activity.performedBy),
+    );
+    res.json({
+      data: activities.map((activity) =>
+        serializeActivity(
+          activity,
+          activity.performedBy ? (names.get(activity.performedBy) ?? null) : null,
+        ),
+      ),
+    });
   },
 );
 
@@ -78,6 +104,7 @@ vineyardActivitiesRouter.post(
   async (req: Request<{ vineyardId: string }>, res) => {
     const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
     await requireVineyard(vineyardId);
+    const actor = getAuthUser(req);
     const body = createActivitySchema.parse(req.body);
 
     if (
@@ -125,14 +152,16 @@ vineyardActivitiesRouter.post(
         scopeId,
         activityType: body.activityType,
         performedAt: parsePerformedAt(body.performedAt),
-        performedBy: null,
+        performedBy: actor.id,
         details: (body.details ?? {}) as Prisma.InputJsonValue,
         source: body.source,
       },
       include: activityWithRow,
     });
 
-    res.status(201).json({ data: serializeActivity(activity) });
+    res.status(201).json({
+      data: serializeActivity(activity, actor.displayName),
+    });
   },
 );
 
@@ -145,7 +174,13 @@ activitiesRouter.get("/:id", async (req: Request<{ id: string }>, res) => {
   if (!activity) {
     throw new HttpError(404, "NOT_FOUND", "Activity not found");
   }
-  res.json({ data: serializeActivity(activity) });
+  const names = await performerNamesById([activity.performedBy]);
+  res.json({
+    data: serializeActivity(
+      activity,
+      activity.performedBy ? (names.get(activity.performedBy) ?? null) : null,
+    ),
+  });
 });
 
 activitiesRouter.delete("/:id", async (req: Request<{ id: string }>, res) => {
@@ -163,5 +198,11 @@ activitiesRouter.delete("/:id", async (req: Request<{ id: string }>, res) => {
     include: activityWithRow,
   });
 
-  res.json({ data: serializeActivity(activity) });
+  const names = await performerNamesById([activity.performedBy]);
+  res.json({
+    data: serializeActivity(
+      activity,
+      activity.performedBy ? (names.get(activity.performedBy) ?? null) : null,
+    ),
+  });
 });

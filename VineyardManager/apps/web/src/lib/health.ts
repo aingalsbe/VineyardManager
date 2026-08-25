@@ -21,3 +21,10 @@ export const healthMeaning: Record<HealthColor, string> = {
   orange: "Action needed soon",
   red: "Immediate attention",
 };
+
+export const healthBarText: Record<HealthColor, string> = {
+  green: "text-white",
+  yellow: "text-foreground",
+  orange: "text-white",
+  red: "text-white",
+};

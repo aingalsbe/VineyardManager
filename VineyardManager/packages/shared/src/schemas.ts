@@ -15,6 +15,26 @@ import {
 } from "./constants.js";
 
 export const userRoleSchema = z.enum(USER_ROLES);
+
+export const loginSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email")
+    .toLowerCase(),
+  password: z.string().min(1, "Enter a password"),
+});
+
+export const registerSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email")
+    .toLowerCase(),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+  displayName: z.string().trim().min(1, "Enter a name").max(120),
+});
+
 export const vineStatusSchema = z.enum(VINE_STATUSES);
 export const rowStatusSchema = z.enum(ROW_STATUSES);
 export const activityTypeSchema = z.enum(ACTIVITY_TYPES);

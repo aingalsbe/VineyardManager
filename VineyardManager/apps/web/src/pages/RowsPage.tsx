@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import type { Row } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
@@ -8,10 +8,14 @@ import { RowCard } from "@/components/rows/RowCard";
 import { RowFormDialog } from "@/components/rows/RowFormDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 
 export function RowsPage() {
   const { state, reload } = useVineyardRows();
+  const health = useVineyardHealth();
+  const [searchParams] = useSearchParams();
+  const highlightedCode = searchParams.get("row");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [harvestRow, setHarvestRow] = useState<Row | null>(null);
@@ -27,6 +31,13 @@ export function RowsPage() {
   };
 
   const vineyardReady = state.status === "ready";
+
+  useEffect(() => {
+    if (!highlightedCode || !vineyardReady) return;
+    document
+      .getElementById(`row-${highlightedCode}`)
+      ?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [highlightedCode, vineyardReady]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -99,15 +110,32 @@ export function RowsPage() {
 
       {vineyardReady && state.rows.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2">
-          {state.rows.map((row) => (
-            <li key={row.id}>
-              <RowCard
-                row={row}
-                onEdit={openEdit}
-                onRecordHarvest={setHarvestRow}
-              />
-            </li>
-          ))}
+          {state.rows.map((row) => {
+            const rowHealth =
+              health.state.status === "ready"
+                ? health.state.health.rows.find(
+                    (item) => item.rowId === row.id,
+                  )
+                : undefined;
+            return (
+              <li key={row.id} id={`row-${row.code}`}>
+                <RowCard
+                  row={row}
+                  onEdit={openEdit}
+                  onRecordHarvest={setHarvestRow}
+                  health={
+                    rowHealth
+                      ? {
+                          color: rowHealth.color,
+                          reason: rowHealth.reasons[0]?.message,
+                        }
+                      : null
+                  }
+                  highlighted={highlightedCode === row.code}
+                />
+              </li>
+            );
+          })}
         </ul>
       ) : null}
 

@@ -1,3 +1,4 @@
+import { hash } from "bcryptjs";
 import {
   ActivityType,
   PrismaClient,
@@ -12,6 +13,7 @@ const prisma = new PrismaClient();
 
 const SEED_OWNER_EMAIL = "owner@vineyard.local";
 const SEED_MANAGER_EMAIL = "manager@vineyard.local";
+const SEED_PASSWORD = "VineyardDev1!";
 const SEED_VINEYARD_NAME = "Cedar Ridge Vineyard";
 
 /**
@@ -148,16 +150,19 @@ async function resetSeededRows() {
 async function main() {
   await resetSeededRows();
 
+  const passwordHash = await hash(SEED_PASSWORD, 10);
+
   const owner = await prisma.user.upsert({
     where: { email: SEED_OWNER_EMAIL },
     update: {
       displayName: "Aaron Ingalsbe",
       role: UserRole.power_user,
+      passwordHash,
       deletedAt: null,
     },
     create: {
       email: SEED_OWNER_EMAIL,
-      passwordHash: "seed-only-not-for-login",
+      passwordHash,
       displayName: "Aaron Ingalsbe",
       role: UserRole.power_user,
       notificationPrefs: defaultPrefs,
@@ -169,11 +174,12 @@ async function main() {
     update: {
       displayName: "Maya Chen",
       role: UserRole.manager,
+      passwordHash,
       deletedAt: null,
     },
     create: {
       email: SEED_MANAGER_EMAIL,
-      passwordHash: "seed-only-not-for-login",
+      passwordHash,
       displayName: "Maya Chen",
       role: UserRole.manager,
       notificationPrefs: {

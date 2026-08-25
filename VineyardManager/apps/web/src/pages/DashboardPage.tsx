@@ -1,23 +1,24 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import {
-  formatRowLength,
   formatYield,
   TASK_STATUS_LABELS,
   type Harvest,
-  type Row,
   type ScheduledTask,
 } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
 import { HealthLegend } from "@/components/HealthLegend";
+import { VineyardHealthMap } from "@/components/health/VineyardHealthMap";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { useApiHealth } from "@/hooks/useApiHealth";
 import { useHarvests } from "@/hooks/useHarvests";
+import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
+import { healthSwatch } from "@/lib/health";
 
 const UPCOMING_LIMIT = 5;
 const RECENT_HARVEST_LIMIT = 5;
@@ -40,39 +41,29 @@ function isOpenTask(task: ScheduledTask): boolean {
   return task.status !== "acknowledged" && task.status !== "dismissed";
 }
 
-function summarizeRows(rows: Row[]) {
-  const active = rows.filter((row) => row.status === "active");
-  const totalInches = rows.reduce(
-    (sum, row) => sum + row.lengthFeet * 12 + row.lengthInches,
-    0,
-  );
-  const lengthFeet = Math.floor(totalInches / 12);
-  const lengthInches = totalInches % 12;
-  const vines = rows.reduce((sum, row) => sum + row.vineCount, 0);
-  return { total: rows.length, active: active.length, lengthFeet, lengthInches, vines };
-}
-
 export function DashboardPage() {
   const api = useApiHealth();
   const rows = useVineyardRows();
   const tasks = useVineyardTasks();
   const harvests = useHarvests();
+  const health = useVineyardHealth();
 
-  const loading =
+  const coreLoading =
     rows.state.status === "loading" ||
     tasks.state.status === "loading" ||
     harvests.state.status === "loading";
-
   const emptyVineyard =
     rows.state.status === "empty-vineyard" ||
     tasks.state.status === "empty-vineyard" ||
     harvests.state.status === "empty-vineyard";
-
   const errorMessage = [
     rows.state.status === "error" ? rows.state.message : null,
     tasks.state.status === "error" ? tasks.state.message : null,
     harvests.state.status === "error" ? harvests.state.message : null,
   ].find((message) => message !== null);
+  const loading =
+    coreLoading ||
+    (health.state.status === "loading" && !errorMessage && !emptyVineyard);
 
   const vineyardName =
     rows.state.status === "ready"
@@ -81,12 +72,12 @@ export function DashboardPage() {
         ? tasks.state.vineyard.name
         : null;
 
-  const readyRows = rows.state.status === "ready" ? rows.state.rows : [];
   const readyTasks = tasks.state.status === "ready" ? tasks.state.tasks : [];
   const readyHarvests =
     harvests.state.status === "ready" ? harvests.state.harvests : [];
-
-  const stats = useMemo(() => summarizeRows(readyRows), [readyRows]);
+  const healthReady = health.state.status === "ready" ? health.state.health : null;
+  const healthError =
+    health.state.status === "error" ? health.state.message : null;
 
   const upcoming = useMemo(() => {
     const today = startOfToday();
@@ -112,6 +103,7 @@ export function DashboardPage() {
     void rows.reload();
     void tasks.reload();
     void harvests.reload();
+    void health.reload();
   };
 
   return (
@@ -139,9 +131,8 @@ export function DashboardPage() {
       />
 
       {loading ? (
-        <div className="grid gap-4 sm:grid-cols-3" aria-busy="true">
-          <Card className="min-h-24 animate-pulse bg-card/70" />
-          <Card className="min-h-24 animate-pulse bg-card/70" />
+        <div className="space-y-4" aria-busy="true">
+          <Card className="min-h-40 animate-pulse bg-card/70" />
           <Card className="min-h-24 animate-pulse bg-card/70" />
           <p className="sr-only">Loading dashboard</p>
         </div>
@@ -176,26 +167,75 @@ export function DashboardPage() {
 
       {!loading && !errorMessage && !emptyVineyard ? (
         <>
-          <section className="grid gap-4 sm:grid-cols-3">
-            <StatCard
-              label="Active rows"
-              value={String(stats.active)}
-              hint={
-                stats.total === stats.active
-                  ? `${stats.total} rows on the property`
-                  : `${stats.total} rows total`
-              }
-            />
-            <StatCard
-              label="Total length"
-              value={formatRowLength(stats.lengthFeet, stats.lengthInches)}
-              hint={`Across ${stats.total} ${stats.total === 1 ? "row" : "rows"}`}
-            />
-            <StatCard
-              label="Vines"
-              value={String(stats.vines)}
-              hint="Sum of vine counts on every row"
-            />
+          <section>
+            {healthError ? (
+              <EmptyState
+                title="Could not load vineyard health"
+                action={
+                  <Button type="button" onClick={() => void health.reload()}>
+                    Try health again
+                  </Button>
+                }
+              >
+                {healthError}
+              </EmptyState>
+            ) : null}
+            {healthReady ? (
+              <>
+                <Card className="mb-4">
+                  <p className="text-sm font-medium text-muted">Vineyard health</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-3">
+                    <span
+                      className={`size-4 rounded-full ${healthSwatch[healthReady.overall.color]}`}
+                      aria-hidden
+                    />
+                    <p className="text-3xl font-semibold tracking-tight capitalize">
+                      {healthReady.overall.color} {healthReady.overall.score}
+                    </p>
+                  </div>
+                  {healthReady.overall.reasons.length > 0 ? (
+                    <ul className="mt-3 space-y-1 text-muted">
+                      {healthReady.overall.reasons.slice(0, 2).map((reason) => (
+                        <li key={`${reason.code}-${reason.message}`}>
+                          {reason.message}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </Card>
+                <VineyardHealthMap
+                  overallColor={healthReady.overall.color}
+                  rows={healthReady.rows}
+                />
+                <ul className="mt-4 space-y-2">
+                  {healthReady.rows.map((row) => (
+                    <li
+                      key={row.rowId}
+                      className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3"
+                    >
+                      <span
+                        className={`mt-1 size-3.5 shrink-0 rounded-full ${healthSwatch[row.color]}`}
+                        aria-hidden
+                      />
+                      <div className="min-w-0">
+                        <p className="font-medium">
+                          {row.code} · {row.name}{" "}
+                          <span className="font-normal text-muted">
+                            {row.score}
+                          </span>
+                        </p>
+                        <p className="text-sm text-muted">
+                          {row.reasons[0]?.message ?? "No issues scored"}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+                <div className="mt-4">
+                  <HealthLegend />
+                </div>
+              </>
+            ) : null}
           </section>
 
           <section className="mt-6">
@@ -277,44 +317,9 @@ export function DashboardPage() {
             </section>
           </div>
 
-          <section className="mt-8">
-            <Card>
-              <CardTitle>Map overlay</CardTitle>
-              <CardDescription>
-                Row health colors on a map come later. Until then, use Rows for
-                the layout and the legend below for the color scale.
-              </CardDescription>
-              <div className="mt-4 flex min-h-24 items-center justify-center rounded-lg border border-dashed border-border bg-background px-4 text-center text-muted">
-                Map coming later — health scoring is not wired yet.
-              </div>
-            </Card>
-          </section>
-
-          <section className="mt-6">
-            <h2 className="mb-3 text-lg font-semibold">Health colors</h2>
-            <HealthLegend />
-          </section>
         </>
       ) : null}
     </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint: string;
-}) {
-  return (
-    <Card>
-      <p className="text-sm font-medium text-muted">{label}</p>
-      <p className="mt-1 text-3xl font-semibold tracking-tight">{value}</p>
-      <p className="mt-1 text-sm text-muted">{hint}</p>
-    </Card>
   );
 }
 

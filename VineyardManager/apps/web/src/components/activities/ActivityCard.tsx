@@ -32,6 +32,11 @@ export function ActivityCard({ activity }: { activity: Activity }) {
             {ACTIVITY_TYPE_LABELS[activity.activityType]}
           </h2>
           {notes ? <p className="mt-1 text-muted">{notes}</p> : null}
+          {activity.performedByDisplayName ? (
+            <p className="mt-1 text-sm text-muted">
+              Logged by {activity.performedByDisplayName}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="muted">{formatDate(activity.performedAt)}</Badge>
