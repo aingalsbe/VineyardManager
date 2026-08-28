@@ -3,21 +3,19 @@ import { formatRowLength, type Vineyard } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { VineyardForm } from "@/components/setup/VineyardForm";
+import { RowLayoutEditor } from "@/components/setup/RowLayoutEditor";
 import { StatCard } from "@/components/StatCard";
 import type { AppOutletContext } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { summarizeRows } from "@/lib/summarize-rows";
 
-const steps = [
+const laterSteps = [
   {
     title: "Varieties",
     body: "Add the grapes you grow. Lookup can fill water needs and prune windows later.",
-  },
-  {
-    title: "Map rows",
-    body: "Create rows (L1, S1, …) with variety, length in feet and inches, and vine count.",
   },
   {
     title: "Calendar",
@@ -32,6 +30,7 @@ const steps = [
 export function SetupPage() {
   const { vineyard, reloadVineyard } = useOutletContext<AppOutletContext>();
   const { state, reload } = useVineyardRows();
+  const health = useVineyardHealth();
   const stats =
     state.status === "ready" ? summarizeRows(state.rows) : null;
   const current: Vineyard | null =
@@ -105,12 +104,46 @@ export function SetupPage() {
         </section>
       ) : null}
 
+      {state.status === "ready" && current ? (
+        <section className="mb-6">
+          <Card>
+            <p className="text-sm font-medium text-primary">Step 2</p>
+            <CardTitle className="mt-1">Map rows</CardTitle>
+            <CardDescription>
+              Drag bars to match the property. Length comes from vine count.
+              Save when the pad looks right.
+            </CardDescription>
+            {state.rows.length === 0 ? (
+              <p className="mt-4 text-muted">
+                Add rows first, then place them here.
+              </p>
+            ) : (
+              <div className="mt-4">
+                <RowLayoutEditor
+                  vineyardId={current.id}
+                  rows={state.rows}
+                  savedLayout={current.rowLayout}
+                  healthByRowId={
+                    new Map(
+                      health.state.status === "ready"
+                        ? health.state.health.rows.map((row) => [row.rowId, row])
+                        : [],
+                    )
+                  }
+                  onSaved={onVineyardSaved}
+                />
+              </div>
+            )}
+          </Card>
+        </section>
+      ) : null}
+
       <ol className="grid gap-4 md:grid-cols-2">
-        {steps.map((step, index) => (
+        {laterSteps.map((step, index) => (
           <li key={step.title}>
             <Card>
               <p className="text-sm font-medium text-primary">
-                Step {index + 1}
+                Step {([1, 3, 4] as const)[index] ?? index + 1}
               </p>
               <CardTitle className="mt-1">{step.title}</CardTitle>
               <CardDescription>{step.body}</CardDescription>

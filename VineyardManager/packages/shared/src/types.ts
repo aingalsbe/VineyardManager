@@ -75,6 +75,19 @@ export interface Vineyard extends Audited {
   timezone: string;
   healthThresholds: HealthThresholds;
   hasLogo: boolean;
+  rowLayout: RowLayout | null;
+}
+
+export interface RowLayout {
+  version: 1;
+  rows: RowLayoutPlacement[];
+}
+
+export interface RowLayoutPlacement {
+  rowId: string;
+  x: number;
+  y: number;
+  rotationDeg: number;
 }
 
 export interface Block extends Audited {

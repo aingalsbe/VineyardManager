@@ -184,6 +184,12 @@ vineyardsRouter.patch("/:id", async (req: Request<{ id: string }>, res) => {
   if (body.lng !== undefined) {
     data.lng = body.lng === null ? null : new Prisma.Decimal(body.lng);
   }
+  if (body.rowLayout !== undefined) {
+    data.rowLayout =
+      body.rowLayout === null
+        ? Prisma.JsonNull
+        : (body.rowLayout as Prisma.InputJsonValue);
+  }
 
   const vineyard = await prisma.vineyard.update({
     where: { id },

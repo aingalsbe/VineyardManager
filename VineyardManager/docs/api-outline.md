@@ -37,10 +37,10 @@ Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards` | List (`hasLogo` on each; never `logoPath`) |
+| GET | `/vineyards` | List (`hasLogo`, `rowLayout` on each; never `logoPath`) |
 | POST | `/vineyards` | Create (name, address, timezone). `409 CONFLICT` if one already exists |
 | GET | `/vineyards/{id}` | Detail |
-| PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng |
+| PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng, `rowLayout` |
 | PUT | `/vineyards/{id}/logo` | Multipart field `file` (PNG/JPEG/WebP, ≤1 MB) |
 | GET | `/vineyards/{id}/logo` | Image bytes. Auth required. `404` if none |
 | DELETE | `/vineyards/{id}/logo` | Remove file + clear fields |

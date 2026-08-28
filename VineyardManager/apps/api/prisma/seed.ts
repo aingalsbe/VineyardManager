@@ -1,6 +1,8 @@
 import { hash } from "bcryptjs";
+import { layoutFromDefaultGrid } from "@vineyard/shared";
 import {
   ActivityType,
+  Prisma,
   PrismaClient,
   RowStatus,
   TaskStatus,
@@ -14,7 +16,8 @@ const prisma = new PrismaClient();
 const SEED_OWNER_EMAIL = "owner@vineyard.local";
 const SEED_MANAGER_EMAIL = "manager@vineyard.local";
 const SEED_PASSWORD = "VineyardDev1!";
-const SEED_VINEYARD_NAME = "Cedar Ridge Vineyard";
+const SEED_VINEYARD_NAME = "Abide in the Vine Vineyard";
+const LEGACY_SEED_VINEYARD_NAME = "Cedar Ridge Vineyard";
 
 /**
  * TaskStatus is notification-oriented. For field work in this seed:
@@ -128,7 +131,11 @@ async function resetSeededRows() {
 
   const vineyards = await prisma.vineyard.findMany({
     where: {
-      OR: [{ name: SEED_VINEYARD_NAME }, { ownerId: { in: userIds } }],
+      OR: [
+        { name: SEED_VINEYARD_NAME },
+        { name: LEGACY_SEED_VINEYARD_NAME },
+        { ownerId: { in: userIds } },
+      ],
     },
     select: { id: true },
   });
@@ -211,6 +218,15 @@ async function main() {
       }),
     ),
   );
+
+  await prisma.vineyard.update({
+    where: { id: vineyard.id },
+    data: {
+      rowLayout: layoutFromDefaultGrid(
+        createdRows.map((row) => ({ id: row.id, code: row.code })),
+      ) as unknown as Prisma.InputJsonValue,
+    },
+  });
 
   const byCode = new Map(createdRows.map((row) => [row.code, row]));
 

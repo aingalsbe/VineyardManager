@@ -72,6 +72,7 @@ export function DashboardPage() {
         ? tasks.state.vineyard.name
         : null;
 
+  const readyRows = rows.state.status === "ready" ? rows.state.rows : [];
   const readyTasks = tasks.state.status === "ready" ? tasks.state.tasks : [];
   const readyHarvests =
     harvests.state.status === "ready" ? harvests.state.harvests : [];
@@ -205,7 +206,13 @@ export function DashboardPage() {
                 </Card>
                 <VineyardHealthMap
                   overallColor={healthReady.overall.color}
-                  rows={healthReady.rows}
+                  healthRows={healthReady.rows}
+                  vineyardRows={readyRows}
+                  rowLayout={
+                    rows.state.status === "ready"
+                      ? rows.state.vineyard.rowLayout
+                      : null
+                  }
                 />
                 <ul className="mt-4 space-y-2">
                   {healthReady.rows.map((row) => (

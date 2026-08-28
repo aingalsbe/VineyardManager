@@ -51,6 +51,18 @@ export const healthThresholdsSchema = z.object({
   orangeMin: z.number().min(0).max(100),
 });
 
+export const rowLayoutSchema = z.object({
+  version: z.literal(1),
+  rows: z.array(
+    z.object({
+      rowId: z.string().uuid(),
+      x: z.number().finite(),
+      y: z.number().finite(),
+      rotationDeg: z.number().finite(),
+    }),
+  ),
+});
+
 export const createVineyardSchema = z.object({
   name: z.string().trim().min(1, "Enter a vineyard name").max(120),
   address: z.string().trim().min(1, "Enter an address").max(300),
@@ -71,6 +83,7 @@ export const updateVineyardSchema = z
     timezone: z.string().trim().min(1, "Enter a timezone").max(80).optional(),
     lat: z.number().min(-90).max(90).nullable().optional(),
     lng: z.number().min(-180).max(180).nullable().optional(),
+    rowLayout: rowLayoutSchema.nullable().optional(),
   })
   .refine(
     (value) =>
@@ -78,7 +91,8 @@ export const updateVineyardSchema = z
       value.address !== undefined ||
       value.timezone !== undefined ||
       value.lat !== undefined ||
-      value.lng !== undefined,
+      value.lng !== undefined ||
+      value.rowLayout !== undefined,
     { message: "Enter at least one field" },
   );
 

@@ -1,4 +1,5 @@
 import type { Activity, Harvest, Row, Task, User, Vineyard } from "@prisma/client";
+import { rowLayoutSchema } from "@vineyard/shared";
 import type {
   Activity as ActivityDto,
   ActivityScope,
@@ -6,6 +7,7 @@ import type {
   Harvest as HarvestDto,
   PublicUser,
   Row as RowDto,
+  RowLayout,
   ScheduledTask,
   Vineyard as VineyardDto,
 } from "@vineyard/shared";
@@ -13,6 +15,11 @@ import type {
 function decimalToNumber(value: { toString(): string } | null): number | null {
   if (value == null) return null;
   return Number(value.toString());
+}
+
+function parseRowLayout(value: unknown): RowLayout | null {
+  const parsed = rowLayoutSchema.safeParse(value);
+  return parsed.success ? parsed.data : null;
 }
 
 export function serializePublicUser(
@@ -38,6 +45,7 @@ export function serializeVineyard(row: Vineyard): VineyardDto {
     healthThresholds:
       row.healthThresholds as unknown as VineyardDto["healthThresholds"],
     hasLogo: Boolean(row.logoPath),
+    rowLayout: parseRowLayout(row.rowLayout),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     deletedAt: row.deletedAt?.toISOString() ?? null,

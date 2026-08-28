@@ -1,16 +1,14 @@
-import { Link } from "react-router-dom";
-import type { HealthColor, RowHealth } from "@vineyard/shared";
-import { healthBarText, healthSwatch } from "@/lib/health";
+import {
+  barLengthPx,
+  LAYOUT_CANVAS,
+  layoutFromDefaultGrid,
+  type HealthColor,
+  type Row,
+  type RowHealth,
+  type RowLayout,
+} from "@vineyard/shared";
+import { RowLayoutBar } from "@/components/health/RowLayoutBar";
 import { cn } from "@/lib/utils";
-
-const DEFAULT_LAYOUT: Record<string, { column: number; row: number }> = {
-  S1: { column: 2, row: 1 },
-  L1: { column: 1, row: 2 },
-  S3: { column: 3, row: 2 },
-  L2: { column: 2, row: 3 },
-  S2: { column: 2, row: 4 },
-  L3: { column: 2, row: 5 },
-};
 
 const overallBorder: Record<HealthColor, string> = {
   green: "border-health-green",
@@ -19,61 +17,31 @@ const overallBorder: Record<HealthColor, string> = {
   red: "border-health-red",
 };
 
-function RowBar({ row }: { row: RowHealth }) {
-  const primary = row.reasons[0]?.message;
-  const label = `${row.code} ${row.name}`;
-  const caption = primary ? `${row.score} · ${primary}` : String(row.score);
-
-  return (
-    <Link
-      to={`/rows?row=${encodeURIComponent(row.code)}`}
-      title={`${label} — ${caption}`}
-      aria-label={`${label}, ${row.color} ${row.score}${primary ? `, ${primary}` : ""}`}
-      className={cn(
-        "block rounded-md px-3 py-2 text-left shadow-sm ring-offset-2 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
-        healthSwatch[row.color],
-        healthBarText[row.color],
-        row.color === "green" && row.reasons[0]?.code === "row_retired"
-          ? "opacity-70"
-          : null,
-      )}
-    >
-      <p className="font-semibold">
-        {row.code}{" "}
-        <span className="font-medium opacity-95">{row.name}</span>
-      </p>
-      <p className="text-sm opacity-90">{caption}</p>
-    </Link>
-  );
-}
-
 export function VineyardHealthMap({
   overallColor,
-  rows,
+  healthRows,
+  vineyardRows,
+  rowLayout,
 }: {
   overallColor: HealthColor;
-  rows: RowHealth[];
+  healthRows: RowHealth[];
+  vineyardRows: Row[];
+  rowLayout: RowLayout | null;
 }) {
-  const placed: Array<{ row: RowHealth; column: number; gridRow: number }> = [];
-  const overflow: RowHealth[] = [];
+  const healthById = new Map(healthRows.map((row) => [row.rowId, row]));
+  const rowById = new Map(vineyardRows.map((row) => [row.id, row]));
+  const knownIds = new Set(vineyardRows.map((row) => row.id));
 
-  for (const row of rows) {
-    const slot = DEFAULT_LAYOUT[row.code];
-    if (slot) {
-      placed.push({ row, column: slot.column, gridRow: slot.row });
-    } else {
-      overflow.push(row);
-    }
-  }
+  const placements = (
+    rowLayout?.rows.length
+      ? rowLayout.rows
+      : layoutFromDefaultGrid(
+          vineyardRows.map((row) => ({ id: row.id, code: row.code })),
+        ).rows
+  ).filter((item) => knownIds.has(item.rowId));
 
-  overflow.sort((a, b) => a.code.localeCompare(b.code));
-  const stacked = [
-    ...placed
-      .slice()
-      .sort((a, b) => a.gridRow - b.gridRow || a.column - b.column)
-      .map((item) => item.row),
-    ...overflow,
-  ];
+  const placedIds = new Set(placements.map((item) => item.rowId));
+  const unplaced = vineyardRows.filter((row) => !placedIds.has(row.id));
 
   return (
     <div
@@ -82,35 +50,68 @@ export function VineyardHealthMap({
         overallBorder[overallColor],
       )}
     >
-      <ul className="grid gap-2 sm:hidden" aria-label="Vineyard health schematic">
-        {stacked.map((row) => (
-          <li key={row.rowId}>
-            <RowBar row={row} />
-          </li>
-        ))}
-      </ul>
-      <div
-        className="hidden sm:grid sm:grid-cols-3 sm:gap-2"
-        role="list"
-        aria-label="Vineyard health schematic"
+      <svg
+        viewBox={`0 0 ${LAYOUT_CANVAS.width} ${LAYOUT_CANVAS.height}`}
+        className="w-full"
+        role="img"
+        aria-label="Vineyard health map"
       >
-        {placed.map(({ row, column, gridRow }) => (
-          <div
-            key={row.rowId}
-            role="listitem"
-            style={{ gridColumn: column, gridRow }}
-          >
-            <RowBar row={row} />
-          </div>
-        ))}
-      </div>
-      {overflow.length > 0 ? (
-        <ul className="mt-3 hidden gap-2 sm:grid">
-          {overflow.map((row) => (
-            <li key={row.rowId} className="sm:col-span-3">
-              <RowBar row={row} />
-            </li>
-          ))}
+        <rect
+          width={LAYOUT_CANVAS.width}
+          height={LAYOUT_CANVAS.height}
+          fill="var(--color-background)"
+        />
+        {placements.map((item) => {
+          const row = rowById.get(item.rowId);
+          if (!row) return null;
+          const health = healthById.get(row.id);
+          return (
+            <RowLayoutBar
+              key={item.rowId}
+              code={row.code}
+              name={row.name}
+              x={item.x}
+              y={item.y}
+              rotationDeg={item.rotationDeg}
+              length={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches)}
+              color={health?.color ?? "neutral"}
+              quiet={row.status === "retired" || row.status === "fallow"}
+              href={`/rows?row=${encodeURIComponent(row.code)}`}
+            />
+          );
+        })}
+      </svg>
+      {unplaced.length > 0 ? (
+        <ul className="mt-3 flex flex-wrap gap-2" aria-label="Rows not on the map">
+          {unplaced.map((row) => {
+            const health = healthById.get(row.id);
+            return (
+              <li key={row.id}>
+                <a
+                  href={`/rows?row=${encodeURIComponent(row.code)}`}
+                  className="block"
+                >
+                  <span className="sr-only">{row.code} {row.name}</span>
+                  <svg
+                    width={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches)}
+                    height={32}
+                    aria-hidden
+                  >
+                    <RowLayoutBar
+                      code={row.code}
+                      name={row.name}
+                      x={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches) / 2}
+                      y={16}
+                      rotationDeg={0}
+                      length={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches)}
+                      color={health?.color ?? "neutral"}
+                      quiet={row.status === "retired" || row.status === "fallow"}
+                    />
+                  </svg>
+                </a>
+              </li>
+            );
+          })}
         </ul>
       ) : null}
     </div>

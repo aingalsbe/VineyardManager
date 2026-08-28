@@ -26,6 +26,7 @@ Prefer explicit foreign keys, soft deletes, and audit timestamps. UUIDs for all 
 | lat / lng | decimal? | map center |
 | timezone | IANA string | |
 | healthThresholds | JSON | custom color cutoffs |
+| rowLayout | JSON? | `{ version: 1, rows: [{ rowId, x, y, rotationDeg }] }` |
 | logoPath | string? | API-only; file on disk |
 | logoContentType | string? | `image/png` \| `image/jpeg` \| `image/webp` |
 | createdAt / updatedAt | timestamptz | |

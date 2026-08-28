@@ -10,6 +10,7 @@ import {
   type Row,
   type ScheduledTask,
   type TaskStatus,
+  type RowLayout,
   type Vineyard,
   type VineyardHealth,
 } from "@vineyard/shared";
@@ -127,6 +128,7 @@ export type VineyardWritePayload = {
   name: string;
   address: string;
   timezone: string;
+  rowLayout?: RowLayout | null;
 };
 
 export async function createVineyard(
