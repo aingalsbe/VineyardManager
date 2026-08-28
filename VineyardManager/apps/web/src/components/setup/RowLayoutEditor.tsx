@@ -1,8 +1,8 @@
 import {
   BAR_THICKNESS_PX,
   barLengthPx,
-  LAYOUT_CANVAS,
   layoutFromDefaultGrid,
+  layoutViewBox,
   snapRotationDeg,
   type HealthColor,
   type Row,
@@ -102,6 +102,22 @@ export function RowLayoutEditor({
 
   const savedPlacements = savedLayout?.rows ?? [];
   const dirty = !placementsEqual(visible, savedPlacements);
+  const defaultPlacements = layoutFromDefaultGrid(
+    rows.map((row) => ({ id: row.id, code: row.code })),
+  ).rows;
+  const padPlacements = defaultPlacements.length > 0 ? defaultPlacements : visible;
+  const viewBox = layoutViewBox(
+    padPlacements,
+    padPlacements.map((item) => {
+      const row = rowById.get(item.rowId);
+      return barLengthPx(
+        row?.vineCount ?? 0,
+        row?.lengthFeet ?? 0,
+        row?.lengthInches ?? 0,
+      );
+    }),
+    48,
+  );
 
   function colorFor(row: Row): HealthColor | "neutral" {
     return healthByRowId.get(row.id)?.color ?? "neutral";
@@ -208,16 +224,13 @@ export function RowLayoutEditor({
     <div>
       <svg
         ref={svgRef}
-        viewBox={`0 0 ${LAYOUT_CANVAS.width} ${LAYOUT_CANVAS.height}`}
-        className="w-full touch-none rounded-lg border border-border bg-background"
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
+        width="100%"
+        preserveAspectRatio="xMidYMid meet"
+        className="mx-auto block h-auto max-h-[520px] max-w-full touch-none rounded-lg border border-border bg-background"
         role="img"
         aria-label="Row layout pad"
       >
-        <rect
-          width={LAYOUT_CANVAS.width}
-          height={LAYOUT_CANVAS.height}
-          fill="var(--color-background)"
-        />
         {visible.map((item) => {
           const row = rowById.get(item.rowId);
           if (!row) return null;

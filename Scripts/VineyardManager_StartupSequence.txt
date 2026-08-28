@@ -1,0 +1,32 @@
+# Vineyard Manager – Startup Checklist
+# Use this after a reboot, closing all terminals, or shutting down Docker.
+
+## Ordered Steps
+
+1. **Start Docker Desktop**
+   - Open Docker Desktop from the Start menu (or let the script start it).
+   - Wait until the whale icon is steady and it says “Docker Desktop is running”.
+
+2. **Run the Master Startup Script**
+   - Double-click the desktop shortcut **Start Vineyard Manager**  
+     (or run: `C:\AIProjects\Scripts\Start-VineyardManager.ps1`)
+   - The script will:
+     - Start Docker Desktop if needed
+     - Wait for the Docker engine
+     - Bring up Postgres (`docker compose up -d`)
+     - Open a new window for the API server
+     - Open a new window for the Web (frontend) server
+     - Open the app in your browser
+
+3. **Verify**
+   - API window should show the server listening (usually on port 3000 or whatever you configured).
+   - Web window should show Vite ready on http://localhost:5173
+   - Browser should open to the app with your seeded data.
+
+## Manual Fallback (if the script fails)
+
+1. Start Docker Desktop and wait for it to be ready.
+2. Open PowerShell and run:
+   ```powershell
+   cd C:\AIProjects\VineyardManager
+   docker compose up -d

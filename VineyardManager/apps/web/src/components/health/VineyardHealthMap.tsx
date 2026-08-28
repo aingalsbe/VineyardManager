@@ -1,7 +1,7 @@
 import {
   barLengthPx,
-  LAYOUT_CANVAS,
   layoutFromDefaultGrid,
+  layoutViewBox,
   type HealthColor,
   type Row,
   type RowHealth,
@@ -22,11 +22,13 @@ export function VineyardHealthMap({
   healthRows,
   vineyardRows,
   rowLayout,
+  onSelectRow,
 }: {
   overallColor: HealthColor;
   healthRows: RowHealth[];
   vineyardRows: Row[];
   rowLayout: RowLayout | null;
+  onSelectRow?: (rowId: string) => void;
 }) {
   const healthById = new Map(healthRows.map((row) => [row.rowId, row]));
   const rowById = new Map(vineyardRows.map((row) => [row.id, row]));
@@ -42,25 +44,31 @@ export function VineyardHealthMap({
 
   const placedIds = new Set(placements.map((item) => item.rowId));
   const unplaced = vineyardRows.filter((row) => !placedIds.has(row.id));
+  const lengths = placements.map((item) => {
+    const row = rowById.get(item.rowId);
+    return barLengthPx(
+      row?.vineCount ?? 0,
+      row?.lengthFeet ?? 0,
+      row?.lengthInches ?? 0,
+    );
+  });
+  const viewBox = layoutViewBox(placements, lengths);
 
   return (
     <div
       className={cn(
-        "rounded-xl border-4 bg-background p-4",
+        "overflow-hidden rounded-xl border-4 bg-background p-4",
         overallBorder[overallColor],
       )}
     >
       <svg
-        viewBox={`0 0 ${LAYOUT_CANVAS.width} ${LAYOUT_CANVAS.height}`}
-        className="w-full"
+        viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
+        width="100%"
+        preserveAspectRatio="xMidYMid meet"
+        className="mx-auto block h-auto max-h-[400px] max-w-full"
         role="img"
         aria-label="Vineyard health map"
       >
-        <rect
-          width={LAYOUT_CANVAS.width}
-          height={LAYOUT_CANVAS.height}
-          fill="var(--color-background)"
-        />
         {placements.map((item) => {
           const row = rowById.get(item.rowId);
           if (!row) return null;
@@ -76,7 +84,9 @@ export function VineyardHealthMap({
               length={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches)}
               color={health?.color ?? "neutral"}
               quiet={row.status === "retired" || row.status === "fallow"}
-              href={`/rows?row=${encodeURIComponent(row.code)}`}
+              onActivate={
+                onSelectRow ? () => onSelectRow(row.id) : undefined
+              }
             />
           );
         })}
@@ -87,9 +97,10 @@ export function VineyardHealthMap({
             const health = healthById.get(row.id);
             return (
               <li key={row.id}>
-                <a
-                  href={`/rows?row=${encodeURIComponent(row.code)}`}
+                <button
+                  type="button"
                   className="block"
+                  onClick={() => onSelectRow?.(row.id)}
                 >
                   <span className="sr-only">{row.code} {row.name}</span>
                   <svg
@@ -108,7 +119,7 @@ export function VineyardHealthMap({
                       quiet={row.status === "retired" || row.status === "fallow"}
                     />
                   </svg>
-                </a>
+                </button>
               </li>
             );
           })}

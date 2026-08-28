@@ -47,6 +47,7 @@ export function ActivityFormDialog({
   vineyardId,
   rows,
   presetType,
+  presetRowId,
   open,
   onClose,
   onSaved,
@@ -54,6 +55,7 @@ export function ActivityFormDialog({
   vineyardId: string;
   rows: Row[];
   presetType?: ActivityType;
+  presetRowId?: string;
   open: boolean;
   onClose: () => void;
   onSaved: () => Promise<void> | void;
@@ -66,10 +68,15 @@ export function ActivityFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    setValues(emptyValues(presetType));
+    const next = emptyValues(presetType);
+    if (presetRowId) {
+      next.scopeType = "row";
+      next.rowId = presetRowId;
+    }
+    setValues(next);
     setFieldErrors({});
     setFormError(null);
-  }, [open, presetType]);
+  }, [open, presetType, presetRowId]);
 
   useEffect(() => {
     if (!open) return;
@@ -194,6 +201,7 @@ export function ActivityFormDialog({
               id="activity-scope"
               className="h-11 w-full rounded-md border border-border bg-card px-3 text-base"
               value={values.scopeType}
+              disabled={Boolean(presetRowId)}
               onChange={(event) =>
                 setField("scopeType", event.target.value as "vineyard" | "row")
               }
@@ -209,6 +217,7 @@ export function ActivityFormDialog({
                 id="activity-row"
                 className="h-11 w-full rounded-md border border-border bg-card px-3 text-base"
                 value={values.rowId}
+                disabled={Boolean(presetRowId)}
                 onChange={(event) => setField("rowId", event.target.value)}
               >
                 <option value="">Select a row</option>

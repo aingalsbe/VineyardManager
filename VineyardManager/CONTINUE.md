@@ -14,11 +14,13 @@
 - Health colors v1: schematic map + scores on Dashboard, chips on Rows; inventory stats moved to Setup
 - Vineyard create/edit on Setup; logo upload shown in the top header on every signed-in page
 - Setup row layout editor; Vineyard.rowLayout saved; bar length from vineCount; Dashboard uses saved positions + health colors; seed vineyard named Abide in the Vine Vineyard
+- 4 N–S rows at 23 vines / 161', 11 E–W rows at 10 vines / 70'; dashboard map scales to show every row with no scroll
+- Dashboard map bars open a row action panel; complete overdue task or log watering/pest/weed against that row; health reloads after save
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 
 ## Next Priority
-- Photo/sketch underlay on the layout pad, or role checks on writes. Layout positions persist; an underlay would make dragging match the real property. Role checks can wait until the map is the grower’s vineyard.
+- Role checks on writes. Map actions are live; viewer vs manager vs power_user is still honor-system. Weekly task generation and a rename pass on L4/S4–S11 can wait until edits are actually restricted. No photo underlay.
 
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager

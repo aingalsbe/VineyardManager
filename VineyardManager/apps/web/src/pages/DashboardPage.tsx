@@ -1,13 +1,16 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   formatYield,
   TASK_STATUS_LABELS,
+  type ActivityType,
   type Harvest,
   type ScheduledTask,
 } from "@vineyard/shared";
+import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { HealthLegend } from "@/components/HealthLegend";
+import { RowActionPanel } from "@/components/health/RowActionPanel";
 import { VineyardHealthMap } from "@/components/health/VineyardHealthMap";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +21,7 @@ import { useHarvests } from "@/hooks/useHarvests";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
+import { ApiError, updateTask } from "@/lib/api";
 import { healthSwatch } from "@/lib/health";
 
 const UPCOMING_LIMIT = 5;
@@ -79,6 +83,17 @@ export function DashboardPage() {
   const healthReady = health.state.status === "ready" ? health.state.health : null;
   const healthError =
     health.state.status === "error" ? health.state.message : null;
+  const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [presetType, setPresetType] = useState<ActivityType | undefined>();
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const selectedRow = readyRows.find((row) => row.id === selectedRowId) ?? null;
+  const selectedHealth =
+    healthReady?.rows.find((row) => row.rowId === selectedRowId) ?? null;
+  const vineyardId =
+    rows.state.status === "ready" ? rows.state.vineyard.id : null;
 
   const upcoming = useMemo(() => {
     const today = startOfToday();
@@ -213,6 +228,10 @@ export function DashboardPage() {
                       ? rows.state.vineyard.rowLayout
                       : null
                   }
+                  onSelectRow={(rowId) => {
+                    setActionError(null);
+                    setSelectedRowId(rowId);
+                  }}
                 />
                 <ul className="mt-4 space-y-2">
                   {healthReady.rows.map((row) => (
@@ -291,7 +310,18 @@ export function DashboardPage() {
                 <ul className="space-y-3">
                   {upcoming.map(({ task, overdue }) => (
                     <li key={task.id}>
-                      <UpcomingTaskItem task={task} overdue={overdue} />
+                      <UpcomingTaskItem
+                        task={task}
+                        overdue={overdue}
+                        onSelectRow={
+                          task.rowId
+                            ? () => {
+                                setActionError(null);
+                                setSelectedRowId(task.rowId ?? null);
+                              }
+                            : undefined
+                        }
+                      />
                     </li>
                   ))}
                 </ul>
@@ -324,6 +354,62 @@ export function DashboardPage() {
             </section>
           </div>
 
+          {selectedRow && vineyardId ? (
+            <RowActionPanel
+              row={selectedRow}
+              health={selectedHealth}
+              tasks={readyTasks}
+              busy={actionBusy}
+              suspendEscape={activityOpen}
+              error={actionError}
+              onClose={() => setSelectedRowId(null)}
+              onCompleteTask={(taskId) => {
+                void (async () => {
+                  setActionBusy(true);
+                  setActionError(null);
+                  try {
+                    await updateTask(vineyardId, taskId, {
+                      status: "acknowledged",
+                    });
+                    await Promise.all([
+                      health.reload({ silent: true }),
+                      tasks.reload({ silent: true }),
+                    ]);
+                  } catch (error) {
+                    setActionError(
+                      error instanceof ApiError
+                        ? error.message
+                        : "Could not complete the task.",
+                    );
+                  } finally {
+                    setActionBusy(false);
+                  }
+                })();
+              }}
+              onLogWork={(type) => {
+                setPresetType(type);
+                setActivityOpen(true);
+              }}
+            />
+          ) : null}
+
+          {vineyardId ? (
+            <ActivityFormDialog
+              vineyardId={vineyardId}
+              rows={readyRows}
+              presetType={presetType}
+              presetRowId={selectedRowId ?? undefined}
+              open={activityOpen}
+              onClose={() => setActivityOpen(false)}
+              onSaved={async () => {
+                await Promise.all([
+                  health.reload({ silent: true }),
+                  tasks.reload({ silent: true }),
+                ]);
+              }}
+            />
+          ) : null}
+
         </>
       ) : null}
     </div>
@@ -333,9 +419,11 @@ export function DashboardPage() {
 function UpcomingTaskItem({
   task,
   overdue,
+  onSelectRow,
 }: {
   task: ScheduledTask;
   overdue: boolean;
+  onSelectRow?: () => void;
 }) {
   const rowLabel = task.row
     ? `${task.row.code} · ${task.row.name}`
@@ -346,7 +434,17 @@ function UpcomingTaskItem({
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-medium text-primary">{rowLabel}</p>
-          <CardTitle className="mt-0.5">{task.title}</CardTitle>
+          {onSelectRow ? (
+            <button
+              type="button"
+              className="text-left"
+              onClick={onSelectRow}
+            >
+              <CardTitle className="mt-0.5">{task.title}</CardTitle>
+            </button>
+          ) : (
+            <CardTitle className="mt-0.5">{task.title}</CardTitle>
+          )}
           <CardDescription>Due {formatDate(task.dueAt)}</CardDescription>
         </div>
         <div className="flex flex-wrap items-center gap-2">

@@ -1,5 +1,8 @@
 import { hash } from "bcryptjs";
-import { layoutFromDefaultGrid } from "@vineyard/shared";
+import {
+  layoutFromDefaultGrid,
+  rowLengthFromPlanting,
+} from "@vineyard/shared";
 import {
   ActivityType,
   Prisma,
@@ -43,120 +46,122 @@ const defaultThresholds = {
   orangeMin: 60,
 };
 
+const NS_NOTE = "N–S: 23 @ 7', 3.5' ends.";
+const EW_NOTE = "E–W: 10 @ 7', 3.5' ends.";
+const nsLength = rowLengthFromPlanting({ vineCount: 23 });
+const ewLength = rowLengthFromPlanting({ vineCount: 10 });
+
 const rows: {
   code: string;
   name: string;
   variety: string;
-  lengthFeet: number;
-  lengthInches: number;
   vineCount: number;
   plantedYear: number;
   status: RowStatus;
   notes: string;
+  axis: "ns" | "ew";
+  updateExisting: boolean;
 }[] = [
   {
     code: "L1",
     name: "North Slope",
     variety: "Norton",
-    lengthFeet: 180,
-    lengthInches: 0,
-    vineCount: 20,
+    vineCount: 23,
     plantedYear: 2014,
     status: RowStatus.active,
     notes: "Best sun. Primary red for the home crush.",
+    axis: "ns",
+    updateExisting: true,
   },
   {
     code: "L2",
     name: "Creek Bench",
     variety: "Chardonel",
-    lengthFeet: 156,
-    lengthInches: 6,
-    vineCount: 18,
+    vineCount: 23,
     plantedYear: 2016,
     status: RowStatus.active,
     notes: "Cooler air drainage toward the creek. Watch late frost.",
-  },
-  {
-    code: "S1",
-    name: "Hilltop East",
-    variety: "Vignoles",
-    lengthFeet: 92,
-    lengthInches: 3,
-    vineCount: 11,
-    plantedYear: 2018,
-    status: RowStatus.active,
-    notes: "Tight clusters — bunch rot scouting in wet weeks.",
-  },
-  {
-    code: "S2",
-    name: "Road Front",
-    variety: "Chambourcin",
-    lengthFeet: 148,
-    lengthInches: 0,
-    vineCount: 16,
-    plantedYear: 2012,
-    status: RowStatus.replanting,
-    notes: "Crown gall took the west end. Replacing vines this spring.",
-  },
-  {
-    code: "S3",
-    name: "West Trellis",
-    variety: "Traminette",
-    lengthFeet: 88,
-    lengthInches: 9,
-    vineCount: 11,
-    plantedYear: 2019,
-    status: RowStatus.active,
-    notes: "Newest high cordon. Still filling the wire.",
+    axis: "ns",
+    updateExisting: true,
   },
   {
     code: "L3",
     name: "Old Home Row",
     variety: "Concord",
-    lengthFeet: 120,
-    lengthInches: 6,
-    vineCount: 18,
+    vineCount: 23,
     plantedYear: 2008,
     status: RowStatus.fallow,
     notes: "Juice grapes. Resting a season after Japanese beetle pressure.",
+    axis: "ns",
+    updateExisting: true,
   },
+  {
+    code: "L4",
+    name: "North South 4",
+    variety: "Norton",
+    vineCount: 23,
+    plantedYear: 2014,
+    status: RowStatus.active,
+    notes: NS_NOTE,
+    axis: "ns",
+    updateExisting: false,
+  },
+  {
+    code: "S1",
+    name: "Hilltop East",
+    variety: "Vignoles",
+    vineCount: 10,
+    plantedYear: 2018,
+    status: RowStatus.active,
+    notes: "Tight clusters — bunch rot scouting in wet weeks.",
+    axis: "ew",
+    updateExisting: true,
+  },
+  {
+    code: "S2",
+    name: "Road Front",
+    variety: "Chambourcin",
+    vineCount: 10,
+    plantedYear: 2012,
+    status: RowStatus.replanting,
+    notes: "Crown gall took the west end. Replacing vines this spring.",
+    axis: "ew",
+    updateExisting: true,
+  },
+  {
+    code: "S3",
+    name: "West Trellis",
+    variety: "Traminette",
+    vineCount: 10,
+    plantedYear: 2019,
+    status: RowStatus.active,
+    notes: "Newest high cordon. Still filling the wire.",
+    axis: "ew",
+    updateExisting: true,
+  },
+  ...Array.from({ length: 8 }, (_, index) => {
+    const n = index + 4;
+    return {
+      code: `S${n}`,
+      name: `East West ${n}`,
+      variety: "TBD",
+      vineCount: 10,
+      plantedYear: 2020,
+      status: RowStatus.active,
+      notes: EW_NOTE,
+      axis: "ew" as const,
+      updateExisting: false,
+    };
+  }),
 ];
 
-async function resetSeededRows() {
-  const users = await prisma.user.findMany({
-    where: { email: { in: [SEED_OWNER_EMAIL, SEED_MANAGER_EMAIL] } },
-    select: { id: true },
-  });
-  const userIds = users.map((user) => user.id);
-
-  const vineyards = await prisma.vineyard.findMany({
-    where: {
-      OR: [
-        { name: SEED_VINEYARD_NAME },
-        { name: LEGACY_SEED_VINEYARD_NAME },
-        { ownerId: { in: userIds } },
-      ],
-    },
-    select: { id: true },
-  });
-  const vineyardIds = vineyards.map((vineyard) => vineyard.id);
-
-  if (vineyardIds.length > 0) {
-    await prisma.activity.deleteMany({
-      where: { vineyardId: { in: vineyardIds } },
-    });
-    await prisma.harvest.deleteMany({
-      where: { vineyardId: { in: vineyardIds } },
-    });
-    await prisma.task.deleteMany({ where: { vineyardId: { in: vineyardIds } } });
-    await prisma.row.deleteMany({ where: { vineyardId: { in: vineyardIds } } });
-    await prisma.vineyard.deleteMany({ where: { id: { in: vineyardIds } } });
-  }
+function withPlantingNote(existing: string | null, tag: string): string {
+  if (existing?.includes("@ 7'")) return existing;
+  if (existing?.trim()) return `${existing.trim()} ${tag}`;
+  return tag;
 }
 
 async function main() {
-  await resetSeededRows();
-
   const passwordHash = await hash(SEED_PASSWORD, 10);
 
   const owner = await prisma.user.upsert({
@@ -196,28 +201,90 @@ async function main() {
     },
   });
 
-  const vineyard = await prisma.vineyard.create({
-    data: {
-      ownerId: owner.id,
-      name: SEED_VINEYARD_NAME,
-      address: "21480 Moonlight Rd, Spring Hill, KS 66083",
-      lat: 38.7432,
-      lng: -94.8251,
-      timezone: "America/Chicago",
-      healthThresholds: defaultThresholds,
+  const existingVineyard = await prisma.vineyard.findFirst({
+    where: {
+      deletedAt: null,
+      OR: [
+        { name: SEED_VINEYARD_NAME },
+        { name: LEGACY_SEED_VINEYARD_NAME },
+        { ownerId: owner.id },
+      ],
     },
+    orderBy: { createdAt: "asc" },
   });
 
-  const createdRows = await Promise.all(
-    rows.map((row) =>
-      prisma.row.create({
-        data: {
-          vineyardId: vineyard.id,
-          ...row,
-        },
-      }),
-    ),
-  );
+  const vineyard =
+    existingVineyard === null
+      ? await prisma.vineyard.create({
+          data: {
+            ownerId: owner.id,
+            name: SEED_VINEYARD_NAME,
+            address: "21480 Moonlight Rd, Spring Hill, KS 66083",
+            lat: 38.7432,
+            lng: -94.8251,
+            timezone: "America/Chicago",
+            healthThresholds: defaultThresholds,
+          },
+        })
+      : await prisma.vineyard.update({
+          where: { id: existingVineyard.id },
+          data: { name: SEED_VINEYARD_NAME, deletedAt: null },
+        });
+
+  const createdRows: Awaited<ReturnType<typeof prisma.row.create>>[] = [];
+  for (const spec of rows) {
+    const length = spec.axis === "ns" ? nsLength : ewLength;
+    const tag = spec.axis === "ns" ? NS_NOTE : EW_NOTE;
+    const existing = await prisma.row.findUnique({
+      where: {
+        vineyardId_code: { vineyardId: vineyard.id, code: spec.code },
+      },
+    });
+
+    if (existing) {
+      createdRows.push(
+        await prisma.row.update({
+          where: { id: existing.id },
+          data: {
+            vineCount: spec.vineCount,
+            lengthFeet: length.lengthFeet,
+            lengthInches: length.lengthInches,
+            notes: withPlantingNote(existing.notes, tag),
+            deletedAt: null,
+          },
+        }),
+      );
+    } else {
+      createdRows.push(
+        await prisma.row.create({
+          data: {
+            vineyardId: vineyard.id,
+            code: spec.code,
+            name: spec.name,
+            variety: spec.variety,
+            vineCount: spec.vineCount,
+            lengthFeet: length.lengthFeet,
+            lengthInches: length.lengthInches,
+            plantedYear: spec.plantedYear,
+            status: spec.status,
+            notes: spec.updateExisting
+              ? withPlantingNote(spec.notes, tag)
+              : spec.notes,
+          },
+        }),
+      );
+    }
+  }
+
+  const keepCodes = rows.map((spec) => spec.code);
+  await prisma.row.updateMany({
+    where: {
+      vineyardId: vineyard.id,
+      deletedAt: null,
+      code: { notIn: keepCodes },
+    },
+    data: { deletedAt: new Date() },
+  });
 
   await prisma.vineyard.update({
     where: { id: vineyard.id },
@@ -239,6 +306,25 @@ async function main() {
   };
 
   const due = (isoDate: string) => new Date(`${isoDate}T14:00:00-05:00`);
+
+  const existingTaskCount = await prisma.task.count({
+    where: { vineyardId: vineyard.id },
+  });
+  if (existingTaskCount > 0) {
+    const [rowCount, taskCount, harvestCount, activityCount] =
+      await Promise.all([
+        prisma.row.count({
+          where: { vineyardId: vineyard.id, deletedAt: null },
+        }),
+        prisma.task.count({ where: { vineyardId: vineyard.id } }),
+        prisma.harvest.count({ where: { vineyardId: vineyard.id } }),
+        prisma.activity.count({ where: { vineyardId: vineyard.id } }),
+      ]);
+    console.log(
+      `Updated ${SEED_VINEYARD_NAME}: ${rowCount} rows (kept ${taskCount} tasks, ${harvestCount} harvests, ${activityCount} activities).`,
+    );
+    return;
+  }
 
   await prisma.task.createMany({
     data: [
@@ -456,7 +542,9 @@ async function main() {
   });
 
   const [rowCount, taskCount, harvestCount, activityCount] = await Promise.all([
-    prisma.row.count({ where: { vineyardId: vineyard.id } }),
+    prisma.row.count({
+      where: { vineyardId: vineyard.id, deletedAt: null },
+    }),
     prisma.task.count({ where: { vineyardId: vineyard.id } }),
     prisma.harvest.count({ where: { vineyardId: vineyard.id } }),
     prisma.activity.count({ where: { vineyardId: vineyard.id } }),

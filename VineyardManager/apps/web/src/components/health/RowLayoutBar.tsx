@@ -29,6 +29,7 @@ export function RowLayoutBar({
   color,
   quiet = false,
   href,
+  onActivate,
   showRotateHandle = false,
   onMovePointerDown,
   onRotatePointerDown,
@@ -42,6 +43,7 @@ export function RowLayoutBar({
   color: HealthColor | "neutral";
   quiet?: boolean;
   href?: string;
+  onActivate?: () => void;
   showRotateHandle?: boolean;
   onMovePointerDown?: (event: PointerEvent<SVGRectElement>) => void;
   onRotatePointerDown?: (event: PointerEvent<SVGCircleElement>) => void;
@@ -49,10 +51,32 @@ export function RowLayoutBar({
   const navigate = useNavigate();
   const half = length / 2;
   const thick = BAR_THICKNESS_PX;
+  const clickable = Boolean(onActivate || href);
   const body = (
     <g
       transform={`translate(${x} ${y}) rotate(${rotationDeg})`}
       opacity={quiet ? 0.7 : 1}
+      role={onActivate ? "button" : undefined}
+      tabIndex={onActivate ? 0 : undefined}
+      aria-label={onActivate ? `${code} ${name}` : undefined}
+      onClick={
+        onActivate
+          ? (event) => {
+              event.stopPropagation();
+              onActivate();
+            }
+          : undefined
+      }
+      onKeyDown={
+        onActivate
+          ? (event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onActivate();
+              }
+            }
+          : undefined
+      }
     >
       <rect
         x={-half}
@@ -61,7 +85,13 @@ export function RowLayoutBar({
         height={thick}
         rx={6}
         fill={FILL[color]}
-        style={{ cursor: onMovePointerDown ? "grab" : href ? "pointer" : "default" }}
+        style={{
+          cursor: onMovePointerDown
+            ? "grab"
+            : clickable
+              ? "pointer"
+              : "default",
+        }}
         onPointerDown={onMovePointerDown}
       />
       <title>{`${code} ${name}`}</title>
@@ -91,6 +121,10 @@ export function RowLayoutBar({
       ) : null}
     </g>
   );
+
+  if (onActivate) {
+    return body;
+  }
 
   if (href) {
     return (
