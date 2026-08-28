@@ -31,13 +31,25 @@ Out of this slice:
 
 ## Vineyards
 
+One working vineyard for now. `GET /vineyards` is still the list; the web uses the first row.
+
+Shipped:
+
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards` | List vineyards the user can access |
-| POST | `/vineyards` | Create (power user) |
-| GET | `/vineyards/{id}` | Detail + current health summary |
-| PATCH | `/vineyards/{id}` | Name, address, thresholds, prefs |
-| DELETE | `/vineyards/{id}` | Soft-delete |
+| GET | `/vineyards` | List (`hasLogo` on each; never `logoPath`) |
+| POST | `/vineyards` | Create (name, address, timezone). `409 CONFLICT` if one already exists |
+| GET | `/vineyards/{id}` | Detail |
+| PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng |
+| PUT | `/vineyards/{id}/logo` | Multipart field `file` (PNG/JPEG/WebP, ≤1 MB) |
+| GET | `/vineyards/{id}/logo` | Image bytes. Auth required. `404` if none |
+| DELETE | `/vineyards/{id}/logo` | Remove file + clear fields |
+
+Out of this slice:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| DELETE | `/vineyards/{id}` | Soft-delete (future) |
 
 ## Varieties
 

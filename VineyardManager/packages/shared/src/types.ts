@@ -74,6 +74,7 @@ export interface Vineyard extends Audited {
   lng?: number | null;
   timezone: string;
   healthThresholds: HealthThresholds;
+  hasLogo: boolean;
 }
 
 export interface Block extends Audited {

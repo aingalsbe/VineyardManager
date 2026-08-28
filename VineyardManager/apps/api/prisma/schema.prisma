@@ -85,6 +85,8 @@ model Vineyard {
   lng              Decimal?  @db.Decimal(9, 6)
   timezone         String
   healthThresholds Json      @map("health_thresholds")
+  logoPath         String?   @map("logo_path")
+  logoContentType  String?   @map("logo_content_type")
   createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)

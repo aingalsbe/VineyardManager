@@ -1,8 +1,10 @@
-import { Link } from "react-router-dom";
-import { formatRowLength } from "@vineyard/shared";
+import { useOutletContext } from "react-router-dom";
+import { formatRowLength, type Vineyard } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
+import { VineyardForm } from "@/components/setup/VineyardForm";
 import { StatCard } from "@/components/StatCard";
+import type { AppOutletContext } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
@@ -28,15 +30,23 @@ const steps = [
 ];
 
 export function SetupPage() {
+  const { vineyard, reloadVineyard } = useOutletContext<AppOutletContext>();
   const { state, reload } = useVineyardRows();
   const stats =
     state.status === "ready" ? summarizeRows(state.rows) : null;
+  const current: Vineyard | null =
+    state.status === "ready" ? state.vineyard : vineyard;
+
+  async function onVineyardSaved() {
+    await reloadVineyard();
+    await reload({ silent: true });
+  }
 
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Setup"
-        description="Do this once: varieties, rows, calendar, and health thresholds. Then the dashboard has something to color."
+        description="Create or edit the vineyard, then add rows. Varieties, calendar, and health cutoffs stay later."
       />
 
       {state.status === "loading" ? (
@@ -63,21 +73,13 @@ export function SetupPage() {
         </div>
       ) : null}
 
-      {state.status === "empty-vineyard" ? (
-        <div className="mb-6">
-          <EmptyState
-            title="No vineyard yet"
-            action={
-              <Button asChild>
-                <Link to="/rows">Go to rows</Link>
-              </Button>
-            }
-          >
-            Add rows after the vineyard exists. Inventory numbers will show
-            here.
-          </EmptyState>
-        </div>
-      ) : null}
+      <div className="mb-6">
+        {state.status === "loading" && !current ? (
+          <Card className="min-h-40 animate-pulse bg-card/70" />
+        ) : (
+          <VineyardForm vineyard={current} onSaved={onVineyardSaved} />
+        )}
+      </div>
 
       {stats ? (
         <section className="mb-6 grid gap-4 sm:grid-cols-3">

@@ -1,3 +1,5 @@
+import path from "node:path";
+
 /** Local-dev default only. Set JWT_SECRET in the environment for any real deployment. */
 const DEV_JWT_SECRET = "vineyard-dev-jwt-secret-not-for-production";
 
@@ -6,4 +8,6 @@ export const config = {
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:5173",
   jwtSecret: process.env.JWT_SECRET ?? DEV_JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
+  /** Local-dev default: apps/api/uploads (gitignored). Set UPLOAD_DIR to override. */
+  uploadDir: path.resolve(process.env.UPLOAD_DIR ?? "uploads"),
 };

@@ -67,27 +67,31 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!response.ok) {
-    let code = "HTTP_ERROR";
-    let message = response.statusText;
-    try {
-      const body = (await response.json()) as {
-        error?: { code?: string; message?: string };
-      };
-      code = body.error?.code ?? code;
-      message = body.error?.message ?? message;
-    } catch {
-      // keep status text
-    }
-    if (response.status === 401 && path !== "/auth/login") {
-      clearAuthToken();
-      if (window.location.pathname !== "/login") {
-        window.location.assign("/login");
-      }
-    }
-    throw new ApiError(code, message);
+    await throwApiError(response, path);
   }
 
   return (await response.json()) as T;
+}
+
+async function throwApiError(response: Response, path: string): Promise<never> {
+  let code = "HTTP_ERROR";
+  let message = response.statusText;
+  try {
+    const body = (await response.json()) as {
+      error?: { code?: string; message?: string };
+    };
+    code = body.error?.code ?? code;
+    message = body.error?.message ?? message;
+  } catch {
+    // keep status text
+  }
+  if (response.status === 401 && path !== "/auth/login") {
+    clearAuthToken();
+    if (window.location.pathname !== "/login") {
+      window.location.assign("/login");
+    }
+  }
+  throw new ApiError(code, message);
 }
 
 export function getApiHealth(): Promise<ApiHealth> {
@@ -117,6 +121,79 @@ export async function getCurrentUser(): Promise<PublicUser> {
 export async function listVineyards(): Promise<Vineyard[]> {
   const body = await apiJson<ListResponse<Vineyard>>("/vineyards");
   return body.data;
+}
+
+export type VineyardWritePayload = {
+  name: string;
+  address: string;
+  timezone: string;
+};
+
+export async function createVineyard(
+  payload: VineyardWritePayload,
+): Promise<Vineyard> {
+  const body = await apiJson<{ data: Vineyard }>("/vineyards", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function updateVineyard(
+  vineyardId: string,
+  payload: Partial<VineyardWritePayload>,
+): Promise<Vineyard> {
+  const body = await apiJson<{ data: Vineyard }>(`/vineyards/${vineyardId}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function uploadVineyardLogo(
+  vineyardId: string,
+  file: File,
+): Promise<Vineyard> {
+  const token = getAuthToken();
+  const form = new FormData();
+  form.append("file", file);
+  const path = `/vineyards/${vineyardId}/logo`;
+  const response = await fetch(`${apiBase}${path}`, {
+    method: "PUT",
+    headers: {
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: form,
+  });
+  if (!response.ok) {
+    await throwApiError(response, path);
+  }
+  const body = (await response.json()) as { data: Vineyard };
+  return body.data;
+}
+
+export async function deleteVineyardLogo(vineyardId: string): Promise<Vineyard> {
+  const body = await apiJson<{ data: Vineyard }>(
+    `/vineyards/${vineyardId}/logo`,
+    { method: "DELETE" },
+  );
+  return body.data;
+}
+
+export async function fetchVineyardLogoBlob(vineyardId: string): Promise<Blob> {
+  const token = getAuthToken();
+  const path = `/vineyards/${vineyardId}/logo`;
+  const response = await fetch(`${apiBase}${path}`, {
+    headers: {
+      Accept: "image/*",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!response.ok) {
+    await throwApiError(response, path);
+  }
+  return response.blob();
 }
 
 export async function getVineyardHealth(

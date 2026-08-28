@@ -37,6 +37,7 @@ export function serializeVineyard(row: Vineyard): VineyardDto {
     timezone: row.timezone,
     healthThresholds:
       row.healthThresholds as unknown as VineyardDto["healthThresholds"],
+    hasLogo: Boolean(row.logoPath),
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     deletedAt: row.deletedAt?.toISOString() ?? null,

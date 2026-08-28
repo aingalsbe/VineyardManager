@@ -7,10 +7,18 @@ import {
   Settings2,
   SlidersHorizontal,
 } from "lucide-react";
-import { NavLink, Navigate, Outlet, useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, NavLink, Navigate, Outlet, useNavigate } from "react-router-dom";
+import type { PublicUser, Vineyard } from "@vineyard/shared";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { clearAuthToken, getAuthToken, logout } from "@/lib/api";
+import {
+  clearAuthToken,
+  fetchVineyardLogoBlob,
+  getAuthToken,
+  listVineyards,
+  logout,
+} from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -25,6 +33,12 @@ const navItems = [
 const secondaryNav = [
   { to: "/settings", label: "Settings", icon: SlidersHorizontal },
 ] as const;
+
+export type AppOutletContext = {
+  user: PublicUser | null;
+  vineyard: Vineyard | null;
+  reloadVineyard: () => Promise<void>;
+};
 
 function NavItem({
   to,
@@ -60,10 +74,82 @@ function formatRole(role: string): string {
   return role.replaceAll("_", " ");
 }
 
+function Brand({
+  vineyard,
+  logoUrl,
+}: {
+  vineyard: Vineyard | null;
+  logoUrl: string | null;
+}) {
+  return (
+    <Link to="/" className="flex min-w-0 items-center gap-3">
+      {logoUrl ? (
+        <img
+          src={logoUrl}
+          alt=""
+          className="h-10 max-w-[12rem] object-contain"
+        />
+      ) : (
+        <span className="text-sm font-semibold tracking-wide text-primary uppercase">
+          Vineyard Manager
+        </span>
+      )}
+      {vineyard ? (
+        <span className="truncate text-lg font-semibold tracking-tight">
+          {vineyard.name}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
 export function AppLayout() {
   const navigate = useNavigate();
   const { state } = useCurrentUser();
   const user = state.status === "ready" ? state.user : null;
+  const [vineyard, setVineyard] = useState<Vineyard | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+
+  const reloadVineyard = useCallback(async () => {
+    const vineyards = await listVineyards();
+    setVineyard(vineyards[0] ?? null);
+  }, []);
+
+  useEffect(() => {
+    if (!getAuthToken()) return;
+    void reloadVineyard().catch(() => {
+      setVineyard(null);
+    });
+  }, [reloadVineyard]);
+
+  useEffect(() => {
+    if (!vineyard?.hasLogo) {
+      setLogoUrl(null);
+      return;
+    }
+    let cancelled = false;
+    void fetchVineyardLogoBlob(vineyard.id)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        if (cancelled) {
+          URL.revokeObjectURL(url);
+          return;
+        }
+        setLogoUrl(url);
+      })
+      .catch(() => {
+        if (!cancelled) setLogoUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vineyard?.id, vineyard?.hasLogo]);
+
+  useEffect(() => {
+    return () => {
+      if (logoUrl) URL.revokeObjectURL(logoUrl);
+    };
+  }, [logoUrl]);
 
   if (!getAuthToken()) {
     return <Navigate to="/login" replace />;
@@ -104,78 +190,69 @@ export function AppLayout() {
   );
 
   return (
-    <div className="min-h-screen md:grid md:grid-cols-[16.5rem_1fr]">
-      <aside className="hidden border-r border-border bg-card px-4 py-6 md:flex md:flex-col">
-        <p className="px-3 text-sm font-semibold tracking-wide text-primary uppercase">
-          Vineyard Manager
-        </p>
-        <nav className="mt-6 flex flex-1 flex-col gap-1" aria-label="Main">
-          {navItems.map((item) => (
-            <NavItem key={item.to} {...item} />
+    <div className="min-h-screen">
+      <header className="border-b border-border bg-card px-4 py-3 md:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <Brand vineyard={vineyard} logoUrl={logoUrl} />
+          <div className="flex shrink-0 items-center gap-2 md:hidden">
+            {user ? (
+              <p className="hidden text-right text-sm font-medium sm:block">
+                {user.displayName}
+              </p>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => void onSignOut()}
+            >
+              Sign out
+            </Button>
+          </div>
+        </div>
+        <nav
+          className="-mx-1 mt-3 flex gap-1 overflow-x-auto pb-1 md:hidden"
+          aria-label="Main"
+        >
+          {[...navItems, ...secondaryNav].map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={"end" in item ? item.end : false}
+              className={({ isActive }) =>
+                cn(
+                  "shrink-0 rounded-md px-3 py-2 text-sm font-medium",
+                  isActive
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-background text-foreground",
+                )
+              }
+            >
+              {item.label}
+            </NavLink>
           ))}
         </nav>
-        <div className="mt-4 border-t border-border pt-4">
-          {account}
-          <nav className="mt-2 flex flex-col gap-1" aria-label="Account">
-            {secondaryNav.map((item) => (
+      </header>
+
+      <div className="md:grid md:grid-cols-[16.5rem_1fr]">
+        <aside className="hidden border-r border-border bg-card px-4 py-6 md:flex md:min-h-[calc(100vh-4.5rem)] md:flex-col">
+          <nav className="flex flex-1 flex-col gap-1" aria-label="Main">
+            {navItems.map((item) => (
               <NavItem key={item.to} {...item} />
             ))}
           </nav>
-        </div>
-      </aside>
-
-      <div className="flex min-h-screen flex-col">
-        <header className="border-b border-border bg-card px-4 py-3 md:hidden">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-sm font-semibold tracking-wide text-primary uppercase">
-              Vineyard Manager
-            </p>
-            <div className="text-right">
-              {user ? (
-                <>
-                  <p className="text-sm font-medium">{user.displayName}</p>
-                  <p className="text-xs text-muted capitalize">
-                    {formatRole(user.role)}
-                  </p>
-                </>
-              ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="mt-1 h-8 px-2"
-                onClick={() => void onSignOut()}
-              >
-                Sign out
-              </Button>
-            </div>
+          <div className="mt-4 border-t border-border pt-4">
+            {account}
+            <nav className="mt-2 flex flex-col gap-1" aria-label="Account">
+              {secondaryNav.map((item) => (
+                <NavItem key={item.to} {...item} />
+              ))}
+            </nav>
           </div>
-          <nav
-            className="-mx-1 mt-3 flex gap-1 overflow-x-auto pb-1"
-            aria-label="Main"
-          >
-            {[...navItems, ...secondaryNav].map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={"end" in item ? item.end : false}
-                className={({ isActive }) =>
-                  cn(
-                    "shrink-0 rounded-md px-3 py-2 text-sm font-medium",
-                    isActive
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-background text-foreground",
-                  )
-                }
-              >
-                {item.label}
-              </NavLink>
-            ))}
-          </nav>
-        </header>
+        </aside>
 
         <main className="flex-1 px-4 py-6 sm:px-8">
-          <Outlet context={{ user }} />
+          <Outlet context={{ user, vineyard, reloadVineyard } satisfies AppOutletContext} />
         </main>
       </div>
     </div>

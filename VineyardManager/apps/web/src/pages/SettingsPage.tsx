@@ -1,5 +1,6 @@
-import { USER_ROLES, type PublicUser } from "@vineyard/shared";
+import { USER_ROLES } from "@vineyard/shared";
 import { useOutletContext } from "react-router-dom";
+import type { AppOutletContext } from "@/components/layout/AppLayout";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 
@@ -7,10 +8,6 @@ const roleHelp: Record<(typeof USER_ROLES)[number], string> = {
   power_user: "Full setup, vineyard management, and user invites",
   manager: "Operate the vineyard and receive notifications",
   viewer: "Read-only health and suggested tasks",
-};
-
-type AppOutletContext = {
-  user: PublicUser | null;
 };
 
 export function SettingsPage() {

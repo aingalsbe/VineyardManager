@@ -72,3 +72,6 @@ venv/
 *.tgz
 .temp/
 .tmp/
+
+# User-uploaded vineyard logos (paths live in the DB)
+apps/api/uploads/

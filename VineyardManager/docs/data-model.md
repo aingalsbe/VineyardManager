@@ -26,8 +26,12 @@ Prefer explicit foreign keys, soft deletes, and audit timestamps. UUIDs for all 
 | lat / lng | decimal? | map center |
 | timezone | IANA string | |
 | healthThresholds | JSON | custom color cutoffs |
+| logoPath | string? | API-only; file on disk |
+| logoContentType | string? | `image/png` \| `image/jpeg` \| `image/webp` |
 | createdAt / updatedAt | timestamptz | |
 | deletedAt | timestamptz? | |
+
+Public vineyard JSON includes `hasLogo` and never `logoPath`.
 
 ## Block (parcel)
 

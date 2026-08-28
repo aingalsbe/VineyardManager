@@ -12,11 +12,12 @@
 - Activities / Log work: list + create (vineyard or row scope), filters, persist in Postgres
 - Auth: email + password login, JWT on `/api/v1` (except health + login), gated UI, `performedBy` on new activities
 - Health colors v1: schematic map + scores on Dashboard, chips on Rows; inventory stats moved to Setup
+- Vineyard create/edit on Setup; logo upload shown in the top header on every signed-in page
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 
 ## Next Priority
-- Store a real row layout / sketch map. The Dashboard schematic is hardcoded for Cedar Ridge codes (L1, S1, …); a grower adding their own rows needs a place to arrange them before this is a real vineyard map. Role checks on writes can follow once the health view matches the actual layout.
+- Store a real row layout / sketch map. Create/edit vineyard is live, but the Dashboard schematic is still hardcoded for Cedar Ridge codes (L1, S1, …). A grower who just created their own vineyard needs to place rows before health looks like their property. Role checks on writes can follow.
 
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager
@@ -30,4 +31,6 @@
 - Activity API: GET/POST /api/v1/vineyards/:id/activities ; GET/DELETE /api/v1/activities/:id
 - Auth API: POST /api/v1/auth/login, POST /api/v1/auth/logout, GET /api/v1/auth/me
 - Health API: GET /api/v1/vineyards/:id/health
+- Vineyard API: POST/PATCH /api/v1/vineyards, PUT/GET/DELETE /api/v1/vineyards/:id/logo
+- Setup: http://localhost:5173/setup
 - Harvest type on Log work is a note only — yield still lives on Harvests
