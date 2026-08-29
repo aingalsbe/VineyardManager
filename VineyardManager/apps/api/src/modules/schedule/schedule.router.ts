@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeTask } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
+import { requireSetup } from "../auth/auth.middleware.js";
 
 export const vineyardScheduleRouter = Router({ mergeParams: true });
 
@@ -24,6 +25,7 @@ function parseDueAt(value: string): Date {
 
 vineyardScheduleRouter.post(
   "/seed",
+  requireSetup,
   async (req: Request<{ vineyardId: string }>, res) => {
     const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
     const vineyard = await prisma.vineyard.findFirst({

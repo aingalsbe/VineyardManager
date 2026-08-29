@@ -10,11 +10,13 @@ export function VarietyCatalogCard({
   catalog,
   usedOnRows,
   onSaved,
+  readOnly = false,
 }: {
   vineyardId: string;
   catalog: string[];
   usedOnRows: string[];
   onSaved: () => Promise<void> | void;
+  readOnly?: boolean;
 }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -74,19 +76,22 @@ export function VarietyCatalogCard({
           {catalog.map((entry) => (
             <li key={entry} className="flex items-center justify-between gap-2">
               <span className="font-medium">{entry}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                disabled={saving}
-                onClick={() => void onRemove(entry)}
-              >
-                Remove
-              </Button>
+              {readOnly ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={saving}
+                  onClick={() => void onRemove(entry)}
+                >
+                  Remove
+                </Button>
+              )}
             </li>
           ))}
         </ul>
       )}
+      {readOnly ? null : (
       <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={(event) => void onAdd(event)}>
         <div className="min-w-40 flex-1">
           <Label htmlFor="variety-name">Add variety</Label>
@@ -102,6 +107,7 @@ export function VarietyCatalogCard({
           Add
         </Button>
       </form>
+      )}
       {error ? (
         <p className="mt-2 text-sm font-medium text-health-red" role="alert">
           {error}

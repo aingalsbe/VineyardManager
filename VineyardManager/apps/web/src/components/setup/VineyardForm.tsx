@@ -31,9 +31,11 @@ function emptyValues(): Values {
 export function VineyardForm({
   vineyard,
   onSaved,
+  readOnly = false,
 }: {
   vineyard: Vineyard | null;
   onSaved: () => Promise<void> | void;
+  readOnly?: boolean;
 }) {
   const titleId = useId();
   const [values, setValues] = useState<Values>(emptyValues);
@@ -95,6 +97,7 @@ export function VineyardForm({
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (readOnly) return;
     setSaving(true);
     setFormError(null);
     setFieldErrors({});
@@ -178,7 +181,7 @@ export function VineyardForm({
             onChange={(event) =>
               setValues((current) => ({ ...current, name: event.target.value }))
             }
-            disabled={saving}
+            disabled={saving || readOnly}
             required
           />
           {fieldErrors.name ? (
@@ -196,7 +199,7 @@ export function VineyardForm({
                 address: event.target.value,
               }))
             }
-            disabled={saving}
+            disabled={saving || readOnly}
             rows={3}
             required
           />
@@ -215,7 +218,7 @@ export function VineyardForm({
                 timezone: event.target.value,
               }))
             }
-            disabled={saving}
+            disabled={saving || readOnly}
             required
           />
           {fieldErrors.timezone ? (
@@ -227,9 +230,11 @@ export function VineyardForm({
             {formError}
           </p>
         ) : null}
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving…" : isEdit ? "Save vineyard" : "Create vineyard"}
-        </Button>
+        {readOnly ? null : (
+          <Button type="submit" disabled={saving}>
+            {saving ? "Saving…" : isEdit ? "Save vineyard" : "Create vineyard"}
+          </Button>
+        )}
       </form>
 
       {isEdit ? (
@@ -245,6 +250,7 @@ export function VineyardForm({
               className="mt-3 h-12 max-w-[16rem] object-contain"
             />
           ) : null}
+          {readOnly ? null : (
           <div className="mt-3 flex flex-wrap items-end gap-3">
             <div>
               <Label htmlFor="vineyard-logo">Image file</Label>
@@ -277,6 +283,7 @@ export function VineyardForm({
               </Button>
             ) : null}
           </div>
+          )}
           {logoError ? (
             <p className="mt-2 text-sm font-medium text-health-red" role="alert">
               {logoError}

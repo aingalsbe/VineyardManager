@@ -31,8 +31,8 @@ export function TaskCard({
   onStatusChange,
 }: {
   task: ScheduledTask;
-  onEdit: (task: ScheduledTask) => void;
-  onStatusChange: (task: ScheduledTask, status: TaskStatus) => void;
+  onEdit?: (task: ScheduledTask) => void;
+  onStatusChange?: (task: ScheduledTask, status: TaskStatus) => void;
 }) {
   const rowLabel = task.row
     ? `${task.row.code} · ${task.row.name}`
@@ -63,8 +63,9 @@ export function TaskCard({
           <span className="text-muted">Due </span>
           <span className="font-medium">{formatDue(task.dueAt)}</span>
         </p>
+        {onEdit || onStatusChange ? (
         <div className="flex flex-wrap gap-2">
-          {task.status !== "acknowledged" ? (
+          {onStatusChange && task.status !== "acknowledged" ? (
             <Button
               type="button"
               size="sm"
@@ -73,7 +74,7 @@ export function TaskCard({
               Mark complete
             </Button>
           ) : null}
-          {task.status === "pending" ? (
+          {onStatusChange && task.status === "pending" ? (
             <Button
               type="button"
               variant="outline"
@@ -83,15 +84,18 @@ export function TaskCard({
               Start
             </Button>
           ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onEdit(task)}
-          >
-            Edit
-          </Button>
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onEdit(task)}
+            >
+              Edit
+            </Button>
+          ) : null}
         </div>
+        ) : null}
       </div>
     </article>
   );

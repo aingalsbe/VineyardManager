@@ -12,8 +12,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useActivities } from "@/hooks/useActivities";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 export function ActivitiesPage() {
+  const { canOperate } = useRoleAccess();
   const { state, reload } = useActivities();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [presetType, setPresetType] = useState<ActivityType | undefined>();
@@ -42,7 +44,7 @@ export function ActivitiesPage() {
         title="Log work"
         description="Record pruning, watering, and other work on the whole vineyard or a row."
         actions={
-          ready ? (
+          ready && canOperate ? (
             <Button type="button" onClick={() => openCreate()}>
               Log work
             </Button>
@@ -86,6 +88,7 @@ export function ActivitiesPage() {
 
       {ready ? (
         <>
+          {canOperate ? (
           <div className="mb-5 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {ACTIVITY_TYPES.map((type) => (
               <Button
@@ -98,6 +101,7 @@ export function ActivitiesPage() {
               </Button>
             ))}
           </div>
+          ) : null}
 
           <div className="mb-5 grid gap-3 sm:grid-cols-2">
             <label className="block">
@@ -136,9 +140,11 @@ export function ActivitiesPage() {
             <EmptyState
               title="No work logged yet"
               action={
-                <Button type="button" onClick={() => openCreate()}>
-                  Log work
-                </Button>
+                canOperate ? (
+                  <Button type="button" onClick={() => openCreate()}>
+                    Log work
+                  </Button>
+                ) : undefined
               }
             >
               Record pruning, watering, or an observation to start the log.

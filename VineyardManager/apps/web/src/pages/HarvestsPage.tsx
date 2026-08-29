@@ -8,8 +8,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useHarvests } from "@/hooks/useHarvests";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 
 export function HarvestsPage() {
+  const { canOperate } = useRoleAccess();
   const { state, reload } = useHarvests();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Harvest | null>(null);
@@ -42,7 +44,7 @@ export function HarvestsPage() {
         title="Harvests"
         description="Yield logged against a row: amount, unit, date, and who picked."
         actions={
-          ready ? (
+          ready && canOperate ? (
             <Button type="button" onClick={() => openCreate()}>
               Record harvest
             </Button>
@@ -106,9 +108,11 @@ export function HarvestsPage() {
             <EmptyState
               title="No harvests yet"
               action={
-                <Button type="button" onClick={() => openCreate()}>
-                  Record harvest
-                </Button>
+                canOperate ? (
+                  <Button type="button" onClick={() => openCreate()}>
+                    Record harvest
+                  </Button>
+                ) : undefined
               }
             >
               Log yield against a row after picking.
@@ -121,7 +125,10 @@ export function HarvestsPage() {
             <ul className="space-y-3">
               {visible.map((harvest) => (
                 <li key={harvest.id}>
-                  <HarvestCard harvest={harvest} onEdit={openEdit} />
+                  <HarvestCard
+                    harvest={harvest}
+                    onEdit={canOperate ? openEdit : undefined}
+                  />
                 </li>
               ))}
             </ul>

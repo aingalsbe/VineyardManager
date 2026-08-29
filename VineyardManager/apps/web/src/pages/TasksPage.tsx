@@ -12,10 +12,12 @@ import { TaskCard } from "@/components/tasks/TaskCard";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
 import { ApiError, updateTask } from "@/lib/api";
 
 export function TasksPage() {
+  const { canOperate } = useRoleAccess();
   const { state, reload } = useVineyardTasks();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ScheduledTask | null>(null);
@@ -75,7 +77,7 @@ export function TasksPage() {
             : "Upcoming work and notifications. Link each task to a row when it applies to one place."
         }
         actions={
-          vineyardReady ? (
+          vineyardReady && canOperate ? (
             <Button type="button" onClick={openCreate}>
               New task
             </Button>
@@ -163,9 +165,11 @@ export function TasksPage() {
             <EmptyState
               title="No tasks yet"
               action={
-                <Button type="button" onClick={openCreate}>
-                  New task
-                </Button>
+                canOperate ? (
+                  <Button type="button" onClick={openCreate}>
+                    New task
+                  </Button>
+                ) : undefined
               }
             >
               Add pruning, watering, harvest, or weather work for a row.
@@ -180,9 +184,11 @@ export function TasksPage() {
                 <li key={task.id}>
                   <TaskCard
                     task={task}
-                    onEdit={openEdit}
-                    onStatusChange={(item, status) =>
-                      void handleStatusChange(item, status)
+                    onEdit={canOperate ? openEdit : undefined}
+                    onStatusChange={
+                      canOperate
+                        ? (item, status) => void handleStatusChange(item, status)
+                        : undefined
                     }
                   />
                 </li>

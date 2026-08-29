@@ -11,11 +11,13 @@ import { StatCard } from "@/components/StatCard";
 import type { AppOutletContext } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { summarizeRows } from "@/lib/summarize-rows";
 
 export function SetupPage() {
+  const { canSetup } = useRoleAccess();
   const { vineyard, reloadVineyard } = useOutletContext<AppOutletContext>();
   const { state, reload } = useVineyardRows();
   const health = useVineyardHealth();
@@ -35,6 +37,11 @@ export function SetupPage() {
         title="Setup"
         description="Vineyard identity, rows on the pad, grape names, this year’s calendar, and health cutoffs."
       />
+      {canSetup ? null : (
+        <p className="mb-6 rounded-xl border border-border bg-card px-4 py-3 text-muted">
+          Only a power user can change vineyard setup.
+        </p>
+      )}
 
       {state.status === "loading" ? (
         <div className="mb-6 grid gap-4 sm:grid-cols-3" aria-busy="true">
@@ -64,7 +71,11 @@ export function SetupPage() {
         {state.status === "loading" && !current ? (
           <Card className="min-h-40 animate-pulse bg-card/70" />
         ) : (
-          <VineyardForm vineyard={current} onSaved={onVineyardSaved} />
+          <VineyardForm
+            vineyard={current}
+            readOnly={!canSetup}
+            onSaved={onVineyardSaved}
+          />
         )}
       </div>
 
@@ -110,6 +121,7 @@ export function SetupPage() {
                 <RowLayoutEditor
                   vineyardId={current.id}
                   rows={state.rows}
+                  readOnly={!canSetup}
                   savedLayout={current.rowLayout}
                   healthByRowId={
                     new Map(
@@ -130,6 +142,7 @@ export function SetupPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <VarietyCatalogCard
             vineyardId={current.id}
+            readOnly={!canSetup}
             catalog={current.varietyCatalog}
             usedOnRows={
               state.status === "ready"
@@ -142,10 +155,12 @@ export function SetupPage() {
             vineyardId={current.id}
             address={current.address}
             timezone={current.timezone}
+            readOnly={!canSetup}
           />
           <div className="md:col-span-2">
             <HealthThresholdsCard
               vineyardId={current.id}
+              readOnly={!canSetup}
               greenMin={current.healthThresholds.greenMin}
               yellowMin={current.healthThresholds.yellowMin}
               orangeMin={current.healthThresholds.orangeMin}

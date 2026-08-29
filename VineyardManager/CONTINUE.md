@@ -21,16 +21,17 @@
 - UI chrome is cool blue (buttons, nav, surfaces); health overlay stays green / yellow / orange / red
 - Header shows a larger logo only (vineyard name is not beside it); Dashboard pins vineyard health + map above the work lists
 - Metrics page: health / harvest / activity trends (month, quarter, year); variety rollups sum rows that share a grape; 4-year seed history
+- Role checks on writes: viewer is read-only; manager operates (work, harvest, tasks, rows); power_user also does Setup. JWT 403 FORBIDDEN
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 
 ## Next Priority
-- Role checks on writes. Viewer vs manager vs power_user is still honor-system. No photo underlay.
+- Invite managers and viewers (power_user). GET/POST/PATCH/DELETE /vineyards/:id/users is still outlined, not shipped. No photo underlay.
 
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager
 - Use the existing Start/Stop scripts when resuming
-- Demo login: owner@vineyard.local / VineyardDev1! (manager@vineyard.local uses the same password)
+- Demo login: owner@vineyard.local / VineyardDev1! (manager@ and viewer@ use the same password)
 - Dashboard: http://localhost:5173/
 - Rows: http://localhost:5173/rows
 - Tasks: http://localhost:5173/tasks

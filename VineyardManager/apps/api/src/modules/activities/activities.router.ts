@@ -9,7 +9,7 @@ import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeActivity } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
-import { getAuthUser } from "../auth/auth.middleware.js";
+import { getAuthUser, requireOperate } from "../auth/auth.middleware.js";
 
 export const vineyardActivitiesRouter = Router({ mergeParams: true });
 export const activitiesRouter = Router();
@@ -101,6 +101,7 @@ vineyardActivitiesRouter.get(
 
 vineyardActivitiesRouter.post(
   "/",
+  requireOperate,
   async (req: Request<{ vineyardId: string }>, res) => {
     const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
     await requireVineyard(vineyardId);
@@ -183,7 +184,7 @@ activitiesRouter.get("/:id", async (req: Request<{ id: string }>, res) => {
   });
 });
 
-activitiesRouter.delete("/:id", async (req: Request<{ id: string }>, res) => {
+activitiesRouter.delete("/:id", requireOperate, async (req: Request<{ id: string }>, res) => {
   const id = idParam.parse(req.params.id);
   const existing = await prisma.activity.findFirst({
     where: { id, deletedAt: null },

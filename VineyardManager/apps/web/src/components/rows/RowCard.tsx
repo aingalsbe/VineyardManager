@@ -28,8 +28,8 @@ export function RowCard({
   highlighted = false,
 }: {
   row: Row;
-  onEdit: (row: Row) => void;
-  onRecordHarvest: (row: Row) => void;
+  onEdit?: (row: Row) => void;
+  onRecordHarvest?: (row: Row) => void;
   health?: { color: HealthColor; reason?: string } | null;
   highlighted?: boolean;
 }) {
@@ -59,22 +59,26 @@ export function RowCard({
           <Badge variant={statusVariant[row.status]} className="capitalize">
             {row.status}
           </Badge>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onEdit(row)}
-          >
-            Edit
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onRecordHarvest(row)}
-          >
-            Record harvest
-          </Button>
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onEdit(row)}
+            >
+              Edit
+            </Button>
+          ) : null}
+          {onRecordHarvest ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onRecordHarvest(row)}
+            >
+              Record harvest
+            </Button>
+          ) : null}
         </div>
       </div>
       <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">

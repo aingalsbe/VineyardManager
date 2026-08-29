@@ -14,6 +14,8 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 
 Bearer JWT (`Authorization: Bearer <token>`). All `/api/v1/*` routes require auth except `GET /health` and `POST /auth/login`.
 
+Writes check the JWT `role`. **Operate** (`manager` | `power_user`): activities, harvests, tasks, rows. **Setup** (`power_user` only): vineyard create/PATCH, logo, calendar seed. Viewers get `403 FORBIDDEN` `{ "error": { "code": "FORBIDDEN", "message": "Your role cannot change this." } }` on writes. GETs stay any signed-in user. Invites are not shipped.
+
 Shipped:
 
 | Method | Path | Description |

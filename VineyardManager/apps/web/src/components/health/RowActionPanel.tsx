@@ -26,6 +26,7 @@ export function RowActionPanel({
   health,
   tasks,
   busy = false,
+  canWrite = true,
   suspendEscape = false,
   error,
   onClose,
@@ -36,6 +37,7 @@ export function RowActionPanel({
   health: RowHealth | null;
   tasks: ScheduledTask[];
   busy?: boolean;
+  canWrite?: boolean;
   suspendEscape?: boolean;
   error?: string | null;
   onClose: () => void;
@@ -170,6 +172,8 @@ export function RowActionPanel({
         ) : null}
 
         <div className="mt-6 flex flex-col gap-2">
+          {canWrite ? (
+            <>
           {matchedTasks.map(({ task }) => (
             <Button
               key={task.id}
@@ -249,6 +253,8 @@ export function RowActionPanel({
           >
             Log other work
           </Button>
+            </>
+          ) : null}
           <Button asChild variant="link" className="justify-start px-0">
             <Link to={`/rows?row=${encodeURIComponent(row.code)}`}>Open row</Link>
           </Button>

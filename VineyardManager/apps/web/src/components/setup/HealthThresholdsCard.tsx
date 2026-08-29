@@ -13,12 +13,14 @@ export function HealthThresholdsCard({
   yellowMin,
   orangeMin,
   onSaved,
+  readOnly = false,
 }: {
   vineyardId: string;
   greenMin: number;
   yellowMin: number;
   orangeMin: number;
   onSaved: () => Promise<void> | void;
+  readOnly?: boolean;
 }) {
   const [green, setGreen] = useState(String(greenMin));
   const [yellow, setYellow] = useState(String(yellowMin));
@@ -59,6 +61,7 @@ export function HealthThresholdsCard({
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
+    if (readOnly) return;
     await save({
       greenMin: Number(green),
       yellowMin: Number(yellow),
@@ -86,7 +89,7 @@ export function HealthThresholdsCard({
               inputMode="numeric"
               value={green}
               onChange={(event) => setGreen(event.target.value)}
-              disabled={saving}
+              disabled={saving || readOnly}
             />
           </div>
           <div>
@@ -96,7 +99,7 @@ export function HealthThresholdsCard({
               inputMode="numeric"
               value={yellow}
               onChange={(event) => setYellow(event.target.value)}
-              disabled={saving}
+              disabled={saving || readOnly}
             />
           </div>
           <div>
@@ -106,7 +109,7 @@ export function HealthThresholdsCard({
               inputMode="numeric"
               value={orange}
               onChange={(event) => setOrange(event.target.value)}
-              disabled={saving}
+              disabled={saving || readOnly}
             />
           </div>
         </div>
@@ -135,6 +138,7 @@ export function HealthThresholdsCard({
             {error}
           </p>
         ) : null}
+        {readOnly ? null : (
         <div className="flex flex-wrap gap-2">
           <Button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Save cutoffs"}
@@ -148,6 +152,7 @@ export function HealthThresholdsCard({
             Reset defaults
           </Button>
         </div>
+        )}
       </form>
     </Card>
   );

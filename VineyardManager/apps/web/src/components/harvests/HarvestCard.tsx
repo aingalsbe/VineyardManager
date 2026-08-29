@@ -15,7 +15,7 @@ export function HarvestCard({
   onEdit,
 }: {
   harvest: Harvest;
-  onEdit: (harvest: Harvest) => void;
+  onEdit?: (harvest: Harvest) => void;
 }) {
   const rowLabel = harvest.row
     ? `${harvest.row.code} · ${harvest.row.name}`
@@ -39,14 +39,16 @@ export function HarvestCard({
         </div>
         <div className="flex items-center gap-2">
           <Badge variant="muted">{harvest.yieldUnit}</Badge>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => onEdit(harvest)}
-          >
-            Edit
-          </Button>
+          {onEdit ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onEdit(harvest)}
+            >
+              Edit
+            </Button>
+          ) : null}
         </div>
       </div>
     </article>

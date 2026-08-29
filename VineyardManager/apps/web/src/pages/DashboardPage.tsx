@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { useApiHealth } from "@/hooks/useApiHealth";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useHarvests } from "@/hooks/useHarvests";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
@@ -45,6 +46,7 @@ function isOpenTask(task: ScheduledTask): boolean {
 }
 
 export function DashboardPage() {
+  const { canOperate } = useRoleAccess();
   const api = useApiHealth();
   const rows = useVineyardRows();
   const tasks = useVineyardTasks();
@@ -279,12 +281,16 @@ export function DashboardPage() {
                   Jump into the work you do most often.
                 </CardDescription>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <Button asChild>
-                    <Link to="/harvests">Record harvest</Link>
-                  </Button>
-                  <Button asChild>
-                    <Link to="/tasks">Add task</Link>
-                  </Button>
+                  {canOperate ? (
+                    <>
+                      <Button asChild>
+                        <Link to="/harvests">Record harvest</Link>
+                      </Button>
+                      <Button asChild>
+                        <Link to="/tasks">Add task</Link>
+                      </Button>
+                    </>
+                  ) : null}
                   <Button asChild variant="outline">
                     <Link to="/rows">View rows</Link>
                   </Button>
@@ -368,6 +374,7 @@ export function DashboardPage() {
               row={selectedRow}
               health={selectedHealth}
               tasks={readyTasks}
+              canWrite={canOperate}
               busy={actionBusy}
               suspendEscape={activityOpen}
               error={actionError}

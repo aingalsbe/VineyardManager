@@ -9,6 +9,7 @@ import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeTask } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
+import { requireOperate } from "../auth/auth.middleware.js";
 
 export const tasksRouter = Router({ mergeParams: true });
 
@@ -75,7 +76,7 @@ tasksRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
   res.json({ data: tasks.map(serializeTask) });
 });
 
-tasksRouter.post("/", async (req: Request<{ vineyardId: string }>, res) => {
+tasksRouter.post("/", requireOperate, async (req: Request<{ vineyardId: string }>, res) => {
   const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
   await requireVineyard(vineyardId);
   const body = createTaskSchema.parse(req.body);
@@ -103,6 +104,7 @@ tasksRouter.post("/", async (req: Request<{ vineyardId: string }>, res) => {
 
 tasksRouter.patch(
   "/:taskId",
+  requireOperate,
   async (req: Request<{ vineyardId: string; taskId: string }>, res) => {
     const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
     const taskId = taskIdParam.parse(req.params.taskId);

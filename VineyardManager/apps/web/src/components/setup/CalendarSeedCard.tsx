@@ -8,10 +8,12 @@ export function CalendarSeedCard({
   vineyardId,
   address,
   timezone,
+  readOnly = false,
 }: {
   vineyardId: string;
   address: string;
   timezone: string;
+  readOnly?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +49,11 @@ export function CalendarSeedCard({
         {address} · {timezone}
       </p>
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button type="button" disabled={busy} onClick={() => void onSeed()}>
+        <Button
+          type="button"
+          disabled={busy || readOnly}
+          onClick={() => void onSeed()}
+        >
           {busy ? "Seeding…" : "Seed this year’s calendar"}
         </Button>
         <Button asChild variant="outline">

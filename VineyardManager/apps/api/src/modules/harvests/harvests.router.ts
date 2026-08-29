@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeHarvest } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
+import { requireOperate } from "../auth/auth.middleware.js";
 
 export const harvestsRouter = Router();
 
@@ -63,7 +64,7 @@ harvestsRouter.get("/:id", async (req: Request<{ id: string }>, res) => {
   res.json({ data: serializeHarvest(harvest) });
 });
 
-harvestsRouter.post("/", async (req, res) => {
+harvestsRouter.post("/", requireOperate, async (req, res) => {
   const body = createHarvestSchema.parse(req.body);
   const row = await requireRow(body.rowId);
 
@@ -83,7 +84,7 @@ harvestsRouter.post("/", async (req, res) => {
   res.status(201).json({ data: serializeHarvest(harvest) });
 });
 
-harvestsRouter.patch("/:id", async (req: Request<{ id: string }>, res) => {
+harvestsRouter.patch("/:id", requireOperate, async (req: Request<{ id: string }>, res) => {
   const id = idParam.parse(req.params.id);
   const body = updateHarvestSchema.parse(req.body);
 
@@ -119,7 +120,7 @@ harvestsRouter.patch("/:id", async (req: Request<{ id: string }>, res) => {
   res.json({ data: serializeHarvest(harvest) });
 });
 
-harvestsRouter.delete("/:id", async (req: Request<{ id: string }>, res) => {
+harvestsRouter.delete("/:id", requireOperate, async (req: Request<{ id: string }>, res) => {
   const id = idParam.parse(req.params.id);
   const existing = await prisma.harvest.findFirst({
     where: { id, deletedAt: null },

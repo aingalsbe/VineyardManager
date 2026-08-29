@@ -18,6 +18,7 @@ const prisma = new PrismaClient();
 
 const SEED_OWNER_EMAIL = "owner@vineyard.local";
 const SEED_MANAGER_EMAIL = "manager@vineyard.local";
+const SEED_VIEWER_EMAIL = "viewer@vineyard.local";
 const SEED_PASSWORD = "VineyardDev1!";
 const SEED_VINEYARD_NAME = "Abide in the Vine Vineyard";
 const LEGACY_SEED_VINEYARD_NAME = "Cedar Ridge Vineyard";
@@ -324,6 +325,28 @@ async function main() {
     },
   });
 
+  await prisma.user.upsert({
+    where: { email: SEED_VIEWER_EMAIL },
+    update: {
+      displayName: "Sam Rivera",
+      role: UserRole.viewer,
+      passwordHash,
+      deletedAt: null,
+    },
+    create: {
+      email: SEED_VIEWER_EMAIL,
+      passwordHash,
+      displayName: "Sam Rivera",
+      role: UserRole.viewer,
+      notificationPrefs: {
+        ...defaultPrefs,
+        emailEnabled: false,
+        pushEnabled: false,
+        frequency: "as_needed",
+      },
+    },
+  });
+
   const existingVineyard = await prisma.vineyard.findFirst({
     where: {
       deletedAt: null,
@@ -600,7 +623,7 @@ async function main() {
   ]);
 
   console.log(
-    `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks, ${harvestCount} harvests, ${activityCount} activities.`,
+    `Seeded ${SEED_VINEYARD_NAME}: 3 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks, ${harvestCount} harvests, ${activityCount} activities.`,
   );
 }
 

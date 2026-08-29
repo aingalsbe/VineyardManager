@@ -56,12 +56,14 @@ export function RowLayoutEditor({
   savedLayout,
   healthByRowId,
   onSaved,
+  readOnly = false,
 }: {
   vineyardId: string;
   rows: Row[];
   savedLayout: RowLayout | null;
   healthByRowId: Map<string, RowHealth>;
   onSaved: () => Promise<void> | void;
+  readOnly?: boolean;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const placementsRef = useRef<RowLayoutPlacement[]>([]);
@@ -245,8 +247,11 @@ export function RowLayoutEditor({
               length={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches)}
               color={colorFor(row)}
               quiet={quiet(row.status)}
-              showRotateHandle
-              onMovePointerDown={(event) => {
+              showRotateHandle={!readOnly}
+              onMovePointerDown={
+                readOnly
+                  ? undefined
+                  : (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 const svg = svgRef.current;
@@ -259,11 +264,15 @@ export function RowLayoutEditor({
                   offsetY: point.y - item.y,
                 });
               }}
-              onRotatePointerDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                setDrag({ kind: "rotate", rowId: item.rowId });
-              }}
+              onRotatePointerDown={
+                readOnly
+                  ? undefined
+                  : (event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setDrag({ kind: "rotate", rowId: item.rowId });
+                    }
+              }
             />
           );
         })}
@@ -283,7 +292,9 @@ export function RowLayoutEditor({
                     minWidth: barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches) / 2,
                     height: BAR_THICKNESS_PX,
                   }}
+                  disabled={readOnly}
                   onPointerDown={(event) => {
+                    if (readOnly) return;
                     event.preventDefault();
                     setDrag({ kind: "place", rowId: row.id });
                   }}
@@ -302,6 +313,7 @@ export function RowLayoutEditor({
         </p>
       ) : null}
 
+      {readOnly ? null : (
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           type="button"
@@ -319,6 +331,7 @@ export function RowLayoutEditor({
           Reset to default schematic
         </Button>
       </div>
+      )}
     </div>
   );
 }

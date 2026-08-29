@@ -9,9 +9,11 @@ import { RowFormDialog } from "@/components/rows/RowFormDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 
 export function RowsPage() {
+  const { canOperate } = useRoleAccess();
   const { state, reload } = useVineyardRows();
   const health = useVineyardHealth();
   const [searchParams] = useSearchParams();
@@ -49,7 +51,7 @@ export function RowsPage() {
             : "Rows are the working units of the vineyard: variety, length, and how many vines are on the wire."
         }
         actions={
-          vineyardReady ? (
+          vineyardReady && canOperate ? (
             <Button type="button" onClick={openCreate}>
               New row
             </Button>
@@ -99,9 +101,11 @@ export function RowsPage() {
         <EmptyState
           title="No rows yet"
           action={
-            <Button type="button" onClick={openCreate}>
-              New row
-            </Button>
+            canOperate ? (
+              <Button type="button" onClick={openCreate}>
+                New row
+              </Button>
+            ) : undefined
           }
         >
           {state.vineyard.name} has no rows yet. Add the first one.
@@ -121,8 +125,8 @@ export function RowsPage() {
               <li key={row.id} id={`row-${row.code}`}>
                 <RowCard
                   row={row}
-                  onEdit={openEdit}
-                  onRecordHarvest={setHarvestRow}
+                  onEdit={canOperate ? openEdit : undefined}
+                  onRecordHarvest={canOperate ? setHarvestRow : undefined}
                   health={
                     rowHealth
                       ? {

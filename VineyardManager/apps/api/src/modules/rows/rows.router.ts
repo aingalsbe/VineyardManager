@@ -5,6 +5,7 @@ import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeRow } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
+import { requireOperate } from "../auth/auth.middleware.js";
 
 export const rowsRouter = Router({ mergeParams: true });
 
@@ -48,7 +49,7 @@ rowsRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
   res.json({ data: rows.map(serializeRow) });
 });
 
-rowsRouter.post("/", async (req: Request<{ vineyardId: string }>, res) => {
+rowsRouter.post("/", requireOperate, async (req: Request<{ vineyardId: string }>, res) => {
   const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
   await requireVineyard(vineyardId);
   const body = createRowSchema.parse(req.body);
@@ -76,6 +77,7 @@ rowsRouter.post("/", async (req: Request<{ vineyardId: string }>, res) => {
 
 rowsRouter.patch(
   "/:rowId",
+  requireOperate,
   async (req: Request<{ vineyardId: string; rowId: string }>, res) => {
     const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
     const rowId = rowIdParam.parse(req.params.rowId);

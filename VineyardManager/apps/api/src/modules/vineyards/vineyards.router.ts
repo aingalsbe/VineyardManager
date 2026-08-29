@@ -10,7 +10,7 @@ import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeVineyard } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
-import { getAuthUser } from "../auth/auth.middleware.js";
+import { getAuthUser, requireSetup } from "../auth/auth.middleware.js";
 import {
   LOGO_MAX_BYTES,
   LOGO_MIME_TO_EXT,
@@ -83,7 +83,7 @@ vineyardsRouter.get("/", async (_req, res) => {
   res.json({ data: vineyards.map(serializeVineyard) });
 });
 
-vineyardsRouter.post("/", async (req, res) => {
+vineyardsRouter.post("/", requireSetup, async (req, res) => {
   const body = createVineyardSchema.parse(req.body);
   const actor = getAuthUser(req);
 
@@ -126,6 +126,7 @@ vineyardsRouter.get("/:id/logo", async (req: Request<{ id: string }>, res) => {
 
 vineyardsRouter.put(
   "/:id/logo",
+  requireSetup,
   handleLogoUpload,
   async (req: Request<{ id: string }>, res) => {
     const id = idParam.parse(req.params.id);
@@ -152,7 +153,7 @@ vineyardsRouter.put(
   },
 );
 
-vineyardsRouter.delete("/:id/logo", async (req: Request<{ id: string }>, res) => {
+vineyardsRouter.delete("/:id/logo", requireSetup, async (req: Request<{ id: string }>, res) => {
   const id = idParam.parse(req.params.id);
   const vineyard = await requireVineyard(id);
   await removeLogoFile(vineyard.logoPath);
@@ -169,7 +170,7 @@ vineyardsRouter.get("/:id", async (req: Request<{ id: string }>, res) => {
   res.json({ data: serializeVineyard(vineyard) });
 });
 
-vineyardsRouter.patch("/:id", async (req: Request<{ id: string }>, res) => {
+vineyardsRouter.patch("/:id", requireSetup, async (req: Request<{ id: string }>, res) => {
   const id = idParam.parse(req.params.id);
   const body = updateVineyardSchema.parse(req.body);
   await requireVineyard(id);
