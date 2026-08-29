@@ -22,6 +22,13 @@ function parseRowLayout(value: unknown): RowLayout | null {
   return parsed.success ? parsed.data : null;
 }
 
+function parseVarietyCatalog(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (item): item is string => typeof item === "string" && item.trim().length > 0,
+  );
+}
+
 export function serializePublicUser(
   user: Pick<User, "id" | "email" | "displayName" | "role">,
 ): PublicUser {
@@ -44,6 +51,7 @@ export function serializeVineyard(row: Vineyard): VineyardDto {
     timezone: row.timezone,
     healthThresholds:
       row.healthThresholds as unknown as VineyardDto["healthThresholds"],
+    varietyCatalog: parseVarietyCatalog(row.varietyCatalog),
     hasLogo: Boolean(row.logoPath),
     rowLayout: parseRowLayout(row.rowLayout),
     createdAt: row.createdAt.toISOString(),

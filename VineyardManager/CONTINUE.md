@@ -16,11 +16,13 @@
 - Setup row layout editor; Vineyard.rowLayout saved; bar length from vineCount; Dashboard uses saved positions + health colors; seed vineyard named Abide in the Vine Vineyard
 - 4 N–S rows at 23 vines / 161', 11 E–W rows at 10 vines / 70'; dashboard map scales to show every row with no scroll
 - Dashboard map bars open a row action panel; complete overdue task or log watering/pest/weed against that row; health reloads after save
+- Setup varieties catalog, calendar seed, and health cutoff editor
+- Seed + default layout use NS1–NS4 / EW1–EW11 (L/S codes rename in place on re-seed)
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 
 ## Next Priority
-- Role checks on writes. Map actions are live; viewer vs manager vs power_user is still honor-system. Weekly task generation and a rename pass on L4/S4–S11 can wait until edits are actually restricted. No photo underlay.
+- Role checks on writes. Viewer vs manager vs power_user is still honor-system. No photo underlay.
 
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager

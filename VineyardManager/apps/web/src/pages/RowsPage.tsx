@@ -144,6 +144,12 @@ export function RowsPage() {
           <RowFormDialog
             vineyardId={state.vineyard.id}
             row={editing}
+            varietyOptions={[
+              ...new Set([
+                ...state.vineyard.varietyCatalog,
+                ...state.rows.map((row) => row.variety),
+              ]),
+            ].sort((a, b) => a.localeCompare(b))}
             open={dialogOpen}
             onClose={() => setDialogOpen(false)}
             onSaved={() => reload({ silent: true })}

@@ -25,7 +25,8 @@ Prefer explicit foreign keys, soft deletes, and audit timestamps. UUIDs for all 
 | address | string | weather + calendar seeding |
 | lat / lng | decimal? | map center |
 | timezone | IANA string | |
-| healthThresholds | JSON | custom color cutoffs |
+| healthThresholds | JSON | custom color cutoffs `{ greenMin, yellowMin, orangeMin }` |
+| varietyCatalog | JSON | string[] of grape names (not a Variety table) |
 | rowLayout | JSON? | `{ version: 1, rows: [{ rowId, x, y, rotationDeg }] }` |
 | logoPath | string? | API-only; file on disk |
 | logoContentType | string? | `image/png` \| `image/jpeg` \| `image/webp` |
@@ -40,15 +41,7 @@ Optional future grouping of rows (irrigation zone, hillside). Not persisted yet.
 
 ## Variety
 
-| Field | Type | Notes |
-| --- | --- | --- |
-| id | UUID | PK |
-| vineyardId | UUID | FK |
-| name | string | e.g. Norton, Chardonel |
-| source | `manual` \| `auto_lookup` | |
-| characteristics | JSON | water needs, prune window, pests |
-| createdAt / updatedAt | timestamptz | |
-| deletedAt | timestamptz? | |
+Not a table yet. Names live on `Vineyard.varietyCatalog` and as a string on each `Row.variety`. Auto-lookup / characteristics stay future.
 
 ## Row
 

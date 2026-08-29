@@ -40,7 +40,7 @@ Shipped:
 | GET | `/vineyards` | List (`hasLogo`, `rowLayout` on each; never `logoPath`) |
 | POST | `/vineyards` | Create (name, address, timezone). `409 CONFLICT` if one already exists |
 | GET | `/vineyards/{id}` | Detail |
-| PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng, `rowLayout` |
+| PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng, `rowLayout`, `healthThresholds`, `varietyCatalog` |
 | PUT | `/vineyards/{id}/logo` | Multipart field `file` (PNG/JPEG/WebP, ≤1 MB) |
 | GET | `/vineyards/{id}/logo` | Image bytes. Auth required. `404` if none |
 | DELETE | `/vineyards/{id}/logo` | Remove file + clear fields |
@@ -53,13 +53,14 @@ Out of this slice:
 
 ## Varieties
 
+Names are `varietyCatalog` on the vineyard (PATCH above). Row.variety stays a string.
+
+Out of this slice (no Variety table):
+
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/varieties` | List |
-| POST | `/vineyards/{vid}/varieties` | Add (optional auto-lookup) |
-| GET | `/varieties/{id}` | Detail |
-| PATCH | `/varieties/{id}` | Update |
-| DELETE | `/varieties/{id}` | Soft-delete |
+| GET | `/vineyards/{vid}/varieties` | Future catalog entity |
+| POST | `/vineyards/{vid}/varieties` | Future + auto-lookup |
 
 ## Rows and vines
 
@@ -130,12 +131,19 @@ Out of this slice:
 
 ## Notifications and schedule
 
+Shipped:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/vineyards/{vid}/schedule/seed` | Idempotent annual maintenance tasks for the current year. `{ created, skipped, tasks }` |
+
+Out of this slice:
+
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/notifications` | Pending + recent |
 | PATCH | `/notifications/{id}` | Acknowledge / dismiss |
 | GET | `/vineyards/{vid}/schedule` | Upcoming calculated tasks |
-| POST | `/vineyards/{vid}/schedule/seed` | Seed annual calendar from address + varieties |
 
 ## Weather
 

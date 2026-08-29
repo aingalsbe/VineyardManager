@@ -85,6 +85,7 @@ model Vineyard {
   lng              Decimal?  @db.Decimal(9, 6)
   timezone         String
   healthThresholds Json      @map("health_thresholds")
+  varietyCatalog   Json      @default("[]") @map("variety_catalog")
   rowLayout        Json?     @map("row_layout")
   logoPath         String?   @map("logo_path")
   logoContentType  String?   @map("logo_content_type")

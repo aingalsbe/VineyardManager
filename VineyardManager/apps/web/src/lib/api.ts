@@ -11,6 +11,7 @@ import {
   type ScheduledTask,
   type TaskStatus,
   type RowLayout,
+  type HealthThresholds,
   type Vineyard,
   type VineyardHealth,
 } from "@vineyard/shared";
@@ -129,6 +130,8 @@ export type VineyardWritePayload = {
   address: string;
   timezone: string;
   rowLayout?: RowLayout | null;
+  healthThresholds?: HealthThresholds;
+  varietyCatalog?: string[];
 };
 
 export async function createVineyard(
@@ -149,6 +152,16 @@ export async function updateVineyard(
     method: "PATCH",
     body: JSON.stringify(payload),
   });
+  return body.data;
+}
+
+export async function seedVineyardCalendar(vineyardId: string): Promise<{
+  created: number;
+  skipped: number;
+}> {
+  const body = await apiJson<{
+    data: { created: number; skipped: number };
+  }>(`/vineyards/${vineyardId}/schedule/seed`, { method: "POST" });
   return body.data;
 }
 

@@ -2,6 +2,9 @@ import { useOutletContext } from "react-router-dom";
 import { formatRowLength, type Vineyard } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
+import { CalendarSeedCard } from "@/components/setup/CalendarSeedCard";
+import { HealthThresholdsCard } from "@/components/setup/HealthThresholdsCard";
+import { VarietyCatalogCard } from "@/components/setup/VarietyCatalogCard";
 import { VineyardForm } from "@/components/setup/VineyardForm";
 import { RowLayoutEditor } from "@/components/setup/RowLayoutEditor";
 import { StatCard } from "@/components/StatCard";
@@ -11,21 +14,6 @@ import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { summarizeRows } from "@/lib/summarize-rows";
-
-const laterSteps = [
-  {
-    title: "Varieties",
-    body: "Add the grapes you grow. Lookup can fill water needs and prune windows later.",
-  },
-  {
-    title: "Calendar",
-    body: "Set the vineyard address so a typical Jan–Dec schedule can be seeded and then edited.",
-  },
-  {
-    title: "Health colors",
-    body: "Keep the default green / yellow / orange / red cutoffs or tighten how soon a missed task turns orange.",
-  },
-];
 
 export function SetupPage() {
   const { vineyard, reloadVineyard } = useOutletContext<AppOutletContext>();
@@ -45,7 +33,7 @@ export function SetupPage() {
     <div className="mx-auto max-w-5xl">
       <PageHeader
         title="Setup"
-        description="Create or edit the vineyard, then add rows. Varieties, calendar, and health cutoffs stay later."
+        description="Vineyard identity, rows on the pad, grape names, this year’s calendar, and health cutoffs."
       />
 
       {state.status === "loading" ? (
@@ -138,19 +126,37 @@ export function SetupPage() {
         </section>
       ) : null}
 
-      <ol className="grid gap-4 md:grid-cols-2">
-        {laterSteps.map((step, index) => (
-          <li key={step.title}>
-            <Card>
-              <p className="text-sm font-medium text-primary">
-                Step {([1, 3, 4] as const)[index] ?? index + 1}
-              </p>
-              <CardTitle className="mt-1">{step.title}</CardTitle>
-              <CardDescription>{step.body}</CardDescription>
-            </Card>
-          </li>
-        ))}
-      </ol>
+      {current ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          <VarietyCatalogCard
+            vineyardId={current.id}
+            catalog={current.varietyCatalog}
+            usedOnRows={
+              state.status === "ready"
+                ? state.rows.map((row) => row.variety)
+                : []
+            }
+            onSaved={onVineyardSaved}
+          />
+          <CalendarSeedCard
+            vineyardId={current.id}
+            address={current.address}
+            timezone={current.timezone}
+          />
+          <div className="md:col-span-2">
+            <HealthThresholdsCard
+              vineyardId={current.id}
+              greenMin={current.healthThresholds.greenMin}
+              yellowMin={current.healthThresholds.yellowMin}
+              orangeMin={current.healthThresholds.orangeMin}
+              onSaved={async () => {
+                await onVineyardSaved();
+                await health.reload({ silent: true });
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

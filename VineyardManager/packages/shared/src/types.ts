@@ -74,6 +74,7 @@ export interface Vineyard extends Audited {
   lng?: number | null;
   timezone: string;
   healthThresholds: HealthThresholds;
+  varietyCatalog: string[];
   hasLogo: boolean;
   rowLayout: RowLayout | null;
 }

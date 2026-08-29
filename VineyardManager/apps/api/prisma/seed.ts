@@ -53,6 +53,7 @@ const ewLength = rowLengthFromPlanting({ vineCount: 10 });
 
 const rows: {
   code: string;
+  oldCode: string;
   name: string;
   variety: string;
   vineCount: number;
@@ -60,43 +61,43 @@ const rows: {
   status: RowStatus;
   notes: string;
   axis: "ns" | "ew";
-  updateExisting: boolean;
 }[] = [
   {
-    code: "L1",
-    name: "North Slope",
+    code: "NS1",
+    oldCode: "L1",
+    name: "North South 1",
     variety: "Norton",
     vineCount: 23,
     plantedYear: 2014,
     status: RowStatus.active,
     notes: "Best sun. Primary red for the home crush.",
     axis: "ns",
-    updateExisting: true,
   },
   {
-    code: "L2",
-    name: "Creek Bench",
+    code: "NS2",
+    oldCode: "L2",
+    name: "North South 2",
     variety: "Chardonel",
     vineCount: 23,
     plantedYear: 2016,
     status: RowStatus.active,
     notes: "Cooler air drainage toward the creek. Watch late frost.",
     axis: "ns",
-    updateExisting: true,
   },
   {
-    code: "L3",
-    name: "Old Home Row",
+    code: "NS3",
+    oldCode: "L3",
+    name: "North South 3",
     variety: "Concord",
     vineCount: 23,
     plantedYear: 2008,
     status: RowStatus.fallow,
     notes: "Juice grapes. Resting a season after Japanese beetle pressure.",
     axis: "ns",
-    updateExisting: true,
   },
   {
-    code: "L4",
+    code: "NS4",
+    oldCode: "L4",
     name: "North South 4",
     variety: "Norton",
     vineCount: 23,
@@ -104,45 +105,45 @@ const rows: {
     status: RowStatus.active,
     notes: NS_NOTE,
     axis: "ns",
-    updateExisting: false,
   },
   {
-    code: "S1",
-    name: "Hilltop East",
+    code: "EW1",
+    oldCode: "S1",
+    name: "East West 1",
     variety: "Vignoles",
     vineCount: 10,
     plantedYear: 2018,
     status: RowStatus.active,
     notes: "Tight clusters — bunch rot scouting in wet weeks.",
     axis: "ew",
-    updateExisting: true,
   },
   {
-    code: "S2",
-    name: "Road Front",
+    code: "EW2",
+    oldCode: "S2",
+    name: "East West 2",
     variety: "Chambourcin",
     vineCount: 10,
     plantedYear: 2012,
     status: RowStatus.replanting,
     notes: "Crown gall took the west end. Replacing vines this spring.",
     axis: "ew",
-    updateExisting: true,
   },
   {
-    code: "S3",
-    name: "West Trellis",
+    code: "EW3",
+    oldCode: "S3",
+    name: "East West 3",
     variety: "Traminette",
     vineCount: 10,
     plantedYear: 2019,
     status: RowStatus.active,
     notes: "Newest high cordon. Still filling the wire.",
     axis: "ew",
-    updateExisting: true,
   },
   ...Array.from({ length: 8 }, (_, index) => {
     const n = index + 4;
     return {
-      code: `S${n}`,
+      code: `EW${n}`,
+      oldCode: `S${n}`,
       name: `East West ${n}`,
       variety: "TBD",
       vineCount: 10,
@@ -150,7 +151,6 @@ const rows: {
       status: RowStatus.active,
       notes: EW_NOTE,
       axis: "ew" as const,
-      updateExisting: false,
     };
   }),
 ];
@@ -159,6 +159,35 @@ function withPlantingNote(existing: string | null, tag: string): string {
   if (existing?.includes("@ 7'")) return existing;
   if (existing?.trim()) return `${existing.trim()} ${tag}`;
   return tag;
+}
+
+async function findLiveRow(vineyardId: string, code: string) {
+  return prisma.row.findFirst({
+    where: { vineyardId, code, deletedAt: null },
+  });
+}
+
+async function vacateCode(
+  vineyardId: string,
+  code: string,
+  keepId?: string,
+) {
+  const blockers = await prisma.row.findMany({
+    where: {
+      vineyardId,
+      code,
+      ...(keepId ? { id: { not: keepId } } : {}),
+    },
+  });
+  for (const blocker of blockers) {
+    await prisma.row.update({
+      where: { id: blocker.id },
+      data: {
+        code: `${code}__old_${blocker.id.slice(0, 8)}`,
+        deletedAt: blocker.deletedAt ?? new Date(),
+      },
+    });
+  }
 }
 
 async function main() {
@@ -235,17 +264,20 @@ async function main() {
   for (const spec of rows) {
     const length = spec.axis === "ns" ? nsLength : ewLength;
     const tag = spec.axis === "ns" ? NS_NOTE : EW_NOTE;
-    const existing = await prisma.row.findUnique({
-      where: {
-        vineyardId_code: { vineyardId: vineyard.id, code: spec.code },
-      },
-    });
+    const liveNew = await findLiveRow(vineyard.id, spec.code);
+    const liveOld = liveNew
+      ? null
+      : await findLiveRow(vineyard.id, spec.oldCode);
+    const existing = liveNew ?? liveOld;
 
     if (existing) {
+      await vacateCode(vineyard.id, spec.code, existing.id);
       createdRows.push(
         await prisma.row.update({
           where: { id: existing.id },
           data: {
+            code: spec.code,
+            name: spec.name,
             vineCount: spec.vineCount,
             lengthFeet: length.lengthFeet,
             lengthInches: length.lengthInches,
@@ -255,6 +287,7 @@ async function main() {
         }),
       );
     } else {
+      await vacateCode(vineyard.id, spec.code);
       createdRows.push(
         await prisma.row.create({
           data: {
@@ -267,9 +300,7 @@ async function main() {
             lengthInches: length.lengthInches,
             plantedYear: spec.plantedYear,
             status: spec.status,
-            notes: spec.updateExisting
-              ? withPlantingNote(spec.notes, tag)
-              : spec.notes,
+            notes: spec.notes,
           },
         }),
       );
@@ -286,12 +317,21 @@ async function main() {
     data: { deletedAt: new Date() },
   });
 
+  const catalog = [
+    ...new Set(
+      createdRows
+        .map((row) => row.variety.trim())
+        .filter((name) => name.length > 0),
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
   await prisma.vineyard.update({
     where: { id: vineyard.id },
     data: {
       rowLayout: layoutFromDefaultGrid(
         createdRows.map((row) => ({ id: row.id, code: row.code })),
       ) as unknown as Prisma.InputJsonValue,
+      varietyCatalog: catalog as unknown as Prisma.InputJsonValue,
     },
   });
 
@@ -330,7 +370,7 @@ async function main() {
     data: [
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L1"),
+        rowId: rowId("NS1"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.pruning,
@@ -341,7 +381,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L2"),
+        rowId: rowId("NS2"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.pest_prevention,
@@ -352,7 +392,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("S1"),
+        rowId: rowId("EW1"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.watering,
@@ -363,7 +403,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("S2"),
+        rowId: rowId("EW2"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.vine_replacement,
@@ -374,7 +414,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("S3"),
+        rowId: rowId("EW3"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.fertilization,
@@ -385,7 +425,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("S3"),
+        rowId: rowId("EW3"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.weed_prevention,
@@ -396,7 +436,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L2"),
+        rowId: rowId("NS2"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.winterization,
@@ -407,7 +447,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L1"),
+        rowId: rowId("NS1"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.harvest,
@@ -418,7 +458,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("S1"),
+        rowId: rowId("EW1"),
         userId: manager.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.harvest,
@@ -429,7 +469,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L2"),
+        rowId: rowId("NS2"),
         userId: owner.id,
         type: TaskType.maintenance,
         relatedActivityType: ActivityType.harvest,
@@ -440,7 +480,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L2"),
+        rowId: rowId("NS2"),
         userId: manager.id,
         type: TaskType.weather,
         title: "Late frost watch — Creek Bench",
@@ -465,7 +505,7 @@ async function main() {
     data: [
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L1"),
+        rowId: rowId("NS1"),
         harvestedAt: due("2025-09-18"),
         yieldAmount: 842,
         yieldUnit: YieldUnit.lb,
@@ -474,7 +514,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L2"),
+        rowId: rowId("NS2"),
         harvestedAt: due("2025-08-22"),
         yieldAmount: 12,
         yieldUnit: YieldUnit.lug,
@@ -483,7 +523,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("S1"),
+        rowId: rowId("EW1"),
         harvestedAt: due("2025-09-06"),
         yieldAmount: 310,
         yieldUnit: YieldUnit.lb,
@@ -492,7 +532,7 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L3"),
+        rowId: rowId("NS3"),
         harvestedAt: due("2024-09-02"),
         yieldAmount: 6.5,
         yieldUnit: YieldUnit.bushel,
@@ -520,9 +560,9 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L1"),
+        rowId: rowId("NS1"),
         scopeType: "row",
-        scopeId: rowId("L1"),
+        scopeId: rowId("NS1"),
         activityType: ActivityType.pruning,
         performedAt: due("2026-03-08"),
         details: { notes: "Spur prune Norton on North Slope." },
@@ -530,9 +570,9 @@ async function main() {
       },
       {
         vineyardId: vineyard.id,
-        rowId: rowId("L2"),
+        rowId: rowId("NS2"),
         scopeType: "row",
-        scopeId: rowId("L2"),
+        scopeId: rowId("NS2"),
         activityType: ActivityType.health_observation,
         performedAt: due("2026-07-12"),
         details: { notes: "Japanese beetles on Chardonel. Surround already on." },

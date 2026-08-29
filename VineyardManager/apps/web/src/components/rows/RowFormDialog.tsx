@@ -54,12 +54,14 @@ function valuesFromRow(row: Row): FormValues {
 export function RowFormDialog({
   vineyardId,
   row,
+  varietyOptions = [],
   open,
   onClose,
   onSaved,
 }: {
   vineyardId: string;
   row: Row | null;
+  varietyOptions?: string[];
   open: boolean;
   onClose: () => void;
   onSaved: () => Promise<void> | void;
@@ -167,7 +169,7 @@ export function RowFormDialog({
                 id="row-code"
                 value={values.code}
                 onChange={(event) => setField("code", event.target.value)}
-                placeholder="L1"
+                placeholder="NS1"
                 autoFocus
               />
             </Field>
@@ -176,7 +178,7 @@ export function RowFormDialog({
                 id="row-name"
                 value={values.name}
                 onChange={(event) => setField("name", event.target.value)}
-                placeholder="North Slope"
+                placeholder="North South 1"
               />
             </Field>
           </div>
@@ -184,10 +186,18 @@ export function RowFormDialog({
           <Field label="Variety" htmlFor="row-variety" error={fieldErrors.variety}>
             <Input
               id="row-variety"
+              list="row-variety-options"
               value={values.variety}
               onChange={(event) => setField("variety", event.target.value)}
               placeholder="Norton"
             />
+            {varietyOptions.length > 0 ? (
+              <datalist id="row-variety-options">
+                {varietyOptions.map((option) => (
+                  <option key={option} value={option} />
+                ))}
+              </datalist>
+            ) : null}
           </Field>
 
           <div className="grid gap-4 sm:grid-cols-3">

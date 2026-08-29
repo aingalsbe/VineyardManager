@@ -190,6 +190,12 @@ vineyardsRouter.patch("/:id", async (req: Request<{ id: string }>, res) => {
         ? Prisma.JsonNull
         : (body.rowLayout as Prisma.InputJsonValue);
   }
+  if (body.healthThresholds !== undefined) {
+    data.healthThresholds = body.healthThresholds as Prisma.InputJsonValue;
+  }
+  if (body.varietyCatalog !== undefined) {
+    data.varietyCatalog = body.varietyCatalog as Prisma.InputJsonValue;
+  }
 
   const vineyard = await prisma.vineyard.update({
     where: { id },

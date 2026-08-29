@@ -45,11 +45,21 @@ export const taskTypeSchema = z.enum(TASK_TYPES);
 export const taskStatusSchema = z.enum(TASK_STATUSES);
 export const yieldUnitSchema = z.enum(YIELD_UNITS);
 
-export const healthThresholdsSchema = z.object({
-  greenMin: z.number().min(0).max(100),
-  yellowMin: z.number().min(0).max(100),
-  orangeMin: z.number().min(0).max(100),
-});
+export const healthThresholdsSchema = z
+  .object({
+    greenMin: z.number().min(0).max(100),
+    yellowMin: z.number().min(0).max(100),
+    orangeMin: z.number().min(0).max(100),
+  })
+  .refine(
+    (value) =>
+      value.greenMin > value.yellowMin && value.yellowMin > value.orangeMin,
+    { message: "Green cutoff must be above yellow, and yellow above orange" },
+  );
+
+export const varietyCatalogSchema = z.array(
+  z.string().trim().min(1, "Enter a variety").max(80),
+);
 
 export const rowLayoutSchema = z.object({
   version: z.literal(1),
@@ -84,6 +94,8 @@ export const updateVineyardSchema = z
     lat: z.number().min(-90).max(90).nullable().optional(),
     lng: z.number().min(-180).max(180).nullable().optional(),
     rowLayout: rowLayoutSchema.nullable().optional(),
+    healthThresholds: healthThresholdsSchema.optional(),
+    varietyCatalog: varietyCatalogSchema.optional(),
   })
   .refine(
     (value) =>
@@ -92,7 +104,9 @@ export const updateVineyardSchema = z
       value.timezone !== undefined ||
       value.lat !== undefined ||
       value.lng !== undefined ||
-      value.rowLayout !== undefined,
+      value.rowLayout !== undefined ||
+      value.healthThresholds !== undefined ||
+      value.varietyCatalog !== undefined,
     { message: "Enter at least one field" },
   );
 
