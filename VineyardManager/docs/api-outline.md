@@ -105,6 +105,7 @@ Shipped:
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/vineyards/{vid}/health` | `{ data: { vineyardId, asOf, overall: { score, color, reasons }, rows: [...] } }`. Optional `?asOf=YYYY-MM-DD`. Auth required. |
+| GET | `/vineyards/{vid}/metrics` | Computed health series, harvest YoY (lb), and activity counts. `?period=month\|quarter\|year` (default `year`). Optional `?asOf=YYYY-MM-DD`. Variety rollups sum rows that share `Row.variety`. No HealthSnapshot. |
 
 Out of this slice:
 

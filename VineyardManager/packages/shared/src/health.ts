@@ -54,7 +54,7 @@ export function calendarDateInZone(date: Date, timeZone: string): string {
   return `${year}-${month}-${day}`;
 }
 
-function addCalendarDays(isoDate: string, days: number): string {
+export function addCalendarDays(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   const utc = new Date(Date.UTC(year ?? 0, (month ?? 1) - 1, (day ?? 1) + days));
   return utc.toISOString().slice(0, 10);

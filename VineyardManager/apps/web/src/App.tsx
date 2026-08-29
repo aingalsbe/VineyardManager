@@ -3,6 +3,7 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { ActivitiesPage } from "@/pages/ActivitiesPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HarvestsPage } from "@/pages/HarvestsPage";
+import { MetricsPage } from "@/pages/MetricsPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RowsPage } from "@/pages/RowsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="blocks" element={<Navigate to="/rows" replace />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="harvests" element={<HarvestsPage />} />
+        <Route path="metrics" element={<MetricsPage />} />
         <Route path="activities" element={<ActivitiesPage />} />
         <Route path="setup" element={<SetupPage />} />
         <Route path="settings" element={<SettingsPage />} />

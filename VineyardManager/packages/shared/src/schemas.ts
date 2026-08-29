@@ -12,6 +12,7 @@ import {
   VINE_STATUSES,
   WATERING_METHODS,
   YIELD_UNITS,
+  METRICS_PERIODS,
 } from "./constants.js";
 
 export const userRoleSchema = z.enum(USER_ROLES);
@@ -44,6 +45,7 @@ export const healthColorSchema = z.enum(HEALTH_COLORS);
 export const taskTypeSchema = z.enum(TASK_TYPES);
 export const taskStatusSchema = z.enum(TASK_STATUSES);
 export const yieldUnitSchema = z.enum(YIELD_UNITS);
+export const metricsPeriodSchema = z.enum(METRICS_PERIODS);
 
 export const healthThresholdsSchema = z
   .object({

@@ -14,6 +14,8 @@ import {
   type HealthThresholds,
   type Vineyard,
   type VineyardHealth,
+  type VineyardMetrics,
+  type MetricsPeriod,
 } from "@vineyard/shared";
 
 const apiBase = (import.meta.env.VITE_API_URL ?? API_PREFIX).replace(
@@ -216,6 +218,17 @@ export async function getVineyardHealth(
 ): Promise<VineyardHealth> {
   const body = await apiJson<{ data: VineyardHealth }>(
     `/vineyards/${vineyardId}/health`,
+  );
+  return body.data;
+}
+
+export async function getVineyardMetrics(
+  vineyardId: string,
+  period: MetricsPeriod,
+): Promise<VineyardMetrics> {
+  const params = new URLSearchParams({ period });
+  const body = await apiJson<{ data: VineyardMetrics }>(
+    `/vineyards/${vineyardId}/metrics?${params.toString()}`,
   );
   return body.data;
 }

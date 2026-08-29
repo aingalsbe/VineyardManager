@@ -114,6 +114,28 @@ export const YIELD_UNIT_LABELS: Record<(typeof YIELD_UNITS)[number], string> = {
   other: "Other",
 };
 
+export const METRICS_PERIODS = ["month", "quarter", "year"] as const;
+
+export const METRICS_PERIOD_LABELS: Record<
+  (typeof METRICS_PERIODS)[number],
+  string
+> = {
+  month: "Month",
+  quarter: "Quarter",
+  year: "Year",
+};
+
+export const METRICS_SCOPES = ["vineyard", "row", "variety"] as const;
+
+export const METRICS_SCOPE_LABELS: Record<
+  (typeof METRICS_SCOPES)[number],
+  string
+> = {
+  vineyard: "Vineyard",
+  row: "Row",
+  variety: "Variety",
+};
+
 export const API_PREFIX = "/api/v1";
 
 export function formatYield(amount: number, unit: (typeof YIELD_UNITS)[number]): string {

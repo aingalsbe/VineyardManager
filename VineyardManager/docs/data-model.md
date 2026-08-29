@@ -105,6 +105,8 @@ Activity `details` examples:
 
 ## Health snapshot
 
+Not persisted. Dashboard health and Metrics trends call `scoreRowHealth` / `scoreVineyardHealth` with `asOf`. Metrics `GET /vineyards/{id}/metrics` aggregates harvests (lb; kg converted) and activities live. Variety charts sum rows that share the same `Row.variety` string.
+
 | Field | Type | Notes |
 | --- | --- | --- |
 | id | UUID | PK |

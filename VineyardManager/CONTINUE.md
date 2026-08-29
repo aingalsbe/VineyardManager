@@ -20,6 +20,7 @@
 - Seed + default layout use NS1–NS4 / EW1–EW11 (L/S codes rename in place on re-seed)
 - UI chrome is cool blue (buttons, nav, surfaces); health overlay stays green / yellow / orange / red
 - Header shows a larger logo only (vineyard name is not beside it); Dashboard pins vineyard health + map above the work lists
+- Metrics page: health / harvest / activity trends (month, quarter, year); variety rollups sum rows that share a grape; 4-year seed history
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 
@@ -40,4 +41,6 @@
 - Health API: GET /api/v1/vineyards/:id/health
 - Vineyard API: POST/PATCH /api/v1/vineyards (including `rowLayout`), PUT/GET/DELETE /api/v1/vineyards/:id/logo
 - Setup: http://localhost:5173/setup
+- Metrics: http://localhost:5173/metrics
+- Metrics API: GET /api/v1/vineyards/:id/metrics?period=month|quarter|year
 - Harvest type on Log work is a note only — yield still lives on Harvests

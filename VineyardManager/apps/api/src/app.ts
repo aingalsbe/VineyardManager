@@ -12,6 +12,7 @@ import { requireAuth } from "./modules/auth/auth.middleware.js";
 import { harvestsRouter } from "./modules/harvests/harvests.router.js";
 import { healthRouter } from "./modules/health/health.router.js";
 import { vineyardHealthRouter } from "./modules/health/vineyard-health.router.js";
+import { vineyardMetricsRouter } from "./modules/metrics/metrics.router.js";
 import { rowsRouter } from "./modules/rows/rows.router.js";
 import { vineyardScheduleRouter } from "./modules/schedule/schedule.router.js";
 import { tasksRouter } from "./modules/tasks/tasks.router.js";
@@ -30,6 +31,7 @@ export function createApp() {
   app.use(`${API_PREFIX}/harvests`, harvestsRouter);
   app.use(`${API_PREFIX}/activities`, activitiesRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/health`, vineyardHealthRouter);
+  app.use(`${API_PREFIX}/vineyards/:vineyardId/metrics`, vineyardMetricsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/activities`, vineyardActivitiesRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/rows`, rowsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/tasks`, tasksRouter);

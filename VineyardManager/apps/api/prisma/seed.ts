@@ -139,21 +139,115 @@ const rows: {
     notes: "Newest high cordon. Still filling the wire.",
     axis: "ew",
   },
-  ...Array.from({ length: 8 }, (_, index) => {
-    const n = index + 4;
-    return {
-      code: `EW${n}`,
-      oldCode: `S${n}`,
-      name: `East West ${n}`,
-      variety: "TBD",
-      vineCount: 10,
-      plantedYear: 2020,
-      status: RowStatus.active,
-      notes: EW_NOTE,
-      axis: "ew" as const,
-    };
-  }),
+  {
+    code: "EW4",
+    oldCode: "S4",
+    name: "East West 4",
+    variety: "Vignoles",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
+  {
+    code: "EW5",
+    oldCode: "S5",
+    name: "East West 5",
+    variety: "Chardonel",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
+  {
+    code: "EW6",
+    oldCode: "S6",
+    name: "East West 6",
+    variety: "Chambourcin",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
+  {
+    code: "EW7",
+    oldCode: "S7",
+    name: "East West 7",
+    variety: "Traminette",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
+  {
+    code: "EW8",
+    oldCode: "S8",
+    name: "East West 8",
+    variety: "Concord",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
+  {
+    code: "EW9",
+    oldCode: "S9",
+    name: "East West 9",
+    variety: "Concord",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
+  {
+    code: "EW10",
+    oldCode: "S10",
+    name: "East West 10",
+    variety: "Norton",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
+  {
+    code: "EW11",
+    oldCode: "S11",
+    name: "East West 11",
+    variety: "Vignoles",
+    vineCount: 10,
+    plantedYear: 2020,
+    status: RowStatus.active,
+    notes: EW_NOTE,
+    axis: "ew",
+  },
 ];
+
+const SEED_CREW = "Seed history";
+const HARVEST_YEARS = [2022, 2023, 2024, 2025] as const;
+const ACTIVITY_YEARS = [2022, 2023, 2024, 2025, 2026] as const;
+const LB_PER_VINE: Record<string, number> = {
+  Norton: 36,
+  Chardonel: 20,
+  Concord: 30,
+  Vignoles: 31,
+  Chambourcin: 26,
+  Traminette: 22,
+};
+const HARVEST_MD: Record<string, string> = {
+  Norton: "09-18",
+  Chardonel: "08-22",
+  Concord: "09-02",
+  Vignoles: "09-06",
+  Chambourcin: "09-12",
+  Traminette: "09-10",
+};
 
 function withPlantingNote(existing: string | null, tag: string): string {
   if (existing?.includes("@ 7'")) return existing;
@@ -278,6 +372,7 @@ async function main() {
           data: {
             code: spec.code,
             name: spec.name,
+            variety: spec.variety,
             vineCount: spec.vineCount,
             lengthFeet: length.lengthFeet,
             lengthInches: length.lengthInches,
@@ -350,21 +445,7 @@ async function main() {
   const existingTaskCount = await prisma.task.count({
     where: { vineyardId: vineyard.id },
   });
-  if (existingTaskCount > 0) {
-    const [rowCount, taskCount, harvestCount, activityCount] =
-      await Promise.all([
-        prisma.row.count({
-          where: { vineyardId: vineyard.id, deletedAt: null },
-        }),
-        prisma.task.count({ where: { vineyardId: vineyard.id } }),
-        prisma.harvest.count({ where: { vineyardId: vineyard.id } }),
-        prisma.activity.count({ where: { vineyardId: vineyard.id } }),
-      ]);
-    console.log(
-      `Updated ${SEED_VINEYARD_NAME}: ${rowCount} rows (kept ${taskCount} tasks, ${harvestCount} harvests, ${activityCount} activities).`,
-    );
-    return;
-  }
+  if (existingTaskCount === 0) {
 
   await prisma.task.createMany({
     data: [
@@ -500,85 +581,13 @@ async function main() {
       },
     ],
   });
+  }
 
-  await prisma.harvest.createMany({
-    data: [
-      {
-        vineyardId: vineyard.id,
-        rowId: rowId("NS1"),
-        harvestedAt: due("2025-09-18"),
-        yieldAmount: 842,
-        yieldUnit: YieldUnit.lb,
-        notes: "Mostly best/better clusters. Held for the home red.",
-        crew: "Aaron + Maya",
-      },
-      {
-        vineyardId: vineyard.id,
-        rowId: rowId("NS2"),
-        harvestedAt: due("2025-08-22"),
-        yieldAmount: 12,
-        yieldUnit: YieldUnit.lug,
-        notes: "Pressed the same afternoon.",
-        crew: "Aaron",
-      },
-      {
-        vineyardId: vineyard.id,
-        rowId: rowId("EW1"),
-        harvestedAt: due("2025-09-06"),
-        yieldAmount: 310,
-        yieldUnit: YieldUnit.lb,
-        notes: "Sorted bunch rot on the lower wires in the barn.",
-        crew: "Maya Chen",
-      },
-      {
-        vineyardId: vineyard.id,
-        rowId: rowId("NS3"),
-        harvestedAt: due("2024-09-02"),
-        yieldAmount: 6.5,
-        yieldUnit: YieldUnit.bushel,
-        notes: "Last Concord pick before the rest year.",
-        crew: "Family",
-      },
-    ],
-  });
-
-  await prisma.activity.createMany({
-    data: [
-      {
-        vineyardId: vineyard.id,
-        rowId: null,
-        scopeType: "vineyard",
-        scopeId: vineyard.id,
-        activityType: ActivityType.watering,
-        performedAt: due("2026-08-10"),
-        details: {
-          notes: "Whole-property drip cycle after a dry week.",
-          durationMin: 45,
-          method: "drip",
-        },
-        source: "manual",
-      },
-      {
-        vineyardId: vineyard.id,
-        rowId: rowId("NS1"),
-        scopeType: "row",
-        scopeId: rowId("NS1"),
-        activityType: ActivityType.pruning,
-        performedAt: due("2026-03-08"),
-        details: { notes: "Spur prune Norton on North Slope." },
-        source: "manual",
-      },
-      {
-        vineyardId: vineyard.id,
-        rowId: rowId("NS2"),
-        scopeType: "row",
-        scopeId: rowId("NS2"),
-        activityType: ActivityType.health_observation,
-        performedAt: due("2026-07-12"),
-        details: { notes: "Japanese beetles on Chardonel. Surround already on." },
-        source: "manual",
-      },
-    ],
+  await seedMetricsHistory({
+    vineyardId: vineyard.id,
+    ownerId: owner.id,
+    rows: createdRows,
+    due,
   });
 
   const [rowCount, taskCount, harvestCount, activityCount] = await Promise.all([
@@ -593,6 +602,190 @@ async function main() {
   console.log(
     `Seeded ${SEED_VINEYARD_NAME}: 2 users, 1 vineyard, ${rowCount} rows, ${taskCount} tasks, ${harvestCount} harvests, ${activityCount} activities.`,
   );
+}
+
+function harvestAmountLb(
+  row: { code: string; variety: string; vineCount: number },
+  year: number,
+): number {
+  const perVine = LB_PER_VINE[row.variety] ?? 22;
+  const yearNudge = 1 + (year - 2023) * 0.05;
+  const last = row.code.charCodeAt(row.code.length - 1) || 0;
+  const codeNudge = 1 + ((last % 5) - 2) * 0.04;
+  return Math.round(row.vineCount * perVine * yearNudge * codeNudge);
+}
+
+function skipHarvestYear(
+  row: { status: RowStatus },
+  year: number,
+): boolean {
+  if (row.status === RowStatus.fallow && year >= 2025) return true;
+  if (row.status === RowStatus.replanting && year >= 2025) return true;
+  return false;
+}
+
+async function seedMetricsHistory({
+  vineyardId,
+  ownerId,
+  rows,
+  due,
+}: {
+  vineyardId: string;
+  ownerId: string;
+  rows: Array<{
+    id: string;
+    code: string;
+    variety: string;
+    vineCount: number;
+    status: RowStatus;
+  }>;
+  due: (isoDate: string) => Date;
+}) {
+  await prisma.harvest.deleteMany({
+    where: {
+      vineyardId,
+      OR: [
+        { crew: SEED_CREW },
+        {
+          crew: { in: ["Aaron + Maya", "Aaron", "Maya Chen", "Family"] },
+        },
+      ],
+    },
+  });
+
+  await prisma.activity.deleteMany({
+    where: {
+      vineyardId,
+      OR: [
+        { source: "imported" },
+        {
+          source: "manual",
+          performedAt: {
+            in: [
+              due("2026-08-10"),
+              due("2026-03-08"),
+              due("2026-07-12"),
+            ],
+          },
+        },
+      ],
+    },
+  });
+
+  const harvests: Prisma.HarvestCreateManyInput[] = [];
+  for (const row of rows) {
+    for (const year of HARVEST_YEARS) {
+      if (skipHarvestYear(row, year)) continue;
+      const md = HARVEST_MD[row.variety] ?? "09-10";
+      harvests.push({
+        vineyardId,
+        rowId: row.id,
+        harvestedAt: due(`${year}-${md}`),
+        yieldAmount: harvestAmountLb(row, year),
+        yieldUnit: YieldUnit.lb,
+        notes: `${year} ${row.variety} pick on ${row.code}.`,
+        crew: SEED_CREW,
+      });
+    }
+  }
+  if (harvests.length > 0) {
+    await prisma.harvest.createMany({ data: harvests });
+  }
+
+  const activities: Prisma.ActivityCreateManyInput[] = [];
+  for (const year of ACTIVITY_YEARS) {
+    const waterMonths = year === 2026 ? [5, 6, 7, 8] : [5, 6, 7, 8, 9];
+    for (const month of waterMonths) {
+      activities.push({
+        vineyardId,
+        rowId: null,
+        scopeType: "vineyard",
+        scopeId: vineyardId,
+        activityType: ActivityType.watering,
+        performedAt: due(`${year}-${String(month).padStart(2, "0")}-15`),
+        performedBy: ownerId,
+        details: {
+          notes: "Whole-property drip cycle.",
+          durationMin: 45,
+          method: "drip",
+        },
+        source: "imported",
+      });
+    }
+  }
+
+  const rowWork: Array<{
+    type: ActivityType;
+    monthDay: string;
+    throughYear: number;
+    details: Prisma.InputJsonValue;
+  }> = [
+    {
+      type: ActivityType.pruning,
+      monthDay: "03-08",
+      throughYear: 2026,
+      details: { notes: "Dormant prune." },
+    },
+    {
+      type: ActivityType.fertilization,
+      monthDay: "04-20",
+      throughYear: 2026,
+      details: { product: "10-10-10", amountPerVine: 0.5, unit: "lb" },
+    },
+    {
+      type: ActivityType.weed_prevention,
+      monthDay: "05-18",
+      throughYear: 2026,
+      details: { method: "spray" },
+    },
+    {
+      type: ActivityType.pest_prevention,
+      monthDay: "06-12",
+      throughYear: 2026,
+      details: { method: "spray", targetPests: ["Japanese beetle"] },
+    },
+    {
+      type: ActivityType.winterization,
+      monthDay: "11-15",
+      throughYear: 2025,
+      details: { notes: "Hill up graft unions." },
+    },
+  ];
+
+  for (const row of rows) {
+    for (const work of rowWork) {
+      for (const year of ACTIVITY_YEARS) {
+        if (year > work.throughYear) continue;
+        activities.push({
+          vineyardId,
+          rowId: row.id,
+          scopeType: "row",
+          scopeId: row.id,
+          activityType: work.type,
+          performedAt: due(`${year}-${work.monthDay}`),
+          performedBy: ownerId,
+          details: work.details,
+          source: "imported",
+        });
+      }
+    }
+  }
+
+  activities.push({
+    vineyardId,
+    rowId: rows.find((row) => row.code === "NS2")?.id ?? null,
+    scopeType: "row",
+    scopeId: rows.find((row) => row.code === "NS2")?.id ?? vineyardId,
+    activityType: ActivityType.health_observation,
+    performedAt: due("2026-07-12"),
+    performedBy: ownerId,
+    details: { notes: "Japanese beetles on Chardonel. Surround already on." },
+    source: "imported",
+  });
+
+  if (activities.length > 0) {
+    await prisma.activity.createMany({ data: activities });
+  }
 }
 
 main()

@@ -11,6 +11,8 @@ import type {
   VINE_STATUSES,
   WATERING_METHODS,
   YIELD_UNITS,
+  METRICS_PERIODS,
+  METRICS_SCOPES,
 } from "./constants.js";
 
 export type UserRole = (typeof USER_ROLES)[number];
@@ -25,6 +27,8 @@ export type TaskStatus = (typeof TASK_STATUSES)[number];
 export type WateringMethod = (typeof WATERING_METHODS)[number];
 export type HarvestCondition = (typeof HARVEST_CONDITIONS)[number];
 export type YieldUnit = (typeof YIELD_UNITS)[number];
+export type MetricsPeriod = (typeof METRICS_PERIODS)[number];
+export type MetricsScope = (typeof METRICS_SCOPES)[number];
 
 export interface Audited {
   createdAt: string;
@@ -278,6 +282,116 @@ export interface VineyardHealth {
     reasons: HealthReason[];
   };
   rows: RowHealth[];
+}
+
+export interface MetricsPoint {
+  date: string;
+  score: number;
+  color: HealthColor;
+}
+
+export interface MetricsRowHealth {
+  rowId: string;
+  code: string;
+  name: string;
+  variety: string;
+  score: number;
+  color: HealthColor;
+  series: MetricsPoint[];
+}
+
+export interface MetricsVarietyHealth {
+  variety: string;
+  rowCodes: string[];
+  score: number;
+  color: HealthColor;
+  series: MetricsPoint[];
+}
+
+export interface HarvestYearAmount {
+  year: number;
+  amount: number;
+}
+
+export interface HarvestRowMetrics {
+  rowId: string;
+  code: string;
+  name: string;
+  variety: string;
+  total: number;
+  byYear: HarvestYearAmount[];
+}
+
+export interface HarvestVarietyMetrics {
+  variety: string;
+  rowCodes: string[];
+  total: number;
+  byYear: HarvestYearAmount[];
+}
+
+export interface HarvestYearBreakdown {
+  year: number;
+  total: number;
+  byRow: Array<{ rowId: string; code: string; amount: number }>;
+  byVariety: Array<{ variety: string; amount: number }>;
+}
+
+export interface ActivityTypeCount {
+  activityType: ActivityType;
+  count: number;
+}
+
+export interface ActivitySeriesPoint {
+  date: string;
+  activityType: ActivityType;
+  count: number;
+}
+
+export interface ActivityRowMetrics {
+  rowId: string;
+  code: string;
+  name: string;
+  byType: ActivityTypeCount[];
+  series: ActivitySeriesPoint[];
+}
+
+export interface ActivityVarietyMetrics {
+  variety: string;
+  rowCodes: string[];
+  byType: ActivityTypeCount[];
+  series: ActivitySeriesPoint[];
+}
+
+export interface VineyardMetrics {
+  vineyardId: string;
+  asOf: string;
+  period: MetricsPeriod;
+  range: { start: string; end: string };
+  health: {
+    current: {
+      score: number;
+      color: HealthColor;
+      reasons: HealthReason[];
+    };
+    series: MetricsPoint[];
+    rows: MetricsRowHealth[];
+    varieties: MetricsVarietyHealth[];
+  };
+  harvests: {
+    unit: "lb";
+    currentTotal: number;
+    priorTotal: number;
+    skippedNonLb: number;
+    years: HarvestYearBreakdown[];
+    byRow: HarvestRowMetrics[];
+    byVariety: HarvestVarietyMetrics[];
+  };
+  activities: {
+    byType: ActivityTypeCount[];
+    series: ActivitySeriesPoint[];
+    byRow: ActivityRowMetrics[];
+    byVariety: ActivityVarietyMetrics[];
+  };
 }
 
 export interface ScheduledTask extends Audited {
