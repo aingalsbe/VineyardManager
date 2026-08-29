@@ -18,6 +18,8 @@
 - Dashboard map bars open a row action panel; complete overdue task or log watering/pest/weed against that row; health reloads after save
 - Setup varieties catalog, calendar seed, and health cutoff editor
 - Seed + default layout use NS1–NS4 / EW1–EW11 (L/S codes rename in place on re-seed)
+- UI chrome is cool blue (buttons, nav, surfaces); health overlay stays green / yellow / orange / red
+- Header shows a larger logo only (vineyard name is not beside it); Dashboard pins vineyard health + map above the work lists
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 

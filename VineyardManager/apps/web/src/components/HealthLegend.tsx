@@ -1,7 +1,24 @@
 import { HEALTH_COLORS } from "@vineyard/shared";
 import { healthMeaning, healthRangeLabel, healthSwatch } from "@/lib/health";
 
-export function HealthLegend() {
+export function HealthLegend({ compact = false }: { compact?: boolean }) {
+  if (compact) {
+    return (
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {HEALTH_COLORS.map((color) => (
+          <li key={color} className="flex items-center gap-1.5">
+            <span
+              className={`size-2.5 shrink-0 rounded-full ${healthSwatch[color]}`}
+              aria-hidden
+            />
+            <span className="capitalize">{color}</span>
+            <span className="text-muted">{healthRangeLabel[color]}</span>
+          </li>
+        ))}
+      </ul>
+    );
+  }
+
   return (
     <ul className="grid gap-3 sm:grid-cols-2">
       {HEALTH_COLORS.map((color) => (

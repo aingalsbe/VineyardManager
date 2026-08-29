@@ -23,12 +23,14 @@ export function VineyardHealthMap({
   vineyardRows,
   rowLayout,
   onSelectRow,
+  className,
 }: {
   overallColor: HealthColor;
   healthRows: RowHealth[];
   vineyardRows: Row[];
   rowLayout: RowLayout | null;
   onSelectRow?: (rowId: string) => void;
+  className?: string;
 }) {
   const healthById = new Map(healthRows.map((row) => [row.rowId, row]));
   const rowById = new Map(vineyardRows.map((row) => [row.id, row]));
@@ -57,15 +59,16 @@ export function VineyardHealthMap({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border-4 bg-background p-4",
+        "overflow-hidden rounded-xl border-4 bg-background p-3 md:p-4",
         overallBorder[overallColor],
+        className,
       )}
     >
       <svg
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         width="100%"
         preserveAspectRatio="xMidYMid meet"
-        className="mx-auto block h-auto max-h-[400px] max-w-full"
+        className="mx-auto block h-auto max-h-[min(400px,42vh)] max-w-full"
         role="img"
         aria-label="Vineyard health map"
       >

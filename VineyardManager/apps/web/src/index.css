@@ -2,13 +2,13 @@
 
 @theme {
   --font-sans: "Segoe UI", "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
-  --color-background: #f6f3ec;
-  --color-foreground: #1f2a1d;
-  --color-card: #fffdf8;
-  --color-muted: #6b7268;
-  --color-border: #d9d3c6;
-  --color-primary: #3d5a3a;
-  --color-primary-foreground: #f6f3ec;
+  --color-background: #eef2f6;
+  --color-foreground: #122033;
+  --color-card: #ffffff;
+  --color-muted: #5a6573;
+  --color-border: #cfd7e1;
+  --color-primary: #215a96;
+  --color-primary-foreground: #f4f7fb;
   --color-health-green: #2f7d4a;
   --color-health-yellow: #c4a035;
   --color-health-orange: #c46a2f;

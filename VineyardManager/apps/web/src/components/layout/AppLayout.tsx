@@ -82,23 +82,18 @@ function Brand({
   logoUrl: string | null;
 }) {
   return (
-    <Link to="/" className="flex min-w-0 items-center gap-3">
+    <Link to="/" className="flex min-w-0 items-center">
       {logoUrl ? (
         <img
           src={logoUrl}
-          alt=""
-          className="h-10 max-w-[12rem] object-contain"
+          alt={vineyard?.name ?? "Home"}
+          className="h-14 max-w-[16rem] object-contain object-left md:h-20 md:max-w-[22rem]"
         />
       ) : (
         <span className="text-sm font-semibold tracking-wide text-primary uppercase">
           Vineyard Manager
         </span>
       )}
-      {vineyard ? (
-        <span className="truncate text-lg font-semibold tracking-tight">
-          {vineyard.name}
-        </span>
-      ) : null}
     </Link>
   );
 }
@@ -190,8 +185,8 @@ export function AppLayout() {
   );
 
   return (
-    <div className="min-h-screen">
-      <header className="border-b border-border bg-card px-4 py-3 md:px-6">
+    <div className="flex min-h-dvh flex-col md:h-dvh md:overflow-hidden">
+      <header className="shrink-0 border-b border-border bg-card px-4 py-2 md:px-6 md:py-3">
         <div className="flex items-center justify-between gap-3">
           <Brand vineyard={vineyard} logoUrl={logoUrl} />
           <div className="flex shrink-0 items-center gap-2 md:hidden">
@@ -234,8 +229,8 @@ export function AppLayout() {
         </nav>
       </header>
 
-      <div className="md:grid md:grid-cols-[16.5rem_1fr]">
-        <aside className="hidden border-r border-border bg-card px-4 py-6 md:flex md:min-h-[calc(100vh-4.5rem)] md:flex-col">
+      <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[16.5rem_1fr]">
+        <aside className="hidden border-r border-border bg-card px-4 py-6 md:flex md:min-h-0 md:flex-col md:overflow-y-auto">
           <nav className="flex flex-1 flex-col gap-1" aria-label="Main">
             {navItems.map((item) => (
               <NavItem key={item.to} {...item} />
@@ -251,7 +246,7 @@ export function AppLayout() {
           </div>
         </aside>
 
-        <main className="flex-1 px-4 py-6 sm:px-8">
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 md:flex md:flex-col">
           <Outlet context={{ user, vineyard, reloadVineyard } satisfies AppOutletContext} />
         </main>
       </div>

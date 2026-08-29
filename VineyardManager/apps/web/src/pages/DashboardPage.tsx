@@ -12,7 +12,6 @@ import { EmptyState } from "@/components/EmptyState";
 import { HealthLegend } from "@/components/HealthLegend";
 import { RowActionPanel } from "@/components/health/RowActionPanel";
 import { VineyardHealthMap } from "@/components/health/VineyardHealthMap";
-import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -122,30 +121,20 @@ export function DashboardPage() {
     void health.reload();
   };
 
-  return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader
-        title="Dashboard"
-        description={
-          vineyardName
-            ? `${vineyardName} — rows, upcoming work, and recent picks.`
-            : "A quick look at the vineyard: rows, tasks, and harvests."
-        }
-        actions={
-          <div className="flex flex-wrap gap-2">
-            {api === "offline" ? (
-              <Badge variant="red">API offline</Badge>
-            ) : null}
-            {api !== "loading" && api !== "offline" ? (
-              <Badge variant="green">API {api.status}</Badge>
-            ) : null}
-            <Button asChild variant="outline">
-              <Link to="/setup">Set up vineyard</Link>
-            </Button>
-          </div>
-        }
-      />
+  const dashboardActions = (
+    <div className="flex flex-wrap gap-2">
+      {api === "offline" ? <Badge variant="red">API offline</Badge> : null}
+      {api !== "loading" && api !== "offline" ? (
+        <Badge variant="green">API {api.status}</Badge>
+      ) : null}
+      <Button asChild variant="outline">
+        <Link to="/setup">Set up vineyard</Link>
+      </Button>
+    </div>
+  );
 
+  return (
+    <div className="mx-auto flex w-full max-w-5xl flex-col md:min-h-0 md:flex-1">
       {loading ? (
         <div className="space-y-4" aria-busy="true">
           <Card className="min-h-40 animate-pulse bg-card/70" />
@@ -168,22 +157,39 @@ export function DashboardPage() {
       ) : null}
 
       {emptyVineyard && !loading && !errorMessage ? (
-        <EmptyState
-          title="No vineyard yet"
-          action={
-            <Button asChild>
-              <Link to="/setup">Set up vineyard</Link>
-            </Button>
-          }
-        >
-          Add the property in Setup, then rows, tasks, and harvests will show
-          up here.
-        </EmptyState>
+        <>
+          <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+            {dashboardActions}
+          </div>
+          <EmptyState
+            title="No vineyard yet"
+            action={
+              <Button asChild>
+                <Link to="/setup">Set up vineyard</Link>
+              </Button>
+            }
+          >
+            Add the property in Setup, then rows, tasks, and harvests will show
+            up here.
+          </EmptyState>
+        </>
       ) : null}
 
       {!loading && !errorMessage && !emptyVineyard ? (
         <>
-          <section>
+          <section className="shrink-0">
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h1 className="text-2xl font-semibold tracking-tight">
+                  Dashboard
+                </h1>
+                <p className="text-muted">
+                  {vineyardName ?? "Rows, upcoming work, and recent picks."}
+                </p>
+              </div>
+              {dashboardActions}
+            </div>
             {healthError ? (
               <EmptyState
                 title="Could not load vineyard health"
@@ -198,27 +204,28 @@ export function DashboardPage() {
             ) : null}
             {healthReady ? (
               <>
-                <Card className="mb-4">
-                  <p className="text-sm font-medium text-muted">Vineyard health</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3">
-                    <span
-                      className={`size-4 rounded-full ${healthSwatch[healthReady.overall.color]}`}
-                      aria-hidden
-                    />
-                    <p className="text-3xl font-semibold tracking-tight capitalize">
-                      {healthReady.overall.color} {healthReady.overall.score}
+                <div className="mb-3 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-muted">
+                      Vineyard health
                     </p>
+                    <div className="mt-1 flex flex-wrap items-center gap-3">
+                      <span
+                        className={`size-4 rounded-full ${healthSwatch[healthReady.overall.color]}`}
+                        aria-hidden
+                      />
+                      <p className="text-2xl font-semibold tracking-tight capitalize">
+                        {healthReady.overall.color} {healthReady.overall.score}
+                      </p>
+                    </div>
+                    {healthReady.overall.reasons[0] ? (
+                      <p className="mt-1 text-sm text-muted">
+                        {healthReady.overall.reasons[0].message}
+                      </p>
+                    ) : null}
                   </div>
-                  {healthReady.overall.reasons.length > 0 ? (
-                    <ul className="mt-3 space-y-1 text-muted">
-                      {healthReady.overall.reasons.slice(0, 2).map((reason) => (
-                        <li key={`${reason.code}-${reason.message}`}>
-                          {reason.message}
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </Card>
+                  <HealthLegend compact />
+                </div>
                 <VineyardHealthMap
                   overallColor={healthReady.overall.color}
                   healthRows={healthReady.rows}
@@ -233,64 +240,65 @@ export function DashboardPage() {
                     setSelectedRowId(rowId);
                   }}
                 />
-                <ul className="mt-4 space-y-2">
-                  {healthReady.rows.map((row) => (
-                    <li
-                      key={row.rowId}
-                      className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3"
-                    >
-                      <span
-                        className={`mt-1 size-3.5 shrink-0 rounded-full ${healthSwatch[row.color]}`}
-                        aria-hidden
-                      />
-                      <div className="min-w-0">
-                        <p className="font-medium">
-                          {row.code} · {row.name}{" "}
-                          <span className="font-normal text-muted">
-                            {row.score}
-                          </span>
-                        </p>
-                        <p className="text-sm text-muted">
-                          {row.reasons[0]?.message ?? "No issues scored"}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-4">
-                  <HealthLegend />
-                </div>
               </>
             ) : null}
           </section>
 
-          <section className="mt-6">
-            <Card>
-              <CardTitle>Quick actions</CardTitle>
-              <CardDescription>
-                Jump into the work you do most often.
-              </CardDescription>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button asChild>
-                  <Link to="/harvests">Record harvest</Link>
-                </Button>
-                <Button asChild>
-                  <Link to="/tasks">Add task</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to="/rows">View rows</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to="/tasks">View tasks</Link>
-                </Button>
-                <Button asChild variant="outline">
-                  <Link to="/harvests">View harvests</Link>
-                </Button>
-              </div>
-            </Card>
-          </section>
+          <div className="mt-4 min-h-0 space-y-6 pb-2 md:flex-1 md:overflow-y-auto">
+            {healthReady ? (
+              <ul className="space-y-2">
+                {healthReady.rows.map((row) => (
+                  <li
+                    key={row.rowId}
+                    className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3"
+                  >
+                    <span
+                      className={`mt-1 size-3.5 shrink-0 rounded-full ${healthSwatch[row.color]}`}
+                      aria-hidden
+                    />
+                    <div className="min-w-0">
+                      <p className="font-medium">
+                        {row.code} · {row.name}{" "}
+                        <span className="font-normal text-muted">
+                          {row.score}
+                        </span>
+                      </p>
+                      <p className="text-sm text-muted">
+                        {row.reasons[0]?.message ?? "No issues scored"}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
 
-          <div className="mt-6 grid gap-6 lg:grid-cols-2">
+            <section>
+              <Card>
+                <CardTitle>Quick actions</CardTitle>
+                <CardDescription>
+                  Jump into the work you do most often.
+                </CardDescription>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button asChild>
+                    <Link to="/harvests">Record harvest</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link to="/tasks">Add task</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/rows">View rows</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/tasks">View tasks</Link>
+                  </Button>
+                  <Button asChild variant="outline">
+                    <Link to="/harvests">View harvests</Link>
+                  </Button>
+                </div>
+              </Card>
+            </section>
+
+            <div className="grid gap-6 lg:grid-cols-2">
             <section>
               <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-lg font-semibold">Upcoming tasks</h2>
@@ -352,6 +360,7 @@ export function DashboardPage() {
                 </ul>
               )}
             </section>
+          </div>
           </div>
 
           {selectedRow && vineyardId ? (

@@ -12,11 +12,11 @@ const FILL: Record<HealthColor | "neutral", string> = {
 };
 
 const LABEL: Record<HealthColor | "neutral", string> = {
-  green: "#f6f3ec",
-  yellow: "#1f2a1d",
-  orange: "#f6f3ec",
-  red: "#f6f3ec",
-  neutral: "#1f2a1d",
+  green: "var(--color-primary-foreground)",
+  yellow: "var(--color-foreground)",
+  orange: "var(--color-primary-foreground)",
+  red: "var(--color-primary-foreground)",
+  neutral: "var(--color-foreground)",
 };
 
 export function RowLayoutBar({
