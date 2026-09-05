@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { ApiError, getAuthToken, login, setAuthToken } from "@/lib/api";
 
 export function LoginPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const passwordUpdated = params.get("reset") === "1";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -74,6 +76,11 @@ export function LoginPage() {
                 disabled={submitting}
               />
             </div>
+            {passwordUpdated ? (
+              <p className="text-sm font-medium text-health-green" role="status">
+                Password updated. Sign in with your new password.
+              </p>
+            ) : null}
             {status === "error" ? (
               <p className="text-sm font-medium text-health-red" role="alert">
                 {message}
@@ -82,6 +89,14 @@ export function LoginPage() {
             <Button type="submit" className="w-full" disabled={submitting}>
               {submitting ? "Signing in…" : "Sign in"}
             </Button>
+            <p className="text-center text-sm">
+              <Link
+                to="/forgot-password"
+                className="font-medium text-primary underline-offset-4 hover:underline"
+              >
+                Forgot password?
+              </Link>
+            </p>
           </form>
         </Card>
       </div>

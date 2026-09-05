@@ -10,4 +10,12 @@ export const config = {
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
   /** Local-dev default: apps/api/uploads (gitignored). Set UPLOAD_DIR to override. */
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? "uploads"),
+  isProduction: process.env.NODE_ENV === "production",
+  appUrl: (process.env.APP_URL ?? "http://localhost:5173").replace(/\/$/, ""),
+  mailFrom: process.env.MAIL_FROM ?? "Vineyard Manager <noreply@localhost>",
+  smtpUrl: process.env.SMTP_URL?.trim() || "",
+  smtpHost: process.env.SMTP_HOST?.trim() || "",
+  smtpPort: Number(process.env.SMTP_PORT ?? 587),
+  smtpUser: process.env.SMTP_USER ?? "",
+  smtpPass: process.env.SMTP_PASS ?? "",
 };

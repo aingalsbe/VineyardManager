@@ -69,11 +69,28 @@ model User {
   createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
+  disabledAt        DateTime? @map("disabled_at") @db.Timestamptz(6)
 
-  ownedVineyards Vineyard[] @relation("VineyardOwner")
-  assignedTasks  Task[]
+  ownedVineyards  Vineyard[]      @relation("VineyardOwner")
+  assignedTasks   Task[]
+  passwordResets  PasswordReset[]
 
   @@map("users")
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+  @@map("password_resets")
 }
 
 model Vineyard {

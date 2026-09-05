@@ -22,11 +22,13 @@
 - Header shows a larger logo only (vineyard name is not beside it); Dashboard pins vineyard health + map above the work lists
 - Metrics page: health / harvest / activity trends (month, quarter, year); variety rollups sum rows that share a grape; 4-year seed history
 - Role checks on writes: viewer is read-only; manager operates (work, harvest, tasks, rows); power_user also does Setup. JWT 403 FORBIDDEN
+- Power users invite / change role / disable people from Setup (`GET/POST/PATCH/DELETE /vineyards/:id/users`). Temp password shown once. No email yet.
+- Settings edits name + email; logged-in change-password; forgot/reset via email link (`devResetUrl` when SMTP is off).
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 
 ## Next Priority
-- Invite managers and viewers (power_user). GET/POST/PATCH/DELETE /vineyards/:id/users is still outlined, not shipped. No photo underlay.
+- Weather v1 (`docs/next_steps_archive/next-steps-weather.md`) unless Aaron says otherwise. No photo underlay.
 
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager
@@ -38,7 +40,9 @@
 - Harvests: http://localhost:5173/harvests
 - Log work: http://localhost:5173/activities
 - Activity API: GET/POST /api/v1/vineyards/:id/activities ; GET/DELETE /api/v1/activities/:id
-- Auth API: POST /api/v1/auth/login, POST /api/v1/auth/logout, GET /api/v1/auth/me
+- Auth API: POST /api/v1/auth/login, POST /api/v1/auth/logout, GET/PATCH /api/v1/auth/me, POST /api/v1/auth/change-password, POST /api/v1/auth/forgot-password, POST /api/v1/auth/reset-password (disabled/deleted users cannot log in or use an old token)
+- Mail: optional `SMTP_URL` or `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`, `MAIL_FROM`, `APP_URL`. Local reset works without mail (`devResetUrl` in development).
+- People API: GET/POST/PATCH/DELETE /api/v1/vineyards/:id/users (power_user). POST returns `{ user, temporaryPassword }` once.
 - Health API: GET /api/v1/vineyards/:id/health
 - Vineyard API: POST/PATCH /api/v1/vineyards (including `rowLayout`), PUT/GET/DELETE /api/v1/vineyards/:id/logo
 - Setup: http://localhost:5173/setup

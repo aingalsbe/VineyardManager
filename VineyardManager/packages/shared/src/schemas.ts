@@ -26,6 +26,67 @@ export const loginSchema = z.object({
   password: z.string().min(1, "Enter a password"),
 });
 
+export const updateMeSchema = z
+  .object({
+    displayName: z.string().trim().min(1, "Enter a name").max(80).optional(),
+    email: z
+      .string()
+      .trim()
+      .email("Enter a valid email")
+      .toLowerCase()
+      .optional(),
+  })
+  .refine(
+    (value) => value.displayName !== undefined || value.email !== undefined,
+    { message: "Enter at least one field" },
+  );
+
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password"),
+  newPassword: z
+    .string()
+    .min(10, "Password must be at least 10 characters"),
+});
+
+export const forgotPasswordSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email")
+    .toLowerCase(),
+});
+
+export const resetPasswordSchema = z.object({
+  token: z.string().min(1, "Reset token is required"),
+  newPassword: z
+    .string()
+    .min(10, "Password must be at least 10 characters"),
+});
+
+export const inviteUserSchema = z.object({
+  email: z
+    .string()
+    .trim()
+    .email("Enter a valid email")
+    .toLowerCase(),
+  displayName: z.string().trim().min(1, "Enter a name").max(120),
+  role: userRoleSchema,
+});
+
+export const updateVineyardUserSchema = z
+  .object({
+    role: userRoleSchema.optional(),
+    disabled: z.boolean().optional(),
+    displayName: z.string().trim().min(1, "Enter a name").max(120).optional(),
+  })
+  .refine(
+    (value) =>
+      value.role !== undefined ||
+      value.disabled !== undefined ||
+      value.displayName !== undefined,
+    { message: "Enter at least one field" },
+  );
+
 export const registerSchema = z.object({
   email: z
     .string()

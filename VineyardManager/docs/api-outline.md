@@ -12,9 +12,9 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 
 ## Auth
 
-Bearer JWT (`Authorization: Bearer <token>`). All `/api/v1/*` routes require auth except `GET /health` and `POST /auth/login`.
+Bearer JWT (`Authorization: Bearer <token>`). All `/api/v1/*` routes require auth except `GET /health`, `POST /auth/login`, `POST /auth/forgot-password`, and `POST /auth/reset-password`.
 
-Writes check the JWT `role`. **Operate** (`manager` | `power_user`): activities, harvests, tasks, rows. **Setup** (`power_user` only): vineyard create/PATCH, logo, calendar seed. Viewers get `403 FORBIDDEN` `{ "error": { "code": "FORBIDDEN", "message": "Your role cannot change this." } }` on writes. GETs stay any signed-in user. Invites are not shipped.
+Writes check the JWT `role`. **Operate** (`manager` | `power_user`): activities, harvests, tasks, rows. **Setup** (`power_user` only): vineyard create/PATCH, logo, calendar seed, people admin. Viewers get `403 FORBIDDEN` `{ "error": { "code": "FORBIDDEN", "message": "Your role cannot change this." } }` on writes. GETs stay any signed-in user except people admin (power_user only). Soft-deleted or disabled users cannot log in and cannot use an existing token (`401 UNAUTHORIZED`).
 
 Shipped:
 
@@ -22,7 +22,11 @@ Shipped:
 | --- | --- | --- |
 | POST | `/auth/login` | Email + password → `{ data: { token, user } }`. Public. Invalid credentials: `401 UNAUTHORIZED` “Invalid email or password” |
 | POST | `/auth/logout` | Stateless JWT: `{ data: { ok: true } }`. Client discards the token |
-| GET | `/auth/me` | Current user `{ id, email, displayName, role }` (never `passwordHash`) |
+| GET | `/auth/me` | Current user `{ id, email, displayName, role, disabledAt }` (never `passwordHash`) |
+| PATCH | `/auth/me` | Own `{ displayName?, email? }`. Never role/password. `409 EMAIL_TAKEN` if another live user has the email |
+| POST | `/auth/change-password` | `{ currentPassword, newPassword }` (min 10). Wrong current: `401 INVALID_CREDENTIALS` |
+| POST | `/auth/forgot-password` | Public. `{ email }` → always `{ data: { ok: true } }`. Development also may include `devResetUrl`. Disabled/unknown emails still return ok and send nothing |
+| POST | `/auth/reset-password` | Public. `{ token, newPassword }`. Invalid/expired/used: `400 RESET_INVALID`. Does not re-enable a disabled account |
 
 Out of this slice:
 
@@ -164,9 +168,13 @@ Out of this slice:
 
 ## Users (power user)
 
+Shipped. All four routes: `requireAuth` + `requireSetup` + vineyard exists. No outbound email. No membership table — role lives on `User`.
+
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/users` | Managers + viewers |
-| POST | `/vineyards/{vid}/users` | Invite by email + role |
-| PATCH | `/vineyards/{vid}/users/{uid}` | Change role |
-| DELETE | `/vineyards/{vid}/users/{uid}` | Remove access |
+| GET | `/vineyards/{vid}/users` | List people (`deletedAt` null, including disabled). `{ data: PublicUser[] }`. Sort: role then displayName. Optional `?includeDeleted=1` |
+| POST | `/vineyards/{vid}/users` | Invite `{ email, displayName, role }`. Response once: `{ data: { user, temporaryPassword } }`. Live email → `409 USER_EXISTS`. Soft-deleted email is restored with a new temp password |
+| PATCH | `/vineyards/{vid}/users/{uid}` | `{ role?, disabled?, displayName? }`. `disabled: true` sets `disabledAt`. Cannot change self, owner, or the last enabled power user |
+| DELETE | `/vineyards/{vid}/users/{uid}` | Soft-delete (`deletedAt` + `disabledAt`). Same guards as PATCH. `{ data: { ok: true } }` |
+
+`PublicUser` is `{ id, email, displayName, role, disabledAt }`. Never `passwordHash`. Temporary password is never echoed on GET/PATCH.

@@ -4,6 +4,8 @@ import {
   canSetupVineyard,
   type PublicUser,
 } from "@vineyard/shared";
+import { prisma } from "../../db/prisma.js";
+import { serializePublicUser } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { verifyAccessToken } from "./tokens.js";
 
@@ -16,11 +18,11 @@ export function getAuthUser(req: Request): PublicUser {
   return req.user;
 }
 
-export function requireAuth(
+export async function requireAuth(
   req: Request,
   _res: Response,
   next: NextFunction,
-): void {
+): Promise<void> {
   const header = req.headers.authorization;
   if (!header || !header.startsWith("Bearer ")) {
     next(new HttpError(401, "UNAUTHORIZED", "Unauthorized"));
@@ -34,7 +36,15 @@ export function requireAuth(
   }
 
   try {
-    req.user = verifyAccessToken(token);
+    const payload = verifyAccessToken(token);
+    const user = await prisma.user.findFirst({
+      where: { id: payload.id, deletedAt: null, disabledAt: null },
+    });
+    if (!user) {
+      next(new HttpError(401, "UNAUTHORIZED", "Unauthorized"));
+      return;
+    }
+    req.user = serializePublicUser(user);
     next();
   } catch (error) {
     next(error);

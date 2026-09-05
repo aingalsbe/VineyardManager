@@ -4,9 +4,11 @@ import { ActivitiesPage } from "@/pages/ActivitiesPage";
 import { DashboardPage } from "@/pages/DashboardPage";
 import { HarvestsPage } from "@/pages/HarvestsPage";
 import { MetricsPage } from "@/pages/MetricsPage";
+import { ForgotPasswordPage } from "@/pages/ForgotPasswordPage";
 import { LoginPage } from "@/pages/LoginPage";
 import { RowsPage } from "@/pages/RowsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+import { ResetPasswordPage } from "@/pages/ResetPasswordPage";
 import { SettingsPage } from "@/pages/SettingsPage";
 import { SetupPage } from "@/pages/SetupPage";
 import { TasksPage } from "@/pages/TasksPage";
@@ -15,6 +17,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="login" element={<LoginPage />} />
+      <Route path="forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="reset-password" element={<ResetPasswordPage />} />
       <Route element={<AppLayout />}>
         <Route index element={<DashboardPage />} />
         <Route path="rows" element={<RowsPage />} />

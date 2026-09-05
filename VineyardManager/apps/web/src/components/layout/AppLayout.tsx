@@ -40,6 +40,7 @@ export type AppOutletContext = {
   user: PublicUser | null;
   vineyard: Vineyard | null;
   reloadVineyard: () => Promise<void>;
+  reloadUser: (options?: { silent?: boolean }) => Promise<void>;
 };
 
 function NavItem({
@@ -102,7 +103,7 @@ function Brand({
 
 export function AppLayout() {
   const navigate = useNavigate();
-  const { state } = useCurrentUser();
+  const { state, reload } = useCurrentUser();
   const user = state.status === "ready" ? state.user : null;
   const [vineyard, setVineyard] = useState<Vineyard | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
@@ -249,7 +250,16 @@ export function AppLayout() {
         </aside>
 
         <main className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 md:flex md:flex-col">
-          <Outlet context={{ user, vineyard, reloadVineyard } satisfies AppOutletContext} />
+          <Outlet
+            context={
+              {
+                user,
+                vineyard,
+                reloadVineyard,
+                reloadUser: reload,
+              } satisfies AppOutletContext
+            }
+          />
         </main>
       </div>
     </div>

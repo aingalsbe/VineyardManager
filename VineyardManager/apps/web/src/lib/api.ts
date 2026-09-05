@@ -89,7 +89,11 @@ async function throwApiError(response: Response, path: string): Promise<never> {
   } catch {
     // keep status text
   }
-  if (response.status === 401 && path !== "/auth/login") {
+  if (
+    response.status === 401 &&
+    path !== "/auth/login" &&
+    path !== "/auth/change-password"
+  ) {
     clearAuthToken();
     if (window.location.pathname !== "/login") {
       window.location.assign("/login");
@@ -120,6 +124,122 @@ export async function logout(): Promise<void> {
 export async function getCurrentUser(): Promise<PublicUser> {
   const body = await apiJson<{ data: PublicUser }>("/auth/me");
   return body.data;
+}
+
+export type UpdateMePayload = {
+  displayName?: string;
+  email?: string;
+};
+
+export async function updateCurrentUser(
+  payload: UpdateMePayload,
+): Promise<PublicUser> {
+  const body = await apiJson<{ data: PublicUser }>("/auth/me", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
+export async function changePassword(payload: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await apiJson<{ data: { ok: true } }>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export type ForgotPasswordResult = {
+  ok: true;
+  devResetUrl?: string;
+};
+
+export async function forgotPassword(email: string): Promise<ForgotPasswordResult> {
+  const body = await apiJson<{ data: ForgotPasswordResult }>(
+    "/auth/forgot-password",
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+  );
+  return body.data;
+}
+
+export async function resetPassword(payload: {
+  token: string;
+  newPassword: string;
+}): Promise<void> {
+  await apiJson<{ data: { ok: true } }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listVineyardUsers(
+  vineyardId: string,
+): Promise<PublicUser[]> {
+  const body = await apiJson<ListResponse<PublicUser>>(
+    `/vineyards/${vineyardId}/users`,
+  );
+  return body.data;
+}
+
+export type InviteUserPayload = {
+  email: string;
+  displayName: string;
+  role: PublicUser["role"];
+};
+
+export type InviteUserResult = {
+  user: PublicUser;
+  temporaryPassword: string;
+};
+
+export async function inviteVineyardUser(
+  vineyardId: string,
+  payload: InviteUserPayload,
+): Promise<InviteUserResult> {
+  const body = await apiJson<{ data: InviteUserResult }>(
+    `/vineyards/${vineyardId}/users`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+  return body.data;
+}
+
+export type UpdateVineyardUserPayload = {
+  role?: PublicUser["role"];
+  disabled?: boolean;
+  displayName?: string;
+};
+
+export async function updateVineyardUser(
+  vineyardId: string,
+  userId: string,
+  payload: UpdateVineyardUserPayload,
+): Promise<PublicUser> {
+  const body = await apiJson<{ data: PublicUser }>(
+    `/vineyards/${vineyardId}/users/${userId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    },
+  );
+  return body.data;
+}
+
+export async function removeVineyardUser(
+  vineyardId: string,
+  userId: string,
+): Promise<void> {
+  await apiJson<{ data: { ok: true } }>(
+    `/vineyards/${vineyardId}/users/${userId}`,
+    { method: "DELETE" },
+  );
 }
 
 export async function listVineyards(): Promise<Vineyard[]> {

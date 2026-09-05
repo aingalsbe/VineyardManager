@@ -21,7 +21,16 @@ function isAccessTokenPayload(value: unknown): value is AccessTokenPayload {
   );
 }
 
-export function signAccessToken(user: PublicUser): string {
+export type AccessTokenUser = {
+  id: string;
+  email: string;
+  role: UserRole;
+  displayName: string;
+};
+
+export function signAccessToken(
+  user: Pick<PublicUser, "id" | "email" | "role" | "displayName">,
+): string {
   const options: SignOptions = {
     expiresIn: config.jwtExpiresIn as SignOptions["expiresIn"],
   };
@@ -37,7 +46,7 @@ export function signAccessToken(user: PublicUser): string {
   );
 }
 
-export function verifyAccessToken(token: string): PublicUser {
+export function verifyAccessToken(token: string): AccessTokenUser {
   try {
     const payload = jwt.verify(token, config.jwtSecret);
     if (!isAccessTokenPayload(payload)) {

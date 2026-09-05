@@ -42,6 +42,7 @@ export interface User extends Audited {
   displayName: string;
   role: UserRole;
   notificationPrefs: NotificationPrefs;
+  disabledAt?: string | null;
 }
 
 /** Auth serializer shape. Never includes passwordHash. */
@@ -50,6 +51,7 @@ export interface PublicUser {
   email: string;
   displayName: string;
   role: UserRole;
+  disabledAt: string | null;
 }
 
 export interface AuthSession {

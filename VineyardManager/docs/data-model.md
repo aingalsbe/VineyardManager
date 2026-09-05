@@ -14,6 +14,7 @@ Prefer explicit foreign keys, soft deletes, and audit timestamps. UUIDs for all 
 | notificationPrefs | JSON | frequency, channels, thresholds |
 | createdAt / updatedAt | timestamptz | |
 | deletedAt | timestamptz? | soft delete |
+| disabledAt | timestamptz? | set when a power user disables the account; login and existing tokens fail |
 
 ## Vineyard
 

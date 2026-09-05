@@ -16,6 +16,7 @@ import { vineyardMetricsRouter } from "./modules/metrics/metrics.router.js";
 import { rowsRouter } from "./modules/rows/rows.router.js";
 import { vineyardScheduleRouter } from "./modules/schedule/schedule.router.js";
 import { tasksRouter } from "./modules/tasks/tasks.router.js";
+import { vineyardUsersRouter } from "./modules/users/users.router.js";
 import { vineyardsRouter } from "./modules/vineyards/vineyards.router.js";
 
 export function createApp() {
@@ -36,6 +37,7 @@ export function createApp() {
   app.use(`${API_PREFIX}/vineyards/:vineyardId/rows`, rowsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/tasks`, tasksRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/schedule`, vineyardScheduleRouter);
+  app.use(`${API_PREFIX}/vineyards/:vineyardId/users`, vineyardUsersRouter);
   app.use(`${API_PREFIX}/vineyards`, vineyardsRouter);
 
   app.use((_req, res) => {

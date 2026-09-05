@@ -4,6 +4,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { CalendarSeedCard } from "@/components/setup/CalendarSeedCard";
 import { HealthThresholdsCard } from "@/components/setup/HealthThresholdsCard";
+import { PeopleCard } from "@/components/setup/PeopleCard";
 import { VarietyCatalogCard } from "@/components/setup/VarietyCatalogCard";
 import { VineyardForm } from "@/components/setup/VineyardForm";
 import { RowLayoutEditor } from "@/components/setup/RowLayoutEditor";
@@ -17,7 +18,7 @@ import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { summarizeRows } from "@/lib/summarize-rows";
 
 export function SetupPage() {
-  const { canSetup } = useRoleAccess();
+  const { canSetup, user } = useRoleAccess();
   const { vineyard, reloadVineyard } = useOutletContext<AppOutletContext>();
   const { state, reload } = useVineyardRows();
   const health = useVineyardHealth();
@@ -171,6 +172,16 @@ export function SetupPage() {
             />
           </div>
         </div>
+      ) : null}
+
+      {canSetup && current && user ? (
+        <section className="mt-6">
+          <PeopleCard
+            vineyardId={current.id}
+            ownerId={current.ownerId}
+            currentUserId={user.id}
+          />
+        </section>
       ) : null}
     </div>
   );

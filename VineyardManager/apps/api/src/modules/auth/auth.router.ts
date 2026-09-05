@@ -1,9 +1,21 @@
 import { compare } from "bcryptjs";
-import { loginSchema } from "@vineyard/shared";
+import {
+  changePasswordSchema,
+  forgotPasswordSchema,
+  loginSchema,
+  resetPasswordSchema,
+  updateMeSchema,
+} from "@vineyard/shared";
 import { Router } from "express";
 import { prisma } from "../../db/prisma.js";
 import { serializePublicUser } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
+import {
+  changeOwnPassword,
+  requestPasswordReset,
+  resetPasswordWithToken,
+  updateOwnProfile,
+} from "./account.service.js";
 import { getAuthUser } from "./auth.middleware.js";
 import { signAccessToken } from "./tokens.js";
 
@@ -29,7 +41,7 @@ publicAuthRouter.post("/login", async (req, res) => {
   } catch {
     passwordMatches = false;
   }
-  if (!passwordMatches) {
+  if (!passwordMatches || user.disabledAt) {
     throw invalidLogin();
   }
 
@@ -42,6 +54,18 @@ publicAuthRouter.post("/login", async (req, res) => {
   });
 });
 
+publicAuthRouter.post("/forgot-password", async (req, res) => {
+  const body = forgotPasswordSchema.parse(req.body);
+  const result = await requestPasswordReset(body.email);
+  res.json({ data: result });
+});
+
+publicAuthRouter.post("/reset-password", async (req, res) => {
+  const body = resetPasswordSchema.parse(req.body);
+  await resetPasswordWithToken(body);
+  res.json({ data: { ok: true } });
+});
+
 authRouter.post("/logout", (_req, res) => {
   res.json({ data: { ok: true } });
 });
@@ -49,10 +73,24 @@ authRouter.post("/logout", (_req, res) => {
 authRouter.get("/me", async (req, res) => {
   const authUser = getAuthUser(req);
   const user = await prisma.user.findFirst({
-    where: { id: authUser.id, deletedAt: null },
+    where: { id: authUser.id, deletedAt: null, disabledAt: null },
   });
   if (!user) {
     throw new HttpError(401, "UNAUTHORIZED", "Unauthorized");
   }
   res.json({ data: serializePublicUser(user) });
+});
+
+authRouter.patch("/me", async (req, res) => {
+  const actor = getAuthUser(req);
+  const body = updateMeSchema.parse(req.body);
+  const user = await updateOwnProfile(actor.id, body);
+  res.json({ data: user });
+});
+
+authRouter.post("/change-password", async (req, res) => {
+  const actor = getAuthUser(req);
+  const body = changePasswordSchema.parse(req.body);
+  await changeOwnPassword(actor.id, body);
+  res.json({ data: { ok: true } });
 });

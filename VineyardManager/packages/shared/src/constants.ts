@@ -1,5 +1,11 @@
 export const USER_ROLES = ["power_user", "manager", "viewer"] as const;
 
+export const USER_ROLE_LABELS: Record<(typeof USER_ROLES)[number], string> = {
+  power_user: "Power user",
+  manager: "Manager",
+  viewer: "Viewer",
+};
+
 export const VINE_STATUSES = ["active", "replaced", "removed"] as const;
 
 export const ROW_STATUSES = [

@@ -30,13 +30,14 @@ function parseVarietyCatalog(value: unknown): string[] {
 }
 
 export function serializePublicUser(
-  user: Pick<User, "id" | "email" | "displayName" | "role">,
+  user: Pick<User, "id" | "email" | "displayName" | "role" | "disabledAt">,
 ): PublicUser {
   return {
     id: user.id,
     email: user.email,
     displayName: user.displayName,
     role: user.role,
+    disabledAt: user.disabledAt?.toISOString() ?? null,
   };
 }
 

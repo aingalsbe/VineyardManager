@@ -295,6 +295,7 @@ async function main() {
       role: UserRole.power_user,
       passwordHash,
       deletedAt: null,
+      disabledAt: null,
     },
     create: {
       email: SEED_OWNER_EMAIL,
@@ -312,6 +313,7 @@ async function main() {
       role: UserRole.manager,
       passwordHash,
       deletedAt: null,
+      disabledAt: null,
     },
     create: {
       email: SEED_MANAGER_EMAIL,
@@ -332,6 +334,7 @@ async function main() {
       role: UserRole.viewer,
       passwordHash,
       deletedAt: null,
+      disabledAt: null,
     },
     create: {
       email: SEED_VIEWER_EMAIL,
