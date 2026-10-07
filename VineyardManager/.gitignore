@@ -75,3 +75,9 @@ venv/
 
 # User-uploaded vineyard logos (paths live in the DB)
 apps/api/uploads/
+
+# QA temp artifacts
+_qa_temp/
+_qa_temp_*
+_qa_body*.json
+apps/api/_qa_cleanup.mjs
