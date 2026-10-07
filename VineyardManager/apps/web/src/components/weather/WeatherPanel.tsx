@@ -1,9 +1,7 @@
 import { Link } from "react-router-dom";
 import { Droplets, Gauge, Wind } from "lucide-react";
 import type { VineyardWeatherState } from "@/hooks/useVineyardWeather";
-import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
-import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { WeatherAlerts } from "@/components/weather/WeatherAlerts";
 import { WeatherDayStrip } from "@/components/weather/WeatherDayStrip";
 import {
@@ -15,7 +13,8 @@ import {
 } from "@/components/weather/formatWeather";
 import { weatherIconForCode } from "@/components/weather/weatherIcons";
 
-export function WeatherCard({
+/** Compact weather body for the health-section pop-down. */
+export function WeatherPanel({
   state,
   onRetry,
 }: {
@@ -24,8 +23,9 @@ export function WeatherCard({
 }) {
   if (state.status === "loading") {
     return (
-      <div className="space-y-2" aria-busy="true">
-        <Card className="min-h-40 animate-pulse bg-card/70" />
+      <div className="space-y-3" aria-busy="true">
+        <div className="h-24 animate-pulse rounded-lg bg-primary/10" />
+        <div className="h-20 animate-pulse rounded-lg bg-primary/10" />
         <p className="sr-only">Loading weather</p>
       </div>
     );
@@ -37,47 +37,49 @@ export function WeatherCard({
 
   if (state.status === "location-unresolved") {
     return (
-      <EmptyState
-        title="Set location in Setup"
-        action={
-          <Button asChild>
-            <Link to="/setup">Open Setup</Link>
-          </Button>
-        }
-      >
-        {state.message ||
-          "Add an address (or coordinates) for the vineyard so weather can load."}
-      </EmptyState>
+      <div className="space-y-3">
+        <p className="text-base font-semibold text-foreground">
+          Set location in Setup
+        </p>
+        <p className="text-sm text-muted">
+          {state.message ||
+            "Add an address (or coordinates) for the vineyard so weather can load."}
+        </p>
+        <Button asChild>
+          <Link to="/setup">Open Setup</Link>
+        </Button>
+      </div>
     );
   }
 
   if (state.status === "weather-unavailable") {
     return (
-      <EmptyState
-        title="Weather unavailable"
-        action={
-          <Button type="button" onClick={onRetry}>
-            Try again
-          </Button>
-        }
-      >
-        {state.message || "The weather service did not respond. Try again shortly."}
-      </EmptyState>
+      <div className="space-y-3">
+        <p className="text-base font-semibold text-foreground">
+          Weather unavailable
+        </p>
+        <p className="text-sm text-muted">
+          {state.message ||
+            "The weather service did not respond. Try again shortly."}
+        </p>
+        <Button type="button" onClick={onRetry}>
+          Try again
+        </Button>
+      </div>
     );
   }
 
   if (state.status === "error") {
     return (
-      <EmptyState
-        title="Could not load weather"
-        action={
-          <Button type="button" onClick={onRetry}>
-            Try again
-          </Button>
-        }
-      >
-        {state.message}
-      </EmptyState>
+      <div className="space-y-3">
+        <p className="text-base font-semibold text-foreground">
+          Could not load weather
+        </p>
+        <p className="text-sm text-muted">{state.message}</p>
+        <Button type="button" onClick={onRetry}>
+          Try again
+        </Button>
+      </div>
     );
   }
 
@@ -86,18 +88,8 @@ export function WeatherCard({
   const CurrentIcon = weatherIconForCode(current.weatherCode);
 
   return (
-    <Card>
-      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <CardTitle>Weather</CardTitle>
-          <CardDescription>
-            Updated {formatObservedAt(current.observedAt, weather.timeZone)}
-            {weather.cached ? " · cached" : ""}
-          </CardDescription>
-        </div>
-      </div>
-
-      <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="flex items-start gap-3">
           <CurrentIcon
             className="mt-1 size-10 shrink-0 text-primary"
@@ -116,6 +108,10 @@ export function WeatherCard({
                 Feels like {formatTemp(current.feelsLikeF)}F
               </p>
             ) : null}
+            <p className="mt-1 text-xs text-muted">
+              Updated {formatObservedAt(current.observedAt, weather.timeZone)}
+              {weather.cached ? " · cached" : ""}
+            </p>
           </div>
         </div>
 
@@ -153,15 +149,15 @@ export function WeatherCard({
         </ul>
       </div>
 
-      <div className="mt-5">
+      <div>
         <h3 className="mb-2 text-sm font-medium text-muted">7-day forecast</h3>
         <WeatherDayStrip days={weather.daily} timeZone={weather.timeZone} />
       </div>
 
-      <div className="mt-5">
+      <div>
         <h3 className="mb-2 text-sm font-medium text-muted">Alerts</h3>
         <WeatherAlerts alerts={weather.alerts} timeZone={weather.timeZone} />
       </div>
-    </Card>
+    </div>
   );
 }

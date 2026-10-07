@@ -29,11 +29,12 @@
 
 - **Weather v1 daily rain check (shipped 2026-10-06):** Open-Meteo past-24h precip at vineyard lat/lng (geocode+persist address if missing); ≥0.5 in creates one vineyard-scoped watering Activity (source weather); in-process cron 6:15 AM America/Chicago; POST /vineyards/:id/weather/daily-check for operate roles; no Dashboard button. Archive: `docs/next_steps_archive/next-steps-weather.md`
 
+- **Weather GET + WeatherCard (shipped 2026-10-06, `b17a284`):** Devon — GET current + 7-day + alerts and history with cache, shared types, api-outline. Sage — Dashboard WeatherCard UI. Avery QA. Morgan backup: `feat(weather): GET current+7-day+alerts and history with cache; Dashboard WeatherCard UI` (pushed nas + origin; NAS synced).
+
 ## Next Priority
-- **Active:** GET current + 7-day forecast + alerts (API + light UI). Devon — API (GET weather, history, cache, shared types, api-outline); Sage — light UI (modern UI/UX; cool blue chrome; no rain-check button; health colors unchanged); Avery QA after both ready; then Morgan runs Backup-VineyardManager.ps1.
-- Pipeline board: `VineyardManager-Next-Steps.md` (queued: notification prefs, configurable rain threshold, weekly digest, Dashboard/Metrics watering surfacing, gate forceRainInches, external Task Scheduler).
+- **Active:** Dashboard redesign prototypes (Sage) — review current Dashboard and deliver alternate modern UI/UX prototypes. **No live Dashboard code changes** until Aaron picks a direction.
+- Pipeline board: `VineyardManager-Next-Steps.md` (queued weather follow-ons: notification prefs, configurable rain threshold, weekly digest, Dashboard/Metrics watering surfacing, gate forceRainInches, external Task Scheduler).
 - Non-goals: photo underlay; camera/leaf analysis.
-- **Upcoming after this slice:** Dashboard redesign prototypes (Sage) — review current Dashboard, deliver alternate modern UI/UX prototypes; no live code until Aaron picks a direction. See pipeline board.
 
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager
@@ -50,10 +51,10 @@
 - People API: GET/POST/PATCH/DELETE /api/v1/vineyards/:id/users (power_user). POST returns `{ user, temporaryPassword }` once.
 - Health API: GET /api/v1/vineyards/:id/health
 - Weather API (shipped): POST /api/v1/vineyards/:id/weather/daily-check (operate). Cron 6:15 AM America/Chicago; WEATHER_CRON_ENABLED
-- Weather API (this slice): GET /api/v1/vineyards/:id/weather — current + 7-day + alerts (cached); Devon API / Sage light UI
+- Weather API (shipped `b17a284`): GET /api/v1/vineyards/:id/weather — current + 7-day + alerts (cached); GET history; Dashboard WeatherCard
 - Vineyard API: POST/PATCH /api/v1/vineyards (including `rowLayout`), PUT/GET/DELETE /api/v1/vineyards/:id/logo
 - Setup: http://localhost:5173/setup
 - Metrics: http://localhost:5173/metrics
 - Metrics API: GET /api/v1/vineyards/:id/metrics?period=month|quarter|year
 - Harvest type on Log work is a note only — yield still lives on Harvests
-- Process: no commit/push until Avery QA; then `powershell -NoProfile -File C:\AIProjects\Scripts\Backup-VineyardManager.ps1 -CommitMessage "…"` (Morgan writes message)
+- Process: no commit/push until Avery QA on implementation slices; then `powershell -NoProfile -File C:\AIProjects\Scripts\Backup-VineyardManager.ps1 -CommitMessage "…"` (Morgan writes message). Active prototypes slice: no live Dashboard changes until Aaron picks.

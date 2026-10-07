@@ -1,0 +1,31 @@
+﻿PASS [rows-edit-full] 200 {"data":{"id":"b64ea28d-8a77-4328-b78f-5f5728f104d2","vineyardId":"c6c4aea9-5e9f-412e-8784-9fa7f80fa05c","code":"QA-TEMP-R1","name":"QA-TEMP Test Row Edited","variety":"Norton","lengthFeet":12,"lengthInches":0,"vineCount":5,"plantedYear":2024,"status":"retired","notes":"QA temp retired for cleanup","createdAt":"2026-10-07T02:52:34.834Z","updatedAt":"2026-10-07T02:53:14.366Z","deletedAt":null}}
+FAIL [rows-delete-try] status=404 body= err=The remote server returned an error: (404) Not Found.
+PASS [me-fields] 200 {"data":{"id":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","email":"owner@vineyard.local","displayName":"Aaron Ingalsbe","role":"power_user","disabledAt":null}}
+ME_FIELDS: {"id":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","email":"owner@vineyard.local","displayName":"Aaron Ingalsbe","role":"power_user","disabledAt":null}
+FAIL [change-pw-wrong-current] status=401 body= err=The remote server returned an error: (401) Unauthorized.
+ORIG_NAME=Aaron Ingalsbe
+PASS [me-patch-name] 200 {"data":{"id":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","email":"owner@vineyard.local","displayName":"QA-TEMP Name","role":"power_user","disabledAt":null}}
+AFTER_PATCH: {"id":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","email":"owner@vineyard.local","displayName":"QA-TEMP Name","role":"power_user","disabledAt":null}
+PASS [me-revert-name] 200 {"data":{"id":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","email":"owner@vineyard.local","displayName":"Aaron Ingalsbe","role":"power_user","disabledAt":null}}
+REVERTED: {"id":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","email":"owner@vineyard.local","displayName":"Aaron Ingalsbe","role":"power_user","disabledAt":null}
+PASS [me-patch-email-same] 200 {"data":{"id":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","email":"owner@vineyard.local","displayName":"Aaron Ingalsbe","role":"power_user","disabledAt":null}}
+PASS [tasks-create] 201 {"data":{"id":"a4322528-5863-448d-a42a-d9ee7f92b5fb","vineyardId":"c6c4aea9-5e9f-412e-8784-9fa7f80fa05c","rowId":null,"userId":null,"type":"maintenance","title":"QA-TEMP Task","body":"temp task for QA","dueAt":"2026-10-15T17:00:00.000Z","status":"pending","relatedActivityType":null,"createdAt":"2026-10-07T02:53:14.651Z","updatedAt":"2026-10-07T02:53:14.651Z","deletedAt":null,"row":null}}
+taskId=a4322528-5863-448d-a42a-d9ee7f92b5fb
+FAIL [tasks-edit] status=400 body= err=The remote server returned an error: (400) Bad Request.
+FAIL [tasks-complete] status=400 body= err=The remote server returned an error: (400) Bad Request.
+FAIL [tasks-delete] status=404 body= err=The remote server returned an error: (404) Not Found.
+seedRow=628243cb-cf49-45e6-8dd3-9e21afcd1865 NS1
+PASS [harvest-create] 201 {"data":{"id":"ec896418-09e6-4570-8ea4-4c40c6ab093f","rowId":"628243cb-cf49-45e6-8dd3-9e21afcd1865","vineyardId":"c6c4aea9-5e9f-412e-8784-9fa7f80fa05c","harvestedAt":"2026-10-06T17:00:00.000Z","yieldAmount":1.5,"yieldUnit":"lb","notes":"QA-TEMP harvest","crew":"QA","createdAt":"2026-10-07T02:53:14.763Z","updatedAt":"2026-10-07T02:53:14.763Z","deletedAt":null,"row":{"id":"628243cb-cf49-45e6-8dd3-9e...
+harvId=ec896418-09e6-4570-8ea4-4c40c6ab093f
+PASS [harvest-delete] 200 {"data":{"id":"ec896418-09e6-4570-8ea4-4c40c6ab093f","rowId":"628243cb-cf49-45e6-8dd3-9e21afcd1865","vineyardId":"c6c4aea9-5e9f-412e-8784-9fa7f80fa05c","harvestedAt":"2026-10-06T17:00:00.000Z","yieldAmount":1.5,"yieldUnit":"lb","notes":"QA-TEMP harvest","crew":"QA","createdAt":"2026-10-07T02:53:14.763Z","updatedAt":"2026-10-07T02:53:14.850Z","deletedAt":"2026-10-07T02:53:14.848Z","row":{"id":"6282...
+FAIL [harvest-patch] status=404 body= err=The remote server returned an error: (404) Not Found.
+FAIL [activity-create] status=400 body= err=The remote server returned an error: (400) Bad Request.
+actId=
+PASS [vineyard-patch-same-name] 200 {"data":{"id":"c6c4aea9-5e9f-412e-8784-9fa7f80fa05c","ownerId":"0420a0f1-9605-4c85-9cf6-9ba588dfa39e","name":"Abide in the Vine Vineyard","address":"9825 KS-4, Topeka, KS 66614","lat":38.7432,"lng":-94.8251,"timezone":"America/Chicago","healthThresholds":{"greenMin":80,"orangeMin":60,"yellowMin":70},"varietyCatalog":["Chambourcin","Chardonel","Concord","Norton","Traminette","Vignoles"],"hasLogo":t...
+PASS [forgot-pw] 200 {"data":{"ok":true,"devResetUrl":"http://localhost:5173/reset-password?token=7LtBy1fdmYEUluN0EnkjX6JRTMj7PpanDn8M18N_Qgk"}}
+PASS [viewer-login] 200 {"data":{"token":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiMzk2ZjIyNy02NjU4LTRjMTMtYjhiNi0yMWMzZjYxMDY4NTgiLCJlbWFpbCI6InZpZXdlckB2aW5leWFyZC5sb2NhbCIsInJvbGUiOiJ2aWV3ZXIiLCJkaXNwbGF5TmFtZSI6IlNhbSBSaXZlcmEiLCJpYXQiOjE3OTEzNDE1OTUsImV4cCI6MTc5MTk0NjM5NX0.gdZZys83hlsH1ICUD3WgEdYsUr8pUAKB5-EAuQDtV_Y","user":{"id":"b396f227-6658-4c13-b8b6-21c3f6106858","email":"viewer@vineyard.local","display...
+METRICS_Q: {"start":"2026-10-01","end":"2026-10-06"} period=quarter
+REMAINING_QA_ROWS: {"id":"b64ea28d-8a77-4328-b78f-5f5728f104d2","vineyardId":"c6c4aea9-5e9f-412e-8784-9fa7f80fa05c","code":"QA-TEMP-R1","name":"QA-TEMP Test Row Edited","variety":"Norton","lengthFeet":12,"lengthInches":0,"vineCount":5,"plantedYear":2024,"status":"retired","notes":"QA temp retired for cleanup","createdAt":"2026-10-07T02:52:34.834Z","updatedAt":"2026-10-07T02:53:14.366Z","deletedAt":null}
+REMAINING_QA_TASKS: {"id":"a4322528-5863-448d-a42a-d9ee7f92b5fb","vineyardId":"c6c4aea9-5e9f-412e-8784-9fa7f80fa05c","rowId":null,"userId":null,"type":"maintenance","title":"QA-TEMP Task","body":"temp task for QA","dueAt":"2026-10-15T17:00:00.000Z","status":"pending","relatedActivityType":null,"createdAt":"2026-10-07T02:53:14.651Z","updatedAt":"2026-10-07T02:53:14.651Z","deletedAt":null,"row":null}
+REMAINING_QA_HARV: 
+REMAINING_QA_ACT count=0 

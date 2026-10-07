@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   formatYield,
@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { HealthLegend } from "@/components/HealthLegend";
 import { RowActionPanel } from "@/components/health/RowActionPanel";
 import { VineyardHealthMap } from "@/components/health/VineyardHealthMap";
-import { WeatherCard } from "@/components/weather/WeatherCard";
+import { WeatherHealthControl } from "@/components/weather/WeatherHealthControl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -88,6 +88,7 @@ export function DashboardPage() {
   const healthError =
     health.state.status === "error" ? health.state.message : null;
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const weatherOverlayRef = useRef<HTMLDivElement>(null);
   const [activityOpen, setActivityOpen] = useState(false);
   const [presetType, setPresetType] = useState<ActivityType | undefined>();
   const [actionError, setActionError] = useState<string | null>(null);
@@ -207,53 +208,66 @@ export function DashboardPage() {
                 {healthError}
               </EmptyState>
             ) : null}
-            {healthReady ? (
-              <>
-                <div className="mb-3 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-muted">
-                      Vineyard health
-                    </p>
-                    <div className="mt-1 flex flex-wrap items-center gap-3">
-                      <span
-                        className={`size-4 rounded-full ${healthSwatch[healthReady.overall.color]}`}
-                        aria-hidden
-                      />
-                      <p className="text-2xl font-semibold tracking-tight capitalize">
-                        {healthReady.overall.color} {healthReady.overall.score}
+            <div className="relative" ref={weatherOverlayRef}>
+              {healthReady ? (
+                <>
+                  <div className="mb-3 flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-muted">
+                        Vineyard health
                       </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-3">
+                        <span
+                          className={`size-4 rounded-full ${healthSwatch[healthReady.overall.color]}`}
+                          aria-hidden
+                        />
+                        <p className="text-2xl font-semibold tracking-tight capitalize">
+                          {healthReady.overall.color} {healthReady.overall.score}
+                        </p>
+                      </div>
+                      {healthReady.overall.reasons[0] ? (
+                        <p className="mt-1 text-sm text-muted">
+                          {healthReady.overall.reasons[0].message}
+                        </p>
+                      ) : null}
                     </div>
-                    {healthReady.overall.reasons[0] ? (
-                      <p className="mt-1 text-sm text-muted">
-                        {healthReady.overall.reasons[0].message}
-                      </p>
-                    ) : null}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <WeatherHealthControl
+                        state={weather.state}
+                        onRetry={() => void weather.reload()}
+                        overlayContainerRef={weatherOverlayRef}
+                      />
+                      <HealthLegend compact />
+                    </div>
                   </div>
-                  <HealthLegend compact />
+                  <VineyardHealthMap
+                    overallColor={healthReady.overall.color}
+                    healthRows={healthReady.rows}
+                    vineyardRows={readyRows}
+                    rowLayout={
+                      rows.state.status === "ready"
+                        ? rows.state.vineyard.rowLayout
+                        : null
+                    }
+                    onSelectRow={(rowId) => {
+                      setActionError(null);
+                      setSelectedRowId(rowId);
+                    }}
+                  />
+                </>
+              ) : (
+                <div className="mb-3 flex justify-end">
+                  <WeatherHealthControl
+                    state={weather.state}
+                    onRetry={() => void weather.reload()}
+                    overlayContainerRef={weatherOverlayRef}
+                  />
                 </div>
-                <VineyardHealthMap
-                  overallColor={healthReady.overall.color}
-                  healthRows={healthReady.rows}
-                  vineyardRows={readyRows}
-                  rowLayout={
-                    rows.state.status === "ready"
-                      ? rows.state.vineyard.rowLayout
-                      : null
-                  }
-                  onSelectRow={(rowId) => {
-                    setActionError(null);
-                    setSelectedRowId(rowId);
-                  }}
-                />
-              </>
-            ) : null}
+              )}
+            </div>
           </section>
 
           <div className="mt-4 min-h-0 space-y-6 pb-2 md:flex-1 md:overflow-y-auto">
-            <WeatherCard
-              state={weather.state}
-              onRetry={() => void weather.reload()}
-            />
             {healthReady ? (
               <ul className="space-y-2">
                 {healthReady.rows.map((row) => (
