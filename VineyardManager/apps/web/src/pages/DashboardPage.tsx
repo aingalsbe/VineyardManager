@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { HealthLegend } from "@/components/HealthLegend";
 import { RowActionPanel } from "@/components/health/RowActionPanel";
 import { VineyardHealthMap } from "@/components/health/VineyardHealthMap";
+import { WeatherCard } from "@/components/weather/WeatherCard";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -19,6 +20,7 @@ import { useApiHealth } from "@/hooks/useApiHealth";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useHarvests } from "@/hooks/useHarvests";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
+import { useVineyardWeather } from "@/hooks/useVineyardWeather";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
 import { ApiError, updateTask } from "@/lib/api";
@@ -52,6 +54,7 @@ export function DashboardPage() {
   const tasks = useVineyardTasks();
   const harvests = useHarvests();
   const health = useVineyardHealth();
+  const weather = useVineyardWeather();
 
   const coreLoading =
     rows.state.status === "loading" ||
@@ -247,6 +250,10 @@ export function DashboardPage() {
           </section>
 
           <div className="mt-4 min-h-0 space-y-6 pb-2 md:flex-1 md:overflow-y-auto">
+            <WeatherCard
+              state={weather.state}
+              onRetry={() => void weather.reload()}
+            />
             {healthReady ? (
               <ul className="space-y-2">
                 {healthReady.rows.map((row) => (

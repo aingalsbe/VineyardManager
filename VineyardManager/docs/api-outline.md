@@ -154,20 +154,58 @@ Out of this slice:
 
 ## Weather
 
-Location for rain checks comes from the vineyard record (`lat` / `lng`, else geocode `address` and persist coordinates). Threshold: **0.5 inches** in the past rolling **24 hours** (Open-Meteo, inches). On trigger: one vineyard-scoped `watering` Activity with `source: "weather"` (idempotent per vineyard + local calendar date). No Dashboard button — automated via in-process cron at **6:15 AM America/Chicago** (`WEATHER_CRON_ENABLED`, default on).
+Location for weather and rain checks comes from the vineyard record (`lat` / `lng`, else geocode `address` and persist coordinates). Rain threshold (daily-check only): **0.5 inches** in the past rolling **24 hours** (Open-Meteo, inches). On trigger: one vineyard-scoped `watering` Activity with `source: "weather"` (idempotent per vineyard + local calendar date). No Dashboard rain-check button — automated via in-process cron at **6:15 AM America/Chicago** (`WEATHER_CRON_ENABLED`, default on).
+
+**Cache TTL:** `GET /weather` and `GET /weather/history` cache in-process for **15 minutes** (`weather.cache.ts`). Response includes `cached` and `cacheExpiresAt`.
+
+**Alerts:** Open-Meteo has **no** full NWS / CAP alert feed. `alerts` is always an array (never null). Entries are **derived** frost / wind / heavy rain / snow / drought proxies from forecast (+ archive for drought), and a weak hail proxy from WMO codes 96/99. Official **tornado** (and most hail) watches/warnings are **not** available from this provider — those hazards stay empty unless a future NWS integration is added. `source` is `"derived"` today (`"nws"` / `"open-meteo"` reserved).
+
+Errors: `404 NOT_FOUND`, `422 LOCATION_UNRESOLVED`, `502 WEATHER_UNAVAILABLE`.
 
 Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/vineyards/{vid}/weather/daily-check` | Run rain check now (`requireOperate`). Creates watering Activity when ≥0.5". Idempotent same local day. |
+| GET | `/vineyards/{vid}/weather` | Current + 7-day `daily` + `alerts`. Auth: any signed-in user (viewer+). Cached 15 min. |
+| GET | `/vineyards/{vid}/weather/history` | Recent daily precip / temps / wind. `?days=1..90` (default **14**). Auth: viewer+. Cached 15 min. |
+| POST | `/vineyards/{vid}/weather/daily-check` | Run rain check now (`requireOperate`). Creates watering Activity when ≥0.5". Idempotent same local day. Optional body `{ forceRainInches }` for QA. |
 
-Out of this slice:
+### `GET /weather` response shape (`{ data }`)
 
-| Method | Path | Description |
-| --- | --- | --- |
-| GET | `/vineyards/{vid}/weather` | Current + 7-day + alerts (cached) |
-| GET | `/vineyards/{vid}/weather/history` | Rain / extremes for calculations |
+```ts
+{
+  vineyardId, timeZone, lat, lng, geocoded,
+  provider: "open-meteo",
+  fetchedAt, cached, cacheExpiresAt,
+  current: {
+    observedAt, tempF, feelsLikeF, humidityPct, precipInches,
+    windMph, windGustMph, weatherCode, summary
+  },
+  daily: Array<{ // length 7
+    date, tempMaxF, tempMinF, precipInches, precipProbabilityPct,
+    windMphMax, weatherCode, summary
+  }>,
+  alerts: Array<{ // never null; may be []
+    id,
+    hazard: "hail" | "wind" | "tornado" | "rain" | "snow" | "frost" | "drought",
+    severity: "minor" | "moderate" | "severe" | "extreme",
+    title, description, startsAt, endsAt,
+    source: "nws" | "open-meteo" | "derived"
+  }>
+}
+```
+
+### `GET /weather/history` response shape (`{ data }`)
+
+```ts
+{
+  vineyardId, timeZone,
+  provider: "open-meteo",
+  fetchedAt, cached, cacheExpiresAt,
+  days: Array<{ date, precipInches, tempMaxF, tempMinF, windMphMax }>
+}
+```
+
 
 ## Offline sync
 

@@ -1,211 +1,95 @@
-grok --resume 01a002e3-8089-7da2-b47e-782b6e2615c1
+# Vineyard Manager — Pipeline Board
 
-# Vineyard Manager – Next Steps to Functional MVP
-
-Follow these steps **in order**.  
-Run the terminal commands in PowerShell from your `VineyardManager` folder.  
-Paste the Grok Build prompts exactly as written (or adjust slightly if your folder names differ).
+**Updated:** 2026-10-06  
+**Repo:** `C:\AIProjects\VineyardManager`  
+**Product:** Abide in the Vine Vineyard manager (monorepo: `apps/web`, `apps/api`, `packages/shared`)
 
 ---
 
-## Phase 1 – Verify & Run the Scaffold
+## Shipped (brief)
 
-### 1.1 Confirm structure and start the frontend
-```powershell
-cd AIProjects\VineyardManager
-dir
-cd apps\web
-npm install
-npm run dev
-```
-→ Open the URL it gives you (usually http://localhost:5173) and confirm the basic React app loads.
+Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + health, metrics, auth/roles, Setup (layout, varieties, people), Start/Stop scripts, NAS + private GitHub backup.
 
-### 1.2 (Optional) Quick Grok Build check
-```powershell
-cd ..\..   # back to VineyardManager root
-grok
-```
-**Prompt:**
-```
-Show me the current project tree and confirm the React + Vite app in apps/web is correctly set up. Also list what database schema files currently exist.
-```
+**Weather v1 (2026-10-06):** daily rain check via Open-Meteo (past 24h precip at vineyard lat/lng). ≥0.5" creates one vineyard-scoped watering Activity (`source: weather`). In-process cron 6:15 AM America/Chicago. Manual `POST /vineyards/:id/weather/daily-check` for operate roles. Details: `docs/next_steps_archive/next-steps-weather.md`.
 
 ---
 
-## Phase 2 – Backend Foundation
+## Next in pipeline (active)
 
-### 2.1 Install backend dependencies & set up the API
-```powershell
-cd apps\api
-npm init -y
-npm install express cors dotenv pg  # or prisma / drizzle if you prefer
-npm install -D typescript tsx @types/express @types/node @types/cors
-```
+### GET current + 7-day forecast + alerts (API + light UI)
 
-### 2.2 Grok Build – Create a solid API skeleton
-From the project root run `grok`, then paste:
+| Field | Value |
+| --- | --- |
+| **API** | Devon (Sr Dev) — GET weather, history, cache, shared types, api-outline |
+| **UI** | Sage (UI/UX) — light UI; modern practices; cool blue chrome; no rain-check button; health colors unchanged |
+| **QA** | Avery — after both Devon and Sage are ready |
+| **Then** | Morgan runs `Backup-VineyardManager.ps1` (writes commit message) |
+| **Approved by** | Aaron |
 
-```
-Create a clean Express + TypeScript API in apps/api that:
-- Uses a proper folder structure (src/routes, src/controllers, src/db, src/types)
-- Connects to a Postgres database using the schema we already created
-- Has a health check endpoint
-- Has basic CRUD routes for:
-  - Vineyard Blocks / Parcels
-  - Tasks
-  - Harvests
-- Uses environment variables for the database connection
-- Includes a simple README for the API
+**Goal:** Expose current conditions, a 7-day forecast, and weather alerts for a vineyard, plus a light UI so operators can see them without leaving the app.
 
-Also create a .env.example file and update the root .gitignore if needed.
-```
+**Acceptance (matches Morgan's brief):**
 
-### 2.3 Create and fill the environment file
-```powershell
-cd apps\api
-copy .env.example .env
-# Then edit .env with your actual database credentials
-```
+- [ ] `GET /api/v1/vineyards/:id/weather` returns **current** conditions, **7-day** forecast, and **alerts** (cached), keyed off vineyard `lat`/`lng` (same location rules as Weather v1)
+- [ ] Auth: signed-in vineyard member with read access (not operate-only)
+- [ ] Light UI surfaces current + 7-day + alerts (no heavy redesign; Dashboard or a small weather panel is fine)
+- [ ] Reuses Open-Meteo client patterns already in `apps/api/src/modules/weather/`
+- [ ] Daily rain check / cron behavior unchanged
+- [ ] Avery QA pass (after Devon API + Sage UI) before any commit/push/backup
+
+**Out of scope for this slice:**
+
+- Weather notification prefs (severe, drought/overwater, frost/snow)
+- Configurable rain threshold in Setup
+- Weekly growing-season digest
+- Dashboard/Metrics surfacing of weather-sourced watering Activities
+- Gating `forceRainInches` for production
+- External Windows Task Scheduler / service-account cron
+- Photo underlay; camera or leaf analysis
 
 ---
 
-## Phase 3 – Database Ready
+## Queued after (ordered)
 
-### 3.1 Run migrations / create tables
-(Adjust the command based on what Grok created — Prisma, Drizzle, or raw SQL)
-
-**If using Prisma:**
-```powershell
-npx prisma migrate dev --name init
-npx prisma generate
-```
-
-**If using raw SQL or another tool:**
-Ask Grok:
-```
-Show me the exact commands to create the database tables from the schema we defined.
-```
-
-### 3.2 Seed some sample data
-**Grok prompt:**
-```
-Create a seed script that inserts realistic sample data:
-- 4–5 vineyard blocks with different varieties
-- 8–10 tasks linked to those blocks
-- 3–4 harvest records
-Make it easy to run with one command.
-```
-
-Then run the seed command Grok gives you.
+1. **Dashboard redesign prototypes (Sage)** — After forecast+alerts ships: review current Dashboard and deliver alternate prototypes (modern UI/UX). No live code changes until Aaron picks a direction.
+2. **Weather notification prefs** — severe weather, drought/overwater, frost/snow (user-configurable)
+3. **Configurable rain threshold** — Setup editor instead of hard-coded 0.5"
+4. **Weekly growing-season digest** — summary notifications during the season
+5. **Dashboard / Metrics weather-sourced watering** — surface rain-logged Activities in UI/trends
+6. **Gate `forceRainInches` for prod** — keep override for local/dev tests only
+7. **External Task Scheduler** — low priority; in-process cron is enough for local
 
 ---
 
-## Phase 4 – Connect Frontend ↔ Backend
+## Explicit non-goals
 
-### 4.1 Add API client and basic data fetching
-**Grok prompt (from project root):**
-```
-In the apps/web React app:
-- Create a simple API client (using fetch or axios)
-- Create React Query (or SWR) setup
-- Build a BlocksList page that fetches and displays the vineyard blocks from the API
-- Add basic loading and error states
-- Make sure the dev server proxy or CORS is configured correctly so the frontend can talk to the API on a different port
-```
-
-### 4.2 Start both servers
-Terminal 1 (API):
-```powershell
-cd apps\api
-npm run dev
-```
-
-Terminal 2 (Frontend):
-```powershell
-cd apps\web
-npm run dev
-```
+- Photo underlay on the vineyard map
+- Camera / leaf analysis / computer vision
 
 ---
 
-## Phase 5 – Core Features (in priority order)
+## Process notes
 
-Run these one at a time in Grok Build:
-
-1. **Blocks / Parcels CRUD**
-```
-Implement full Create / Edit / Delete for vineyard blocks in both the API and the React frontend. Include a simple form and a detail view.
-```
-
-2. **Tasks**
-```
-Add task management: list tasks by block, create new tasks, mark complete, and filter by status. Keep the UI clean and mobile-friendly.
-```
-
-3. **Harvest Logging**
-```
-Build the harvest recording feature: select a block, enter yield, date, notes, and crew. Show a simple harvest history per block.
-```
-
-4. **Dashboard**
-```
-Create a main dashboard that shows:
-- Total blocks and total acreage
-- Upcoming / overdue tasks
-- Recent harvests
-- Quick action buttons
-```
-
----
-
-## Phase 6 – Polish & Make It Usable
-
-**Grok prompts (run as needed):**
-
-```
-Add basic authentication (email/password or magic link) so multiple users can eventually use the app. Keep it simple for now.
-```
-
-```
-Make the UI responsive and improve the visual design using Tailwind + shadcn/ui components. Focus on clean vineyard/agriculture aesthetic.
-```
-
-```
-Add a simple search and filter bar on the blocks and tasks pages.
-```
-
-```
-Write a short user guide in docs/USER_GUIDE.md explaining how to use the main features.
-```
-
----
-
-## Daily Working Commands (cheat sheet)
+1. **No commit, push, or backup** until Avery finishes QA on the active slice.
+2. After Avery signs off, Morgan runs:
 
 ```powershell
-# Start everything
-cd AIProjects\VineyardManager\apps\api   →  npm run dev
-cd AIProjects\VineyardManager\apps\web   →  npm run dev
-
-# Open Grok Build from project root
-cd AIProjects\VineyardManager
-grok
+powershell -NoProfile -File C:\AIProjects\Scripts\Backup-VineyardManager.ps1 -CommitMessage "…"
 ```
 
----
+   Morgan writes the commit message. Do not invent one in this board.
 
-## Recommended Order Summary
-
-1. Verify frontend runs  
-2. Build & run API  
-3. Connect database + seed data  
-4. Connect frontend to API and show blocks  
-5. Add full Blocks CRUD  
-6. Add Tasks  
-7. Add Harvests  
-8. Build Dashboard  
-9. Auth + polish  
+3. Keep this file as the **pipeline board** (readable Markdown). Archive shipped slice details under `docs/next_steps_archive/` when a slice closes.
+4. Day-to-day resume notes + API cheat sheet live in `CONTINUE.md`.
 
 ---
 
-Would you like me to generate the exact next Grok prompt for whatever phase you’re currently on?
+## Quick links
+
+| Resource | Path / URL |
+| --- | --- |
+| Continue / cheat sheet | `CONTINUE.md` |
+| Weather v1 archive | `docs/next_steps_archive/next-steps-weather.md` |
+| API outline | `docs/api-outline.md` |
+| App | http://localhost:5173/ |
+| Demo login | `owner@vineyard.local` / `VineyardDev1!` |

@@ -13,6 +13,9 @@ import {
   WATERING_METHODS,
   YIELD_UNITS,
   METRICS_PERIODS,
+  WEATHER_ALERT_SEVERITIES,
+  WEATHER_ALERT_SOURCES,
+  WEATHER_HAZARDS,
 } from "./constants.js";
 
 export const userRoleSchema = z.enum(USER_ROLES);
@@ -280,6 +283,82 @@ export const updateHarvestSchema = createHarvestSchema.partial();
 export const harvestDetailsSchema = z.object({
   weightLb: z.number().nonnegative(),
   condition: z.enum(HARVEST_CONDITIONS),
+});
+
+
+export const weatherHazardSchema = z.enum(WEATHER_HAZARDS);
+export const weatherAlertSeveritySchema = z.enum(WEATHER_ALERT_SEVERITIES);
+export const weatherAlertSourceSchema = z.enum(WEATHER_ALERT_SOURCES);
+
+export const weatherCurrentSchema = z.object({
+  observedAt: z.string(),
+  tempF: z.number(),
+  feelsLikeF: z.number().nullable(),
+  humidityPct: z.number().nullable(),
+  precipInches: z.number().nullable(),
+  windMph: z.number().nullable(),
+  windGustMph: z.number().nullable(),
+  weatherCode: z.number().int(),
+  summary: z.string(),
+});
+
+export const weatherDailySchema = z.object({
+  date: z.string(),
+  tempMaxF: z.number(),
+  tempMinF: z.number(),
+  precipInches: z.number(),
+  precipProbabilityPct: z.number().nullable(),
+  windMphMax: z.number().nullable(),
+  weatherCode: z.number().int(),
+  summary: z.string(),
+});
+
+export const weatherAlertSchema = z.object({
+  id: z.string(),
+  hazard: weatherHazardSchema,
+  severity: weatherAlertSeveritySchema,
+  title: z.string(),
+  description: z.string(),
+  startsAt: z.string().nullable(),
+  endsAt: z.string().nullable(),
+  source: weatherAlertSourceSchema,
+});
+
+export const vineyardWeatherSchema = z.object({
+  vineyardId: z.string().uuid(),
+  timeZone: z.string(),
+  lat: z.number(),
+  lng: z.number(),
+  geocoded: z.boolean(),
+  provider: z.literal("open-meteo"),
+  fetchedAt: z.string(),
+  cached: z.boolean(),
+  cacheExpiresAt: z.string(),
+  current: weatherCurrentSchema,
+  daily: z.array(weatherDailySchema),
+  alerts: z.array(weatherAlertSchema),
+});
+
+export const weatherHistoryDaySchema = z.object({
+  date: z.string(),
+  precipInches: z.number(),
+  tempMaxF: z.number().nullable(),
+  tempMinF: z.number().nullable(),
+  windMphMax: z.number().nullable(),
+});
+
+export const vineyardWeatherHistorySchema = z.object({
+  vineyardId: z.string().uuid(),
+  timeZone: z.string(),
+  provider: z.literal("open-meteo"),
+  fetchedAt: z.string(),
+  cached: z.boolean(),
+  cacheExpiresAt: z.string(),
+  days: z.array(weatherHistoryDaySchema),
+});
+
+export const weatherHistoryQuerySchema = z.object({
+  days: z.coerce.number().int().min(1).max(90).optional().default(14),
 });
 
 export const apiErrorSchema = z.object({

@@ -15,6 +15,7 @@ import {
   type Vineyard,
   type VineyardHealth,
   type VineyardMetrics,
+  type VineyardWeather,
   type MetricsPeriod,
 } from "@vineyard/shared";
 
@@ -338,6 +339,15 @@ export async function getVineyardHealth(
 ): Promise<VineyardHealth> {
   const body = await apiJson<{ data: VineyardHealth }>(
     `/vineyards/${vineyardId}/health`,
+  );
+  return body.data;
+}
+
+export async function getVineyardWeather(
+  vineyardId: string,
+): Promise<VineyardWeather> {
+  const body = await apiJson<{ data: VineyardWeather }>(
+    `/vineyards/${vineyardId}/weather`,
   );
   return body.data;
 }

@@ -13,6 +13,9 @@ import type {
   YIELD_UNITS,
   METRICS_PERIODS,
   METRICS_SCOPES,
+  WEATHER_ALERT_SEVERITIES,
+  WEATHER_ALERT_SOURCES,
+  WEATHER_HAZARDS,
 } from "./constants.js";
 
 export type UserRole = (typeof USER_ROLES)[number];
@@ -418,6 +421,80 @@ export interface ScheduledTask extends Audited {
     code: string;
     name: string;
   } | null;
+}
+
+
+export type WeatherHazard = (typeof WEATHER_HAZARDS)[number];
+export type WeatherAlertSeverity = (typeof WEATHER_ALERT_SEVERITIES)[number];
+export type WeatherAlertSource = (typeof WEATHER_ALERT_SOURCES)[number];
+
+export interface WeatherCurrent {
+  observedAt: string;
+  tempF: number;
+  feelsLikeF: number | null;
+  humidityPct: number | null;
+  precipInches: number | null;
+  windMph: number | null;
+  windGustMph: number | null;
+  weatherCode: number;
+  summary: string;
+}
+
+export interface WeatherDaily {
+  date: string;
+  tempMaxF: number;
+  tempMinF: number;
+  precipInches: number;
+  precipProbabilityPct: number | null;
+  windMphMax: number | null;
+  weatherCode: number;
+  summary: string;
+}
+
+export interface WeatherAlert {
+  id: string;
+  hazard: WeatherHazard;
+  severity: WeatherAlertSeverity;
+  title: string;
+  description: string;
+  startsAt: string | null;
+  endsAt: string | null;
+  source: WeatherAlertSource;
+}
+
+/** GET /vineyards/:vid/weather — current + 7-day + alerts */
+export interface VineyardWeather {
+  vineyardId: string;
+  timeZone: string;
+  lat: number;
+  lng: number;
+  geocoded: boolean;
+  provider: "open-meteo";
+  fetchedAt: string;
+  cached: boolean;
+  cacheExpiresAt: string;
+  current: WeatherCurrent;
+  daily: WeatherDaily[];
+  alerts: WeatherAlert[];
+}
+
+export interface WeatherHistoryDay {
+  date: string;
+  precipInches: number;
+  tempMaxF: number | null;
+  tempMinF: number | null;
+  windMphMax: number | null;
+}
+
+/** GET /vineyards/:vid/weather/history */
+export interface VineyardWeatherHistory {
+  vineyardId: string;
+  timeZone: string;
+  provider: "open-meteo";
+  fetchedAt: string;
+  cached: boolean;
+  cacheExpiresAt: string;
+  days: WeatherHistoryDay[];
 }
 
 export interface ApiErrorBody {

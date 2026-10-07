@@ -6,3 +6,4 @@ export * from "./layout.js";
 export * from "./calendar.js";
 export * from "./metrics.js";
 export * from "./roles.js";
+export * from "./weather.js";

@@ -143,6 +143,39 @@ export const METRICS_SCOPE_LABELS: Record<
   variety: "Variety",
 };
 
+
+export const WEATHER_HAZARDS = [
+  "hail",
+  "wind",
+  "tornado",
+  "rain",
+  "snow",
+  "frost",
+  "drought",
+] as const;
+
+export const WEATHER_HAZARD_LABELS: Record<
+  (typeof WEATHER_HAZARDS)[number],
+  string
+> = {
+  hail: "Hail",
+  wind: "Wind",
+  tornado: "Tornado",
+  rain: "Rain",
+  snow: "Snow",
+  frost: "Frost",
+  drought: "Drought",
+};
+
+export const WEATHER_ALERT_SEVERITIES = [
+  "minor",
+  "moderate",
+  "severe",
+  "extreme",
+] as const;
+
+export const WEATHER_ALERT_SOURCES = ["nws", "open-meteo", "derived"] as const;
+
 export const API_PREFIX = "/api/v1";
 
 export function formatYield(amount: number, unit: (typeof YIELD_UNITS)[number]): string {
