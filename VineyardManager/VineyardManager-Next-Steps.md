@@ -24,6 +24,8 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 ### Digest follow-ups (proposed, awaiting Aaron)
 
+> Full list of open bugs and known issues: `VineyardManager-Bugs.md`
+
 | Field | Value |
 | --- | --- |
 | **Owner** | Devon (API) + Sage (UI/template) |
