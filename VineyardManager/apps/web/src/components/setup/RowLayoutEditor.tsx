@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RowLayoutBar } from "@/components/health/RowLayoutBar";
 import { Button } from "@/components/ui/button";
 import { ApiError, updateVineyard } from "@/lib/api";
+import { rowFullLabel, rowLabel } from "@/lib/rowLabel";
 
 type DragMode =
   | { kind: "move"; rowId: string; offsetX: number; offsetY: number }
@@ -241,6 +242,8 @@ export function RowLayoutEditor({
               key={item.rowId}
               code={row.code}
               name={row.name}
+              label={rowLabel(row)}
+              fullLabel={rowFullLabel(row)}
               x={item.x}
               y={item.y}
               rotationDeg={item.rotationDeg}
@@ -298,8 +301,9 @@ export function RowLayoutEditor({
                     event.preventDefault();
                     setDrag({ kind: "place", rowId: row.id });
                   }}
+                  title={rowFullLabel(row)}
                 >
-                  {row.code} · {row.name}
+                  {rowLabel(row)}
                 </button>
               </li>
             ))}

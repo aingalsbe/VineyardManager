@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useHarvests } from "@/hooks/useHarvests";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { buildVarietyLookup, rowLabel } from "@/lib/rowLabel";
 
 export function HarvestsPage() {
   const { canOperate } = useRoleAccess();
@@ -98,7 +99,7 @@ export function HarvestsPage() {
               <option value="">All rows</option>
               {state.rows.map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.code} · {row.name}
+                  {rowLabel(row)}
                 </option>
               ))}
             </select>
@@ -126,6 +127,7 @@ export function HarvestsPage() {
               {visible.map((harvest) => (
                 <li key={harvest.id}>
                   <HarvestCard
+                    varietyLookup={buildVarietyLookup(state.rows)}
                     harvest={harvest}
                     onEdit={canOperate ? openEdit : undefined}
                   />

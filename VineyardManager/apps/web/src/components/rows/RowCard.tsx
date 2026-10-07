@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { healthSwatch } from "@/lib/health";
 import { cn } from "@/lib/utils";
+import { rowFullLabel, rowLabel, rowVarietyText } from "@/lib/rowLabel";
 
 const statusVariant: Record<
   RowStatus,
@@ -37,9 +38,13 @@ export function RowCard({
     <Card className={cn(highlighted && "ring-2 ring-primary")}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-primary">{row.code}</p>
-          <CardTitle className="mt-0.5">{row.name}</CardTitle>
-          <CardDescription>{row.variety}</CardDescription>
+          <CardTitle title={rowFullLabel(row)}>{rowLabel(row)}</CardTitle>
+          <CardDescription>
+            {row.name}
+            {rowVarietyText(row) && rowVarietyText(row) !== row.variety
+              ? ` · ${row.variety}`
+              : ""}
+          </CardDescription>
           {health ? (
             <p className="mt-2 flex items-start gap-2 text-sm text-muted">
               <span

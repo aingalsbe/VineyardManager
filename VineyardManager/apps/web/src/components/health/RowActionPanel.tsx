@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { healthSwatch } from "@/lib/health";
 import { useEffect, useId, useMemo, useState } from "react";
+import { rowLabel, rowSecondaryLabel } from "@/lib/rowLabel";
 
 function isOpenTask(task: ScheduledTask): boolean {
   return task.status !== "acknowledged" && task.status !== "dismissed";
@@ -123,10 +124,12 @@ export function RowActionPanel({
       >
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-primary">{row.code}</p>
             <h2 id={titleId} className="text-2xl font-semibold tracking-tight">
-              {row.name}
+              {rowLabel(row)}
             </h2>
+            {rowSecondaryLabel(row) ? (
+              <p className="text-sm text-muted">{rowSecondaryLabel(row)}</p>
+            ) : null}
           </div>
           {health ? (
             <Badge variant={health.color}>

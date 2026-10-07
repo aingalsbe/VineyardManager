@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Prototype B — Bento Grid · Vineyard Manager</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        primary: '#215a96',
+        page: '#eef2f6',
+        card: '#ffffff',
+        muted: '#5a6573',
+        border: '#cfd7e1',
+        foreground: '#122033',
+        'health-green': '#16a34a',
+        'health-yellow': '#ca8a04',
+        'health-orange': '#ea580c',
+        'health-red': '#dc2626',
+      }
+    }
+  }
+}
+</script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; background: #eef2f6; color: #122033; }
+  .intent-banner { background: #dbeafe; border: 1px solid #93c5fd; color: #1e3a5f; }
+  .weather-overlay { display: none; }
+  .weather-overlay.open { display: block; }
+  .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+</style>
+</head>
+<body class='min-h-screen bg-page text-foreground'>
+<svg xmlns="http://www.w3.org/2000/svg" class="hidden" aria-hidden="true">
+  <symbol id="i-cloud-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 2v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="M20 12h2"/><path d="m19.07 4.93-1.41 1.41"/><path d="M15.947 12.65a4 4 0 0 0-5.925-4.128"/><path d="M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z"/>
+  </symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>
+  </symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+  </symbol>
+  <symbol id="i-droplets" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>
+  </symbol>
+  <symbol id="i-wind" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17.7 7.7a2.5 2.5 0 1 1 1.8 4.3H2"/><path d="M9.6 4.6A2 2 0 1 1 11 8H2"/><path d="M12.6 19.4A2 2 0 1 0 14 16H2"/>
+  </symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+  </symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+  </symbol>
+  <symbol id="i-harvest" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+  </symbol>
+  <symbol id="i-map" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" x2="9" y1="3" y2="18"/><line x1="15" x2="15" y1="6" y2="21"/>
+  </symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+  </symbol>
+</svg>
+
+  <div class="intent-banner mx-auto max-w-6xl px-4 py-3 mt-3 rounded-xl text-sm leading-relaxed">
+    <strong>Design intent (B — Bento Grid):</strong> Asymmetric card tiles so health score, weather entry, alerts, tasks, and harvests each have a clear home. Weather stays a Chrome-style CloudSun pop-down over the health/map region—not a fat scroll card.
+  </div>
+
+  <main class="mx-auto w-full max-w-6xl px-4 py-4 pb-10">
+    <header class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div>
+        <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p class="text-muted">Hillside Estate</p>
+      </div>
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="inline-flex items-center rounded-full border border-health-green/30 bg-health-green/10 px-2.5 py-0.5 text-xs font-medium text-health-green">API ok</span>
+        <button type="button" class="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium">Set up vineyard</button>
+      </div>
+    </header>
+
+    <!-- Bento grid -->
+    <div class="relative" aria-label="Bento dashboard">
+
+      <div id="weather-overlay" class="weather-overlay absolute inset-0 z-30" role="dialog" aria-modal="true" aria-labelledby="weather-title">
+        <button type="button" id="weather-backdrop" class="absolute inset-0 bg-[#122033]/25" aria-label="Dismiss weather"></button>
+        <div class="absolute inset-2 z-10 flex min-h-0 flex-col overflow-hidden rounded-xl border-2 border-primary/40 bg-card shadow-xl">
+          <div class="flex shrink-0 items-center justify-between gap-3 border-b border-primary/20 bg-primary/5 px-4 py-3">
+            <div class="min-w-0">
+              <p id="weather-title" class="text-base font-semibold text-primary">Weather</p>
+              <p class="text-xs text-muted">Current conditions and outlook · Hillside Estate</p>
+            </div>
+            <button type="button" id="weather-close" class="inline-flex size-9 items-center justify-center rounded-md text-primary hover:bg-primary/10" aria-label="Close weather">
+              <svg class="size-5" aria-hidden="true"><use href="#i-x"/></svg>
+            </button>
+          </div>
+          <div class="min-h-0 flex-1 overflow-y-auto px-4 py-4 space-y-5">
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div class="flex items-start gap-3">
+                <svg class="mt-1 size-10 shrink-0 text-primary" aria-hidden="true"><use href="#i-cloud-sun"/></svg>
+                <div>
+                  <p class="text-4xl font-semibold tracking-tight text-foreground">68°<span class="ml-1 text-lg font-medium text-muted">F</span></p>
+                  <p class="mt-0.5 text-base font-medium text-foreground">Partly cloudy</p>
+                  <p class="mt-0.5 text-sm text-muted">Feels like 65°F</p>
+                  <p class="mt-1 text-xs text-muted">Updated Oct 7, 6:15 AM</p>
+                </div>
+              </div>
+              <ul class="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+                <li class="flex items-center gap-2 text-muted"><svg class="size-4 shrink-0 text-primary" aria-hidden="true"><use href="#i-droplets"/></svg><span><span class="font-medium text-foreground">0.00 in</span> precip</span></li>
+                <li class="flex items-center gap-2 text-muted"><svg class="size-4 shrink-0 text-primary" aria-hidden="true"><use href="#i-gauge"/></svg><span><span class="font-medium text-foreground">58%</span> humidity</span></li>
+                <li class="flex items-center gap-2 text-muted"><svg class="size-4 shrink-0 text-primary" aria-hidden="true"><use href="#i-wind"/></svg><span><span class="font-medium text-foreground">8 mph</span> wind</span></li>
+              </ul>
+            </div>
+            <div>
+              <h3 class="mb-2 text-sm font-medium text-muted">7-day forecast</h3>
+              <div class="grid grid-cols-7 gap-1 text-center text-xs">
+                <div class="rounded-lg border border-border bg-page px-1 py-2"><p class="font-medium text-foreground">Tue</p><p class="mt-1 text-foreground">72°</p><p class="text-muted">48°</p></div>
+                <div class="rounded-lg border border-border bg-page px-1 py-2"><p class="font-medium text-foreground">Wed</p><p class="mt-1 text-foreground">69°</p><p class="text-muted">45°</p></div>
+                <div class="rounded-lg border border-primary/40 bg-primary/5 px-1 py-2 ring-1 ring-primary/30"><p class="font-medium text-primary">Thu</p><p class="mt-1 text-foreground">61°</p><p class="text-muted">38°</p></div>
+                <div class="rounded-lg border border-border bg-page px-1 py-2"><p class="font-medium text-foreground">Fri</p><p class="mt-1 text-foreground">64°</p><p class="text-muted">42°</p></div>
+                <div class="rounded-lg border border-border bg-page px-1 py-2"><p class="font-medium text-foreground">Sat</p><p class="mt-1 text-foreground">70°</p><p class="text-muted">46°</p></div>
+                <div class="rounded-lg border border-border bg-page px-1 py-2"><p class="font-medium text-foreground">Sun</p><p class="mt-1 text-foreground">73°</p><p class="text-muted">50°</p></div>
+                <div class="rounded-lg border border-border bg-page px-1 py-2"><p class="font-medium text-foreground">Mon</p><p class="mt-1 text-foreground">71°</p><p class="text-muted">49°</p></div>
+              </div>
+            </div>
+            <div>
+              <h3 class="mb-2 text-sm font-medium text-muted">Alerts</h3>
+              <div class="rounded-lg border border-primary/30 bg-primary/5 px-3 py-3">
+                <div class="flex items-start gap-2">
+                  <svg class="size-4 shrink-0 text-primary mt-0.5" aria-hidden="true"><use href="#i-alert"/></svg>
+                  <div>
+                    <p class="font-medium text-foreground">Frost Advisory</p>
+                    <p class="text-sm text-muted">Thu 2:00 AM – 8:00 AM · Protect tender growth.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid gap-3 md:grid-cols-6 md:auto-rows-fr">
+        <!-- Health score — large -->
+        <article class="md:col-span-2 md:row-span-2 rounded-2xl border border-border bg-card p-5 flex flex-col">
+          <p class="text-sm font-medium text-muted">Vineyard health</p>
+          <div class="mt-3 flex items-center gap-3">
+            <span class="size-5 rounded-full bg-health-yellow" aria-hidden="true"></span>
+            <p class="text-4xl font-semibold tracking-tight">72</p>
+          </div>
+          <p class="mt-1 text-lg capitalize font-medium">yellow</p>
+          <p class="mt-3 text-sm text-muted flex-1">Two rows need action soon; frost risk Thursday.</p>
+          <ul class="mt-4 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted" aria-label="Health legend">
+            <li class="flex items-center gap-1"><span class="size-2 rounded-full bg-health-green"></span>green</li>
+            <li class="flex items-center gap-1"><span class="size-2 rounded-full bg-health-yellow"></span>yellow</li>
+            <li class="flex items-center gap-1"><span class="size-2 rounded-full bg-health-orange"></span>orange</li>
+            <li class="flex items-center gap-1"><span class="size-2 rounded-full bg-health-red"></span>red</li>
+          </ul>
+        </article>
+
+        <!-- Weather entry tile -->
+        <article class="md:col-span-2 rounded-2xl border border-border bg-card p-5">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <p class="flex items-center gap-2 text-sm font-medium text-muted">
+                <svg class="size-4 text-primary" aria-hidden="true"><use href="#i-cloud-sun"/></svg>
+                Weather entry
+              </p>
+              <p class="mt-2 text-2xl font-semibold">68°F</p>
+              <p class="text-sm text-muted">Partly cloudy · 1 alert</p>
+            </div>
+
+<button type="button" id="weather-btn" class="relative inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-card text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2" aria-label="Weather, 1 alert — Partly cloudy 68°F" aria-expanded="false" aria-controls="weather-overlay" aria-haspopup="dialog" title="Weather (CloudSun)">
+  <svg class="size-5" aria-hidden="true"><use href="#i-cloud-sun"/></svg>
+  <span class="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary" aria-hidden="true"></span>
+</button>
+
+          </div>
+          <p class="mt-3 text-xs text-muted">CloudSun opens pop-down over health + map (same live pattern).</p>
+        </article>
+
+        <!-- Alerts tile -->
+        <article class="md:col-span-2 rounded-2xl border border-primary/30 bg-primary/5 p-5">
+          <p class="flex items-center gap-2 text-sm font-medium text-primary">
+            <svg class="size-4" aria-hidden="true"><use href="#i-alert"/></svg>
+            Alerts
+          </p>
+          <ul class="mt-3 space-y-2 text-sm">
+            <li class="rounded-lg bg-card/80 border border-border px-3 py-2"><span class="font-medium">Frost Advisory</span><span class="block text-muted text-xs">Thu 2–8 AM</span></li>
+            <li class="rounded-lg bg-card/80 border border-border px-3 py-2"><span class="font-medium text-health-red">R04 Pinot · 38</span><span class="block text-muted text-xs">Irrigation + disease</span></li>
+          </ul>
+        </article>
+
+        <!-- Map tile — wide -->
+        <article class="md:col-span-4 md:row-span-2 rounded-2xl border border-border bg-card p-5">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="flex items-center gap-2 font-semibold"><svg class="size-5 text-primary" aria-hidden="true"><use href="#i-map"/></svg> Health map</h2>
+            <span class="text-xs text-muted">6 rows</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+            <div class="rounded-lg bg-health-green/85 h-20 flex flex-col items-center justify-end p-2 text-white text-xs font-medium shadow-inner"><span>R01</span><span class="opacity-90">88</span></div>
+            <div class="rounded-lg bg-health-yellow/85 h-20 flex flex-col items-center justify-end p-2 text-foreground text-xs font-medium shadow-inner"><span>R02</span><span>68</span></div>
+            <div class="rounded-lg bg-health-orange/85 h-20 flex flex-col items-center justify-end p-2 text-white text-xs font-medium shadow-inner"><span>R03</span><span>52</span></div>
+            <div class="rounded-lg bg-health-red/85 h-20 flex flex-col items-center justify-end p-2 text-white text-xs font-medium shadow-inner"><span>R04</span><span>38</span></div>
+            <div class="rounded-lg bg-health-green/85 h-20 flex flex-col items-center justify-end p-2 text-white text-xs font-medium shadow-inner"><span>R05</span><span>91</span></div>
+            <div class="rounded-lg bg-health-yellow/85 h-20 flex flex-col items-center justify-end p-2 text-foreground text-xs font-medium shadow-inner"><span>R06</span><span>76</span></div>
+          </div>
+          <p class="mt-3 text-sm text-muted">Traffic colors = vineyard health only. Chrome uses cool blue.</p>
+        </article>
+
+        <!-- Tasks tile -->
+        <article class="md:col-span-3 rounded-2xl border border-border bg-card p-5">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="flex items-center gap-2 font-semibold"><svg class="size-5 text-primary" aria-hidden="true"><use href="#i-clock"/></svg> Upcoming tasks</h2>
+            <span class="text-sm text-primary">All tasks</span>
+          </div>
+          <ul class="space-y-2 text-sm">
+            <li class="flex justify-between gap-2 border-b border-border pb-2">
+              <div><p class="font-medium">Spray fungicide</p><p class="text-xs text-primary">R03 · Chardonnay</p></div>
+              <span class="shrink-0 rounded bg-health-red/15 px-1.5 py-0.5 text-xs font-medium text-health-red h-fit">Overdue</span>
+            </li>
+            <li class="flex justify-between gap-2 border-b border-border pb-2">
+              <div><p class="font-medium">Check drip emitters</p><p class="text-xs text-primary">R04 · Pinot Noir</p></div>
+              <span class="shrink-0 rounded bg-health-orange/15 px-1.5 py-0.5 text-xs font-medium text-health-orange h-fit">Today</span>
+            </li>
+            <li class="flex justify-between gap-2">
+              <div><p class="font-medium">Scout leafroll</p><p class="text-xs text-primary">Whole vineyard</p></div>
+              <span class="text-xs text-muted shrink-0">Wed</span>
+            </li>
+          </ul>
+        </article>
+
+        <!-- Harvests tile -->
+        <article class="md:col-span-3 rounded-2xl border border-border bg-card p-5">
+          <div class="mb-3 flex items-center justify-between">
+            <h2 class="flex items-center gap-2 font-semibold"><svg class="size-5 text-primary" aria-hidden="true"><use href="#i-harvest"/></svg> Recent harvests</h2>
+            <span class="text-sm text-primary">All harvests</span>
+          </div>
+          <ul class="space-y-2 text-sm">
+            <li class="flex justify-between gap-2"><div><p class="text-xs font-medium text-primary">R01 · Cabernet</p><p class="font-semibold">1,240 lb</p></div><p class="text-muted">Oct 2</p></li>
+            <li class="flex justify-between gap-2"><div><p class="text-xs font-medium text-primary">R05 · Syrah</p><p class="font-semibold">890 lb</p></div><p class="text-muted">Sep 28</p></li>
+            <li class="flex justify-between gap-2"><div><p class="text-xs font-medium text-primary">R02 · Merlot</p><p class="font-semibold">1,050 lb</p></div><p class="text-muted">Sep 22</p></li>
+          </ul>
+        </article>
+
+        <!-- Quick actions strip -->
+        <article class="md:col-span-6 rounded-2xl border border-border bg-card p-4">
+          <p class="mb-3 flex items-center gap-2 text-sm font-medium text-muted"><svg class="size-4 text-primary" aria-hidden="true"><use href="#i-zap"/></svg> Quick actions</p>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white">Record harvest</button>
+            <button type="button" class="rounded-md bg-primary px-3 py-2 text-sm font-medium text-white">Add task</button>
+            <button type="button" class="rounded-md border border-border px-3 py-2 text-sm font-medium">View rows</button>
+            <button type="button" class="rounded-md border border-border px-3 py-2 text-sm font-medium">View tasks</button>
+            <button type="button" class="rounded-md border border-border px-3 py-2 text-sm font-medium">View harvests</button>
+          </div>
+        </article>
+      </div>
+    </div>
+  </main>
+
+<script>
+(function () {
+  var btn = document.getElementById('weather-btn');
+  var overlay = document.getElementById('weather-overlay');
+  var closeBtn = document.getElementById('weather-close');
+  var backdrop = document.getElementById('weather-backdrop');
+  function open() { overlay.classList.add('open'); btn.setAttribute('aria-expanded', 'true'); if (closeBtn) closeBtn.focus(); }
+  function close() { overlay.classList.remove('open'); btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
+  if (btn && overlay) {
+    btn.addEventListener('click', function () { overlay.classList.contains('open') ? close() : open(); });
+    if (closeBtn) closeBtn.addEventListener('click', close);
+    if (backdrop) backdrop.addEventListener('click', close);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && overlay.classList.contains('open')) close(); });
+  }
+})();
+</script>
+
+</body></html>

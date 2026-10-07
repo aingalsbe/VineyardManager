@@ -9,6 +9,7 @@ import {
 } from "@vineyard/shared";
 import { RowLayoutBar } from "@/components/health/RowLayoutBar";
 import { cn } from "@/lib/utils";
+import { rowFullLabel, rowLabel } from "@/lib/rowLabel";
 
 const overallBorder: Record<HealthColor, string> = {
   green: "border-health-green",
@@ -23,6 +24,8 @@ export function VineyardHealthMap({
   vineyardRows,
   rowLayout,
   onSelectRow,
+  highlightRowId = null,
+  svgClassName,
   className,
 }: {
   overallColor: HealthColor;
@@ -30,6 +33,10 @@ export function VineyardHealthMap({
   vineyardRows: Row[];
   rowLayout: RowLayout | null;
   onSelectRow?: (rowId: string) => void;
+  /** Row to outline with a primary ring (health colors stay unchanged). */
+  highlightRowId?: string | null;
+  /** Override the SVG sizing (e.g. taller inside the map pop-up). */
+  svgClassName?: string;
   className?: string;
 }) {
   const healthById = new Map(healthRows.map((row) => [row.rowId, row]));
@@ -68,7 +75,10 @@ export function VineyardHealthMap({
         viewBox={`${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`}
         width="100%"
         preserveAspectRatio="xMidYMid meet"
-        className="mx-auto block h-auto max-h-[min(400px,42vh)] max-w-full"
+        className={cn(
+          "mx-auto block h-auto max-h-[min(400px,42vh)] max-w-full overflow-visible",
+          svgClassName,
+        )}
         role="img"
         aria-label="Vineyard health map"
       >
@@ -79,8 +89,12 @@ export function VineyardHealthMap({
           return (
             <RowLayoutBar
               key={item.rowId}
+              rowId={row.id}
+              highlighted={row.id === highlightRowId}
               code={row.code}
               name={row.name}
+              label={rowLabel(row)}
+              fullLabel={rowFullLabel(row)}
               x={item.x}
               y={item.y}
               rotationDeg={item.rotationDeg}
@@ -102,11 +116,17 @@ export function VineyardHealthMap({
               <li key={row.id}>
                 <button
                   type="button"
-                  className="block"
+                  data-row-id={row.id}
+                  aria-label={`${rowLabel(row)}${row.id === highlightRowId ? ", highlighted" : ""}`}
+                  title={rowFullLabel(row)}
+                  className={cn(
+                    "block rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                    row.id === highlightRowId &&
+                      "ring-4 ring-primary ring-offset-2 ring-offset-background",
+                  )}
                   onClick={() => onSelectRow?.(row.id)}
                 >
-                  <span className="sr-only">{row.code} {row.name}</span>
-                  <svg
+                                    <svg
                     width={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches)}
                     height={32}
                     aria-hidden
@@ -114,6 +134,8 @@ export function VineyardHealthMap({
                     <RowLayoutBar
                       code={row.code}
                       name={row.name}
+                      label={rowLabel(row)}
+                      fullLabel={rowFullLabel(row)}
                       x={barLengthPx(row.vineCount, row.lengthFeet, row.lengthInches) / 2}
                       y={16}
                       rotationDeg={0}

@@ -42,6 +42,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { rowLabel } from "@/lib/rowLabel";
 
 function formatRange(start: string, end: string): string {
   const fmt = (iso: string) =>
@@ -236,13 +237,13 @@ function MetricsBody({
 
   const healthTitle =
     scope === "row"
-      ? `${row?.code ?? "Row"} health`
+      ? `${row ? rowLabel(row) : "Row"} health`
       : scope === "variety"
         ? `${variety?.variety ?? "Variety"} health`
         : "Vineyard health";
   const harvestTitle =
     scope === "row"
-      ? `${row?.code ?? "Row"} harvest`
+      ? `${row ? rowLabel(row) : "Row"} harvest`
       : scope === "variety"
         ? `${variety?.variety ?? "Variety"} harvest`
         : "Harvest year over year";
@@ -250,7 +251,7 @@ function MetricsBody({
     scope === "variety" && variety
       ? `Combined ${variety.rowCodes.join(", ")}`
       : scope === "row" && row
-        ? row.variety
+        ? row.name
         : "Pounds picked, all years in the books";
 
   const workTotal = metrics.activities.byType.reduce(
@@ -335,7 +336,7 @@ function MetricsBody({
             >
               {metrics.health.rows.map((item) => (
                 <option key={item.rowId} value={item.rowId}>
-                  {item.code} · {item.variety}
+                  {rowLabel(item)}
                 </option>
               ))}
             </select>

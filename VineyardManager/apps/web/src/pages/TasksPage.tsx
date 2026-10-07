@@ -15,6 +15,7 @@ import { Card } from "@/components/ui/card";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
 import { ApiError, updateTask } from "@/lib/api";
+import { buildVarietyLookup, rowLabel } from "@/lib/rowLabel";
 
 export function TasksPage() {
   const { canOperate } = useRoleAccess();
@@ -133,7 +134,7 @@ export function TasksPage() {
                 <option value="__none__">Whole vineyard only</option>
                 {state.rows.map((row) => (
                   <option key={row.id} value={row.id}>
-                    {row.code} · {row.name}
+                    {rowLabel(row)}
                   </option>
                 ))}
               </select>
@@ -183,6 +184,7 @@ export function TasksPage() {
               {visibleTasks.map((task) => (
                 <li key={task.id}>
                   <TaskCard
+                    varietyLookup={buildVarietyLookup(state.rows)}
                     task={task}
                     onEdit={canOperate ? openEdit : undefined}
                     onStatusChange={

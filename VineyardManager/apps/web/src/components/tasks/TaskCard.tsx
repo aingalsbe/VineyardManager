@@ -6,6 +6,11 @@ import {
 } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  rowFullLabel,
+  rowLabel,
+  type RowVarietyLookup,
+} from "@/lib/rowLabel";
 
 const statusVariant: Record<
   TaskStatus,
@@ -29,20 +34,25 @@ export function TaskCard({
   task,
   onEdit,
   onStatusChange,
+  varietyLookup,
 }: {
   task: ScheduledTask;
   onEdit?: (task: ScheduledTask) => void;
   onStatusChange?: (task: ScheduledTask, status: TaskStatus) => void;
+  varietyLookup?: RowVarietyLookup;
 }) {
-  const rowLabel = task.row
-    ? `${task.row.code} · ${task.row.name}`
-    : "Whole vineyard";
+  const rowText = task.row ? rowLabel(task.row, varietyLookup) : "Whole vineyard";
+  const rowTitle = task.row
+    ? rowFullLabel(task.row, varietyLookup)
+    : undefined;
 
   return (
     <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-primary">{rowLabel}</p>
+          <p className="text-sm font-medium text-primary" title={rowTitle}>
+            {rowText}
+          </p>
           <h2 className="mt-0.5 text-lg font-semibold tracking-tight">
             {task.title}
           </h2>

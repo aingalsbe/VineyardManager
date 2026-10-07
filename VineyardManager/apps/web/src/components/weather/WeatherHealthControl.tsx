@@ -29,7 +29,7 @@ function weatherButtonLabel(state: VineyardWeatherState): string {
     return `Weather, ${n} alert${n === 1 ? "" : "s"}`;
   }
   if (state.status === "ready") {
-    return `Weather, ${state.weather.current.summary}`;
+    return `Weather, ${state.weather.current.summary}, ${Math.round(state.weather.current.tempF)}°F`;
   }
   return "Weather";
 }
@@ -43,12 +43,15 @@ export function WeatherHealthControl({
   state,
   onRetry,
   overlayContainerRef,
+  showTemp = false,
   className,
 }: {
   state: VineyardWeatherState;
   onRetry: () => void;
   /** Relative ancestor that wraps health chrome + map. */
   overlayContainerRef: RefObject<HTMLElement | null>;
+  /** Show the current temperature beside the icon when weather is ready. */
+  showTemp?: boolean;
   className?: string;
 }) {
   const [open, setOpen] = useState(false);
@@ -58,6 +61,10 @@ export function WeatherHealthControl({
   const panelRef = useRef<HTMLDivElement>(null);
   const hidden = state.status === "empty-vineyard";
   const showAlerts = hasWeatherAlerts(state);
+  const tempLabel =
+    showTemp && state.status === "ready"
+      ? `${Math.round(state.weather.current.tempF)}°`
+      : null;
 
   useEffect(() => {
     if (!open || hidden) return;
@@ -142,8 +149,9 @@ export function WeatherHealthControl({
         ref={buttonRef}
         type="button"
         className={cn(
-          "relative inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-primary/30 bg-card text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
+          "relative inline-flex h-11 min-w-11 shrink-0 gap-1.5 items-center justify-center rounded-md border border-primary/30 bg-card text-primary transition-colors hover:bg-primary/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2",
           state.status === "loading" && "animate-pulse",
+          tempLabel ? "px-3" : "w-11",
           className,
         )}
         aria-label={weatherButtonLabel(state)}
@@ -153,9 +161,14 @@ export function WeatherHealthControl({
         onClick={() => setOpen((value) => !value)}
       >
         <CloudSun className="size-5" aria-hidden />
+        {tempLabel ? (
+          <span className="text-sm font-semibold tabular-nums" aria-hidden>
+            {tempLabel}
+          </span>
+        ) : null}
         {showAlerts ? (
           <span
-            className="absolute top-1.5 right-1.5 size-2 rounded-full bg-primary"
+            className="absolute top-1 right-1 size-2.5 rounded-full bg-primary ring-2 ring-card"
             aria-hidden
           />
         ) : null}

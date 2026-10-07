@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, createHarvest, updateHarvest } from "@/lib/api";
+import { rowLabel } from "@/lib/rowLabel";
 
 type FormValues = {
   rowId: string;
@@ -173,7 +174,7 @@ export function HarvestFormDialog({
               <option value="">Select a row</option>
               {rows.map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.code} · {row.name} ({row.variety})
+                  {rowLabel(row)}
                 </option>
               ))}
             </select>

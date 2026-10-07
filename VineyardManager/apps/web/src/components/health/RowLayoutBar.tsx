@@ -33,6 +33,10 @@ export function RowLayoutBar({
   showRotateHandle = false,
   onMovePointerDown,
   onRotatePointerDown,
+  highlighted = false,
+  rowId,
+  label,
+  fullLabel,
 }: {
   code: string;
   name: string;
@@ -47,7 +51,17 @@ export function RowLayoutBar({
   showRotateHandle?: boolean;
   onMovePointerDown?: (event: PointerEvent<SVGRectElement>) => void;
   onRotatePointerDown?: (event: PointerEvent<SVGCircleElement>) => void;
+  /** Draw a primary-colored ring around the bar (not a health color). */
+  highlighted?: boolean;
+  /** Exposed as data-row-id so overlays can scroll/focus the bar. */
+  rowId?: string;
+  /** Short accessible label (e.g. "NS3 Merlot"); defaults to code + name. */
+  label?: string;
+  /** Tooltip text incl. row name (e.g. "NS3 Merlot · North South 3"). */
+  fullLabel?: string;
 }) {
+  const shortLabel = label ?? `${code} ${name}`;
+  const tooltip = fullLabel ?? shortLabel;
   const navigate = useNavigate();
   const half = length / 2;
   const thick = BAR_THICKNESS_PX;
@@ -58,7 +72,14 @@ export function RowLayoutBar({
       opacity={quiet ? 0.7 : 1}
       role={onActivate ? "button" : undefined}
       tabIndex={onActivate ? 0 : undefined}
-      aria-label={onActivate ? `${code} ${name}` : undefined}
+      data-row-id={rowId}
+      data-highlighted={highlighted ? "true" : undefined}
+      className={onActivate ? "outline-none" : undefined}
+      aria-label={
+        onActivate
+          ? `${shortLabel}${highlighted ? ", highlighted" : ""}`
+          : undefined
+      }
       onClick={
         onActivate
           ? (event) => {
@@ -78,6 +99,19 @@ export function RowLayoutBar({
           : undefined
       }
     >
+      {highlighted ? (
+        <rect
+          x={-half - 7}
+          y={-thick / 2 - 7}
+          width={length + 14}
+          height={thick + 14}
+          rx={11}
+          fill="none"
+          stroke="var(--color-primary)"
+          strokeWidth={4}
+          style={{ pointerEvents: "none" }}
+        />
+      ) : null}
       <rect
         x={-half}
         y={-thick / 2}
@@ -94,7 +128,7 @@ export function RowLayoutBar({
         }}
         onPointerDown={onMovePointerDown}
       />
-      <title>{`${code} ${name}`}</title>
+      <title>{tooltip}</title>
       <text
         x={0}
         y={1}
@@ -130,7 +164,7 @@ export function RowLayoutBar({
     return (
       <a
         href={href}
-        aria-label={`${code} ${name}`}
+        aria-label={shortLabel}
         onClick={(event) => {
           if (
             event.button !== 0 ||

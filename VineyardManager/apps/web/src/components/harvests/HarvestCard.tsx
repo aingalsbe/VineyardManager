@@ -1,6 +1,11 @@
 import { formatYield, type Harvest } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  rowFullLabel,
+  rowLabel,
+  type RowVarietyLookup,
+} from "@/lib/rowLabel";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -13,19 +18,24 @@ function formatDate(iso: string): string {
 export function HarvestCard({
   harvest,
   onEdit,
+  varietyLookup,
 }: {
   harvest: Harvest;
   onEdit?: (harvest: Harvest) => void;
+  varietyLookup?: RowVarietyLookup;
 }) {
-  const rowLabel = harvest.row
-    ? `${harvest.row.code} · ${harvest.row.name}`
-    : "Row";
+  const rowText = harvest.row ? rowLabel(harvest.row, varietyLookup) : "Row";
+  const rowTitle = harvest.row
+    ? rowFullLabel(harvest.row, varietyLookup)
+    : undefined;
 
   return (
     <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-primary">{rowLabel}</p>
+          <p className="text-sm font-medium text-primary" title={rowTitle}>
+            {rowText}
+          </p>
           <h2 className="mt-0.5 text-lg font-semibold tracking-tight">
             {formatYield(harvest.yieldAmount, harvest.yieldUnit)}
           </h2>

@@ -1,5 +1,10 @@
 import { ACTIVITY_TYPE_LABELS, type Activity } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
+import {
+  rowFullLabel,
+  rowLabel,
+  type RowVarietyLookup,
+} from "@/lib/rowLabel";
 
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -16,10 +21,16 @@ function notesExcerpt(details: Activity["details"]): string | null {
   return notes.length > 140 ? `${notes.slice(0, 137)}…` : notes;
 }
 
-export function ActivityCard({ activity }: { activity: Activity }) {
+export function ActivityCard({
+  activity,
+  varietyLookup,
+}: {
+  activity: Activity;
+  varietyLookup?: RowVarietyLookup;
+}) {
   const scopeLabel =
     activity.scopeType === "row" && activity.row
-      ? `${activity.row.code} · ${activity.row.name}`
+      ? rowLabel(activity.row, varietyLookup)
       : "Whole vineyard";
   const notes = notesExcerpt(activity.details);
 
@@ -27,7 +38,16 @@ export function ActivityCard({ activity }: { activity: Activity }) {
     <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <p className="text-sm font-medium text-primary">{scopeLabel}</p>
+          <p
+            className="text-sm font-medium text-primary"
+            title={
+              activity.scopeType === "row" && activity.row
+                ? rowFullLabel(activity.row, varietyLookup)
+                : undefined
+            }
+          >
+            {scopeLabel}
+          </p>
           <h2 className="mt-0.5 text-lg font-semibold tracking-tight">
             {ACTIVITY_TYPE_LABELS[activity.activityType]}
           </h2>

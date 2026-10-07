@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, createActivity } from "@/lib/api";
+import { rowLabel } from "@/lib/rowLabel";
 
 type FormValues = {
   activityType: ActivityType;
@@ -223,7 +224,7 @@ export function ActivityFormDialog({
                 <option value="">Select a row</option>
                 {rows.map((row) => (
                   <option key={row.id} value={row.id}>
-                    {row.code} · {row.name}
+                    {rowLabel(row)}
                   </option>
                 ))}
               </select>

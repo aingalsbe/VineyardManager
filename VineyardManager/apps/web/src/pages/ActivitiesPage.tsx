@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useActivities } from "@/hooks/useActivities";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { buildVarietyLookup, rowLabel } from "@/lib/rowLabel";
 
 export function ActivitiesPage() {
   const { canOperate } = useRoleAccess();
@@ -114,7 +115,7 @@ export function ActivitiesPage() {
                 <option value="">All rows</option>
                 {state.rows.map((row) => (
                   <option key={row.id} value={row.id}>
-                    {row.code} · {row.name}
+                    {rowLabel(row)}
                   </option>
                 ))}
               </select>
@@ -157,7 +158,8 @@ export function ActivitiesPage() {
             <ul className="space-y-3">
               {visible.map((activity) => (
                 <li key={activity.id}>
-                  <ActivityCard activity={activity} />
+                  <ActivityCard
+                    varietyLookup={buildVarietyLookup(state.rows)} activity={activity} />
                 </li>
               ))}
             </ul>

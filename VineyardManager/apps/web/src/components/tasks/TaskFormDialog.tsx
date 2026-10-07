@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, createTask, updateTask } from "@/lib/api";
+import { rowLabel } from "@/lib/rowLabel";
 
 type FormValues = {
   title: string;
@@ -214,7 +215,7 @@ export function TaskFormDialog({
               <option value="">Whole vineyard</option>
               {rows.map((row) => (
                 <option key={row.id} value={row.id}>
-                  {row.code} · {row.name}
+                  {rowLabel(row)}
                 </option>
               ))}
             </select>
