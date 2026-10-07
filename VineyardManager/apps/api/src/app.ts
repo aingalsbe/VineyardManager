@@ -9,6 +9,7 @@ import {
 } from "./modules/activities/activities.router.js";
 import { authRouter, publicAuthRouter } from "./modules/auth/auth.router.js";
 import { requireAuth } from "./modules/auth/auth.middleware.js";
+import { vineyardDigestRouter } from "./modules/digest/digest.router.js";
 import { harvestsRouter } from "./modules/harvests/harvests.router.js";
 import { healthRouter } from "./modules/health/health.router.js";
 import { vineyardHealthRouter } from "./modules/health/vineyard-health.router.js";
@@ -40,6 +41,7 @@ export function createApp() {
   app.use(`${API_PREFIX}/vineyards/:vineyardId/schedule`, vineyardScheduleRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/users`, vineyardUsersRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/weather`, vineyardWeatherRouter);
+  app.use(`${API_PREFIX}/vineyards/:vineyardId/digest`, vineyardDigestRouter);
   app.use(`${API_PREFIX}/vineyards`, vineyardsRouter);
 
   app.use((_req, res) => {

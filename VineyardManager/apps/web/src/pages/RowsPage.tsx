@@ -155,8 +155,8 @@ export function RowsPage() {
         <p
           className={
             rowNotice.tone === "error"
-              ? "mb-4 text-sm text-red-700"
-              : "mb-4 text-sm text-muted"
+              ? "mb-4 min-w-0 text-sm [overflow-wrap:anywhere] text-red-700"
+              : "mb-4 min-w-0 text-sm [overflow-wrap:anywhere] text-muted"
           }
           role={rowNotice.tone === "error" ? "alert" : "status"}
         >

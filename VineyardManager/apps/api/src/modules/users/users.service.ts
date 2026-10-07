@@ -12,6 +12,7 @@ const DEFAULT_NOTIFICATION_PREFS = {
   emailEnabled: true,
   pushEnabled: true,
   frequency: "weekly" as const,
+  weeklyDigest: true,
 };
 
 const UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";

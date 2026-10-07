@@ -376,6 +376,32 @@ export const weatherHistoryQuerySchema = z.object({
   days: z.coerce.number().int().min(1).max(90).optional().default(14),
 });
 
+/**
+ * User.notificationPrefs (JSON). Lenient: missing keys get defaults, so older
+ * rows without weeklyDigest are opted in.
+ */
+export const notificationPrefsSchema = z
+  .object({
+    emailEnabled: z.boolean().default(true),
+    pushEnabled: z.boolean().default(true),
+    frequency: z.enum(["weekly", "as_needed", "daily"]).default("weekly"),
+    weeklyDigest: z.boolean().default(true),
+  })
+  .passthrough();
+
+/** True unless emailEnabled === false or weeklyDigest === false. */
+export function wantsWeeklyDigest(prefs: unknown): boolean {
+  const parsed = notificationPrefsSchema.safeParse(
+    prefs && typeof prefs === "object" ? prefs : {},
+  );
+  if (!parsed.success) {
+    // Malformed prefs: honor explicit false flags if present, else opted in.
+    const raw = (prefs ?? {}) as Record<string, unknown>;
+    return raw.emailEnabled !== false && raw.weeklyDigest !== false;
+  }
+  return parsed.data.emailEnabled && parsed.data.weeklyDigest;
+}
+
 export const apiErrorSchema = z.object({
   error: z.object({
     code: z.string(),

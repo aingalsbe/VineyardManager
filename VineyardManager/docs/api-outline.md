@@ -218,6 +218,43 @@ Shipped:
 ```
 
 
+## Weekly digest
+
+One email per week per eligible recipient: overdue + upcoming (7-day) open tasks, weather alerts / outlook, and vineyard health. Data is built by `digest.service.ts` (`DigestData` in `digest.types.ts`); HTML/text/subject come from `digest.template.ts` (`render(data)`).
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/vineyards/{vid}/digest/preview` | Render this week's digest without sending. `?format=html` (default, `text/html`) \| `text` (`text/plain`) \| `json` (`{ data: { subject, digest: DigestData } }`). Subject also in `X-Digest-Subject` (URI-encoded). Auth: manager+ (viewer `403`). |
+| POST | `/vineyards/{vid}/digest/send-test` | Send **one** test digest. Body `{ to? }` (defaults to the caller's email). Auth: manager+ (viewer `403`). Logged as `kind: "test"`. |
+
+`POST /digest/send-test` responses:
+
+| Status | Code | When |
+| --- | --- | --- |
+| 200 | | `{ data: { to, subject, messageId, logId, weekStart } }` |
+| 400 | `RECIPIENT_LOCAL` | Recipient (explicit or default caller email) ends in `.local` (demo accounts never receive mail). |
+| 400 | `RECIPIENT_NOT_ALLOWED` | `to` is not on `DIGEST_TEST_RECIPIENTS`. |
+| 400 | `VALIDATION_ERROR` | `to` is not an email address. |
+| 403 | `FORBIDDEN` | Viewer. |
+| 404 | `NOT_FOUND` | Vineyard missing / deleted. |
+| 502 | `MAIL_SEND_FAILED` | SMTP not configured or the mail server rejected the message. A `failed` DigestLog row is written. |
+
+**Schedule:** in-process `node-cron` `30 6 * * 1` (**Mondays 6:30 AM America/Chicago**), `digest.scheduler.ts`, started from `main.ts` next to the weather cron. Runs only when `DIGEST_CRON_ENABLED=true` **and** the current America/Chicago month is in `DIGEST_SEASON_MONTHS`.
+
+**Recipients (scheduled):** every active (not disabled, not deleted) `manager` or `power_user` account whose `notificationPrefs.emailEnabled` and `notificationPrefs.weeklyDigest` are not `false` (`weeklyDigest` missing = opted in; `emailEnabled` is the master switch). Opted-out users are not logged. `*.local` addresses are never emailed; they get a `skipped` DigestLog row. SMTP failures are logged `failed` and the run continues; `failed` rows are retried on the next run of the same week.
+
+**DigestLog** (`digest_logs`): `id`, `vineyardId`, `userId?`, `recipientEmail`, `weekStart` (date, Monday in America/Chicago), `kind` (`scheduled` \| `test`), `status` (`sent` \| `failed` \| `skipped`), `error?`, `providerMessageId?`, `createdAt`, `sentAt?`. Partial unique index `digest_logs_scheduled_once` on `(vineyard_id, user_id, week_start) WHERE kind = 'scheduled'` blocks a second scheduled send for the same person and week (the row is claimed before sending). Test sends are not limited. Migration: `20261007214845_add_digest_log`.
+
+**Env (`apps/api/.env`):**
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `DIGEST_CRON_ENABLED` | `false` | Turn the Monday cron on. |
+| `DIGEST_SEASON_MONTHS` | `3-10` | Months the cron may send (inclusive range or comma list, e.g. `3,4,5`). |
+| `DIGEST_TEST_RECIPIENTS` | (empty = nobody) | Comma list of addresses `send-test` may target. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | | Shared mailer (`apps/api/src/lib/mailer.ts`, also used by password reset). Port `465` = implicit TLS. `SMTP_URL` overrides host/port/user/pass. |
+| `APP_URL` | `http://localhost:5173` | Links in emails. |
+
 ## Offline sync
 
 | Method | Path | Description |

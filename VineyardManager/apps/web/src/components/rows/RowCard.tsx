@@ -2,10 +2,9 @@ import {
   formatRowLength,
   type HealthColor,
   type Row,
-  type RowStatus,
 } from "@vineyard/shared";
 import { Pencil, Trash2 } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { RowStatusBadge } from "@/components/rows/RowStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import {
@@ -15,16 +14,6 @@ import {
 import { healthSwatch } from "@/lib/health";
 import { cn } from "@/lib/utils";
 import { rowFullLabel, rowLabel, rowVarietyText } from "@/lib/rowLabel";
-
-const statusVariant: Record<
-  RowStatus,
-  "green" | "yellow" | "orange" | "muted"
-> = {
-  active: "green",
-  fallow: "yellow",
-  replanting: "orange",
-  retired: "muted",
-};
 
 export function RowCard({
   row,
@@ -99,9 +88,7 @@ export function RowCard({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-start">
-          <Badge variant={statusVariant[row.status]} className="capitalize">
-            {row.status}
-          </Badge>
+          <RowStatusBadge status={row.status} />
           <OverflowMenu
             label={`More actions for ${rowLabel(row)}`}
             items={menuItems}

@@ -64,7 +64,10 @@ export interface AuthSession {
 }
 
 export interface NotificationPrefs {
+  /** Master switch for all email (including the weekly digest). */
   emailEnabled: boolean;
+  /** Weekly digest opt-out. Missing = true (opted in). */
+  weeklyDigest?: boolean;
   pushEnabled: boolean;
   frequency: "weekly" | "as_needed" | "daily";
 }

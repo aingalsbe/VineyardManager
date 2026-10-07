@@ -6,7 +6,7 @@ import { config } from "../../config.js";
 import { prisma } from "../../db/prisma.js";
 import { serializePublicUser } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
-import { sendPasswordResetEmail } from "./mailer.js";
+import { sendPasswordResetEmail } from "../../lib/mailer.js";
 
 const BCRYPT_ROUNDS = 10;
 const RESET_TTL_MS = 60 * 60 * 1000;

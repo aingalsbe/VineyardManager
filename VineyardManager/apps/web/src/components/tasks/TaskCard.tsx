@@ -1,26 +1,16 @@
 import {
-  TASK_STATUS_LABELS,
   TASK_TYPE_LABELS,
   type ScheduledTask,
   type TaskStatus,
 } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import {
   rowFullLabel,
   rowLabel,
   type RowVarietyLookup,
 } from "@/lib/rowLabel";
-
-const statusVariant: Record<
-  TaskStatus,
-  "green" | "yellow" | "orange" | "muted"
-> = {
-  pending: "yellow",
-  sent: "orange",
-  acknowledged: "green",
-  dismissed: "muted",
-};
 
 function formatDue(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -65,9 +55,7 @@ export function TaskCard({
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           <Badge variant="muted">{TASK_TYPE_LABELS[task.type]}</Badge>
-          <Badge variant={statusVariant[task.status]}>
-            {TASK_STATUS_LABELS[task.status]}
-          </Badge>
+          <TaskStatusBadge status={task.status} />
         </div>
       </div>
 

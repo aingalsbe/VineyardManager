@@ -39,6 +39,7 @@ const defaultPrefs = {
   emailEnabled: true,
   pushEnabled: true,
   frequency: "weekly" as const,
+  weeklyDigest: true,
 };
 
 const defaultThresholds = {

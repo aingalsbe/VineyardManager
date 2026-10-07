@@ -74,6 +74,7 @@ model User {
   ownedVineyards  Vineyard[]      @relation("VineyardOwner")
   assignedTasks   Task[]
   passwordResets  PasswordReset[]
+  digestLogs      DigestLog[]
 
   @@map("users")
 }
@@ -115,6 +116,7 @@ model Vineyard {
   tasks      Task[]
   harvests   Harvest[]
   activities Activity[]
+  digestLogs DigestLog[]
 
   @@index([ownerId])
   @@map("vineyards")
@@ -215,4 +217,44 @@ model Activity {
   @@index([rowId])
   @@index([activityType])
   @@map("activities")
+}
+
+enum DigestKind {
+  scheduled
+  test
+}
+
+enum DigestStatus {
+  sent
+  failed
+  skipped
+}
+
+/// One row per weekly-digest delivery attempt (scheduled or test).
+/// A partial unique index (raw SQL in migration 20261007214845_add_digest_log)
+/// allows only ONE scheduled row per (vineyard, user, weekStart):
+///   CREATE UNIQUE INDEX digest_logs_scheduled_once
+///     ON digest_logs (vineyard_id, user_id, week_start) WHERE kind = 'scheduled';
+/// Prisma 6 cannot express partial indexes. If a future `migrate dev` proposes
+/// DROP INDEX "digest_logs_scheduled_once", delete that line from the new migration.
+model DigestLog {
+  id                String       @id @default(uuid()) @db.Uuid
+  vineyardId        String       @map("vineyard_id") @db.Uuid
+  userId            String?      @map("user_id") @db.Uuid
+  recipientEmail    String       @map("recipient_email")
+  /// Monday of the digest week (America/Chicago calendar date).
+  weekStart         DateTime     @map("week_start") @db.Date
+  kind              DigestKind
+  status            DigestStatus
+  error             String?
+  providerMessageId String?      @map("provider_message_id")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  sentAt            DateTime?    @map("sent_at") @db.Timestamptz(6)
+
+  vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([vineyardId, weekStart])
+  @@index([userId])
+  @@map("digest_logs")
 }

@@ -9,6 +9,8 @@ const badgeVariants = cva(
       variant: {
         default: "bg-primary/10 text-primary",
         muted: "bg-background text-muted",
+        /** Neutral outline (row status etc.); not a health color. */
+        outline: "border border-border bg-card text-muted",
         green: "bg-health-green/15 text-health-green",
         yellow: "bg-health-yellow/20 text-foreground",
         orange: "bg-health-orange/20 text-foreground",

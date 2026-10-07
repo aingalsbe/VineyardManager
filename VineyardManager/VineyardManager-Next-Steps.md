@@ -22,39 +22,35 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 ## Next in pipeline (active)
 
-### Weekly growing-season digest (Devon, Sage on template)
+### Digest follow-ups (proposed, awaiting Aaron)
 
 | Field | Value |
 | --- | --- |
-| **Owner** | Devon (API/cron/mail) |
-| **UI help** | Sage (email template) |
+| **Owner** | Devon (API) + Sage (UI/template) |
 | **QA** | Avery |
-| **Status** | Plan approved by Aaron 2026-10-07; build starting |
-| **Then** | Morgan runs `Backup-VineyardManager.ps1` after Avery signs off |
+| **Status** | Proposed by Morgan 2026-10-07 |
 
-**Plan:** Gmail SMTP through the existing nodemailer mailer (moved into a shared mail module). For QA it sends from aingalsbe@gmail.com; a dedicated vineyard Gmail comes later through an env change only. The schedule is Monday 6:30 AM America/Chicago, March through October (`DIGEST_SEASON_MONTHS`), and `DIGEST_CRON_ENABLED=false` until Aaron approves the format. Recipients are active managers/power_users, opt-out per user via `notificationPrefs.weeklyDigest`, and `*.local` addresses are skipped. A `DigestLog` table with a unique index on (vineyard, user, weekStart) prevents double sends.
+- [ ] **APP_URL** set in `apps/api/.env` before the weekly send is enabled (links currently fall back to `http://localhost:5173`)
+- [ ] Digest shows a friendly "Weather unavailable" note instead of the raw provider error
+- [ ] Health and the digest agree on the due-soon window (health flags day-8 tasks; the digest lists 7 days)
+- [ ] Settings: weekly digest on/off toggle per user, plus a preferences link in the email
+- [ ] Dismissed task badge outlined/dashed so it doesn't look like the grey task-type pill
+- [ ] Read-only preview copy for viewers ("Your role cannot change this." doesn't fit)
+- [ ] Stop logging live reset tokens to the console outside dev
+- [ ] Normalize CRLF line endings (app.ts, main.ts, vineyard-health.router.ts, .env.example)
+- [ ] App orange `#c46a2f` fails 4.5:1; align with the email's `#d27838`
 
-**Acceptance:**
-
-- [ ] `GET /vineyards/:vid/digest/preview?format=html|text` (manager+) renders tasks (next 7 days plus overdue), weather impacts and health (score plus top 3 reasons), with sensible empty states
-- [ ] Task section matches the Dashboard overdue count
-- [ ] `POST /vineyards/:vid/digest/send-test` delivers to aingalsbe@gmail.com and reads well in Gmail web and mobile; `to` must be on the `DIGEST_TEST_RECIPIENTS` allowlist; viewers get 403
-- [ ] Every send is logged; an SMTP failure returns 502 without crashing the API
-- [ ] Cron off by default; re-runs skip duplicates; opted-out, disabled and viewer users are excluded
-- [ ] Weather v1 rain check unchanged; no secrets in git or logs
-
-### Small UI follow-up (Sage, alongside the digest)
-
-- Row status badges (Active/Fallow/Replanting) move to blue/neutral so health colors mean health only
-- Rows page delete notice wraps extreme labels (`[overflow-wrap:anywhere]`)
+**Weekly send:** `DIGEST_CRON_ENABLED=false` per Aaron (2026-10-07). Turn it on only when he asks.
 
 ---
 
 ## Recently shipped (2026-10-07)
 
-- **`9b914db`**: row delete keeps history (soft when the row has history, hard when it doesn't), task delete, partial row `PATCH`, "Removed row" labels
-- **`39d1485`**: delete preview that warns about open tasks with Dismiss/Keep, accessible confirm dialogs for row and task delete, removed-row tasks shown in health reasons, plural fixes
-- **Polish commit**: RowCard Edit/Delete moved into a ⋯ menu (no sideways scroll at 390px), focus lands on the page heading after a delete, dialog copy uses "work logs" consistently, modal counts match the Tasks page, long-text wrapping in dialogs and cards
+- **Weekly growing-season digest** (Devon + Sage): preview (html/text/json), send-test with allowlist, Monday 6:30 AM CT cron (off), March through October, opt-out via `notificationPrefs.weeklyDigest`, `DigestLog` + `digest_logs_scheduled_once` partial index (a future `prisma migrate dev` may try to drop it; delete that DROP INDEX line), shared mailer in `apps/api/src/lib/mailer.ts`, table-based email template. Format approved by Aaron from a test sent to aingalsbe@gmail.com. SMTP is now live: password resets for real addresses send email.
+- **Status badges** (Sage): row and task status badges use blue/neutral with icons; health colors are reserved for health.
+- **`995a8a3`**: RowCard actions moved into a ⋯ menu, focus goes to the page heading after a delete, dialog copy fixes, long-text wrapping
+- **`39d1485`**: delete preview with Dismiss/Keep for open tasks, accessible confirm dialogs
+- **`9b914db`**: row delete keeps history, task delete, partial row PATCH, "Removed row" labels
 
 ---
 ## Queued after (ordered)
