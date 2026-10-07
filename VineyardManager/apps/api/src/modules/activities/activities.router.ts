@@ -19,7 +19,7 @@ const idParam = z.string().uuid();
 const rowFilter = z.string().uuid().optional();
 
 const activityWithRow = {
-  row: { select: { id: true, code: true, name: true } },
+  row: { select: { id: true, code: true, name: true, deletedAt: true } },
 } as const;
 
 function parsePerformedAt(value: string | undefined): Date {

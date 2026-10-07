@@ -12,6 +12,7 @@ import { TaskCard } from "@/components/tasks/TaskCard";
 import { TaskFormDialog } from "@/components/tasks/TaskFormDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
 import { ApiError, deleteTask, updateTask } from "@/lib/api";
@@ -68,19 +69,28 @@ export function TasksPage() {
     }
   };
 
-  const handleDelete = async (task: ScheduledTask) => {
-    if (state.status !== "ready") return;
-    // Same confirm pattern as PeopleCard (window.confirm).
-    const confirmed = window.confirm(
-      `Delete task "${task.title}"? This removes it from the task list.`,
-    );
-    if (!confirmed) return;
+  const [deleting, setDeleting] = useState<ScheduledTask | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const openDelete = (task: ScheduledTask) => {
     setActionError(null);
+    setDeleteError(null);
+    setDeleting(task);
+  };
+
+  const confirmDelete = async () => {
+    if (state.status !== "ready" || !deleting) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
     try {
-      await deleteTask(state.vineyard.id, task.id);
+      await deleteTask(state.vineyard.id, deleting.id);
+      setDeleteBusy(false);
+      setDeleting(null);
       await reload({ silent: true });
     } catch (error) {
-      setActionError(
+      setDeleteBusy(false);
+      setDeleteError(
         error instanceof ApiError ? error.message : "Could not delete the task.",
       );
     }
@@ -211,7 +221,7 @@ export function TasksPage() {
                         : undefined
                     }
                     onDelete={
-                      canOperate ? (item) => void handleDelete(item) : undefined
+                      canOperate ? openDelete : undefined
                     }
                   />
                 </li>
@@ -226,6 +236,50 @@ export function TasksPage() {
             open={dialogOpen}
             onClose={() => setDialogOpen(false)}
             onSaved={() => reload({ silent: true })}
+          />
+
+          <ConfirmDialog
+            open={deleting !== null}
+            onClose={() => {
+              if (!deleteBusy) setDeleting(null);
+            }}
+            title="Delete task?"
+            busy={deleteBusy}
+            error={deleteError}
+            description={
+              deleting ? (
+                <>
+                  <span className="block font-medium text-foreground">
+                    {deleting.title}
+                  </span>
+                  <span className="block">
+                    Due{" "}
+                    {new Date(deleting.dueAt).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })}
+                    {deleting.row
+                      ? ` · ${rowLabel(deleting.row, buildVarietyLookup(state.rows))}`
+                      : ""}
+                  </span>
+                  <span className="mt-2 block">
+                    This removes the task from the task list.
+                  </span>
+                </>
+              ) : null
+            }
+            actions={
+              <Button
+                type="button"
+                variant="destructive"
+                className="w-full sm:w-auto"
+                disabled={deleteBusy}
+                onClick={() => void confirmDelete()}
+              >
+                {deleteBusy ? "Deleting…" : "Delete task"}
+              </Button>
+            }
           />
         </>
       ) : null}

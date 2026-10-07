@@ -65,7 +65,7 @@ vineyardScheduleRouter.post(
           status: "pending",
           relatedActivityType: template.relatedActivityType,
         },
-        include: { row: { select: { id: true, code: true, name: true } } },
+        include: { row: { select: { id: true, code: true, name: true, deletedAt: true } } },
       });
       createdTasks.push(task);
       titles.add(template.title);

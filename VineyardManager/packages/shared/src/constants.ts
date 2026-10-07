@@ -79,6 +79,15 @@ export const TASK_STATUS_LABELS: Record<(typeof TASK_STATUSES)[number], string> 
     dismissed: "Dismissed",
   };
 
+/** Task statuses that still count as open work (health + Dashboard). */
+export const OPEN_TASK_STATUSES = ["pending", "sent"] as const;
+
+/** Closed status applied when a row delete dismisses its open tasks. */
+export const ROW_DELETE_DISMISSED_TASK_STATUS = "dismissed" as const;
+
+/** What DELETE /rows/:id does with the row's open tasks. Default "keep". */
+export const ROW_DELETE_OPEN_TASK_ACTIONS = ["keep", "dismiss"] as const;
+
 export const TASK_TYPE_LABELS: Record<(typeof TASK_TYPES)[number], string> = {
   maintenance: "Maintenance",
   weather: "Weather",

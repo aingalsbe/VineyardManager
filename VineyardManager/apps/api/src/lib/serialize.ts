@@ -80,6 +80,24 @@ export function serializeRow(record: Row): RowDto {
   };
 }
 
+type RowRefRecord = {
+  id: string;
+  code: string;
+  name: string;
+  deletedAt?: Date | null;
+};
+
+/** Embedded row ref; deletedAt is null unless the row was removed. */
+function serializeRowRef(row: RowRefRecord | null | undefined) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    deletedAt: row.deletedAt?.toISOString() ?? null,
+  };
+}
+
 export function serializeTask(
   record: Task & {
     row?: {
@@ -117,7 +135,7 @@ export function serializeTask(
 
 export function serializeHarvest(
   record: Harvest & {
-    row?: { id: string; code: string; name: string } | null;
+    row?: RowRefRecord | null;
   },
 ): HarvestDto {
   return {
@@ -132,13 +150,13 @@ export function serializeHarvest(
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,
-    row: record.row ?? null,
+    row: serializeRowRef(record.row),
   };
 }
 
 export function serializeActivity(
   record: Activity & {
-    row?: { id: string; code: string; name: string } | null;
+    row?: RowRefRecord | null;
   },
   performedByDisplayName?: string | null,
 ): ActivityDto {
@@ -157,6 +175,6 @@ export function serializeActivity(
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,
-    row: record.row ?? null,
+    row: serializeRowRef(record.row),
   };
 }

@@ -13,6 +13,7 @@ import {
   WATERING_METHODS,
   YIELD_UNITS,
   METRICS_PERIODS,
+  ROW_DELETE_OPEN_TASK_ACTIONS,
   WEATHER_ALERT_SEVERITIES,
   WEATHER_ALERT_SOURCES,
   WEATHER_HAZARDS,
@@ -214,6 +215,15 @@ export const updateRowSchema = createRowSchema
   .refine((value) => Object.values(value).some((v) => v !== undefined) , {
     message: "Enter at least one field",
   });
+
+export const rowDeleteOpenTasksSchema = z.enum(ROW_DELETE_OPEN_TASK_ACTIONS, {
+  errorMap: () => ({ message: 'openTasks must be "keep" or "dismiss"' }),
+});
+
+/** DELETE /rows/:id options (query and/or JSON body). openTasks defaults to "keep". */
+export const deleteRowOptionsSchema = z.object({
+  openTasks: rowDeleteOpenTasksSchema.optional(),
+});
 
 export const createTaskSchema = z.object({
   rowId: z

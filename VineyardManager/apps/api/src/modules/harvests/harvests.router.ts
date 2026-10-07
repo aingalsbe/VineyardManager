@@ -13,7 +13,7 @@ const idParam = z.string().uuid();
 const rowFilter = z.string().uuid().optional();
 
 const harvestWithRow = {
-  row: { select: { id: true, code: true, name: true } },
+  row: { select: { id: true, code: true, name: true, deletedAt: true } },
 } as const;
 
 function parseHarvestedAt(value: string): Date {

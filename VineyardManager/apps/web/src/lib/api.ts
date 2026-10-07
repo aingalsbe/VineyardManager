@@ -17,6 +17,10 @@ import {
   type VineyardMetrics,
   type VineyardWeather,
   type MetricsPeriod,
+  type RowDeleteOpenTasksAction,
+  type RowDeleteOpenTask,
+  type RowDeletePreview,
+  type RowDeleteResult,
 } from "@vineyard/shared";
 
 const apiBase = (import.meta.env.VITE_API_URL ?? API_PREFIX).replace(
@@ -408,20 +412,47 @@ export async function updateRow(
   return body.data;
 }
 
-export type DeleteRowResult = {
-  id: string;
-  mode: "soft" | "hard";
-  message: string;
-  row?: Row;
-};
+/*
+ * ---------------------------------------------------------------------------
+ * Row delete + delete-preview. Types come from @vineyard/shared (Devon's
+ * contract, Oct 7 2026); the aliases below keep Sage's dialog names working.
+ * ---------------------------------------------------------------------------
+ */
 
-/** Soft-deletes rows with history, hard-deletes empty rows (API decides). */
+export type { RowDeletePreview };
+/** "soft": row has history → kept as "Removed row". "hard": permanently deleted. */
+export type RowDeleteMode = RowDeletePreview["mode"];
+/** What DELETE does with the row's open tasks (API default: "keep"). */
+export type RowDeleteOpenTasksOption = RowDeleteOpenTasksAction;
+export type RowDeletePreviewOpenTask = RowDeleteOpenTask;
+export type DeleteRowResult = RowDeleteResult;
+
+/** GET /vineyards/:vid/rows/:rowId/delete-preview (manager+). Same mode/counts/message DELETE produces. */
+export async function deleteRowPreview(
+  vineyardId: string,
+  rowId: string,
+): Promise<RowDeletePreview> {
+  const body = await apiJson<{ data: RowDeletePreview }>(
+    `/vineyards/${vineyardId}/rows/${rowId}/delete-preview`,
+  );
+  return body.data;
+}
+
+/**
+ * DELETE /vineyards/:vid/rows/:rowId (manager+). Soft-deletes rows with
+ * history, hard-deletes empty rows (API decides). openTasks omitted → API
+ * default "keep".
+ */
 export async function deleteRow(
   vineyardId: string,
   rowId: string,
+  options?: { openTasks?: RowDeleteOpenTasksOption },
 ): Promise<DeleteRowResult> {
+  const query = options?.openTasks
+    ? `?openTasks=${encodeURIComponent(options.openTasks)}`
+    : "";
   const body = await apiJson<{ data: DeleteRowResult }>(
-    `/vineyards/${vineyardId}/rows/${rowId}`,
+    `/vineyards/${vineyardId}/rows/${rowId}${query}`,
     { method: "DELETE" },
   );
   return body.data;

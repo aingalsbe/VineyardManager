@@ -5,13 +5,13 @@ import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { HarvestFormDialog } from "@/components/harvests/HarvestFormDialog";
 import { RowCard } from "@/components/rows/RowCard";
+import { RowDeleteDialog } from "@/components/rows/RowDeleteDialog";
 import { RowFormDialog } from "@/components/rows/RowFormDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
-import { ApiError, deleteRow } from "@/lib/api";
 
 export function RowsPage() {
   const { canOperate } = useRoleAccess();
@@ -27,26 +27,15 @@ export function RowsPage() {
     text: string;
   } | null>(null);
 
-  const handleDelete = async (row: Row) => {
-    if (state.status !== "ready") return;
-    // Same confirm pattern as PeopleCard (window.confirm).
-    const confirmed = window.confirm(
-      `Delete row ${row.code}? Rows with past tasks, harvests, or work are kept as history and shown as "Removed row".`,
-    );
-    if (!confirmed) return;
-    setRowNotice(null);
-    try {
-      const result = await deleteRow(state.vineyard.id, row.id);
-      setRowNotice({ tone: "ok", text: result.message });
-      await reload({ silent: true });
-      void health.reload({ silent: true });
-    } catch (error) {
-      setRowNotice({
-        tone: "error",
-        text:
-          error instanceof ApiError ? error.message : "Could not delete the row.",
-      });
-    }
+  const [deleting, setDeleting] = useState<Row | null>(null);
+
+  // Soft vs hard wording comes from the API (delete-preview in the dialog,
+  // then the DELETE response message here), never guessed client-side.
+  const handleDeleted = async (message: string) => {
+    setDeleting(null);
+    setRowNotice({ tone: "ok", text: message });
+    await reload({ silent: true });
+    void health.reload({ silent: true });
   };
 
   const openCreate = () => {
@@ -143,7 +132,7 @@ export function RowsPage() {
         <p
           className={
             rowNotice.tone === "error"
-              ? "mb-4 text-sm text-health-red"
+              ? "mb-4 text-sm text-red-700"
               : "mb-4 text-sm text-muted"
           }
           role={rowNotice.tone === "error" ? "alert" : "status"}
@@ -168,7 +157,12 @@ export function RowsPage() {
                   onEdit={canOperate ? openEdit : undefined}
                   onRecordHarvest={canOperate ? setHarvestRow : undefined}
                   onDelete={
-                    canOperate ? (item) => void handleDelete(item) : undefined
+                    canOperate
+                      ? (item) => {
+                          setRowNotice(null);
+                          setDeleting(item);
+                        }
+                      : undefined
                   }
                   health={
                     rowHealth
@@ -201,6 +195,14 @@ export function RowsPage() {
             onClose={() => setDialogOpen(false)}
             onSaved={() => reload({ silent: true })}
           />
+          {canOperate ? (
+            <RowDeleteDialog
+              vineyardId={state.vineyard.id}
+              row={deleting}
+              onClose={() => setDeleting(null)}
+              onDeleted={(result) => handleDeleted(result.message)}
+            />
+          ) : null}
           <HarvestFormDialog
             rows={state.rows}
             harvest={null}

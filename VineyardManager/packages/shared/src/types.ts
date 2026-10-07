@@ -13,6 +13,7 @@ import type {
   YIELD_UNITS,
   METRICS_PERIODS,
   METRICS_SCOPES,
+  ROW_DELETE_OPEN_TASK_ACTIONS,
   WEATHER_ALERT_SEVERITIES,
   WEATHER_ALERT_SOURCES,
   WEATHER_HAZARDS,
@@ -146,11 +147,7 @@ export interface Harvest extends Audited {
   yieldUnit: YieldUnit;
   notes?: string | null;
   crew?: string | null;
-  row?: {
-    id: string;
-    code: string;
-    name: string;
-  } | null;
+  row?: RowRef | null;
 }
 
 export interface Vine extends Audited {
@@ -175,11 +172,7 @@ export interface Activity extends Audited {
   performedByDisplayName?: string | null;
   details: ActivityDetails;
   source: ActivitySource;
-  row?: {
-    id: string;
-    code: string;
-    name: string;
-  } | null;
+  row?: RowRef | null;
 }
 
 export type ActivityDetails =
@@ -411,6 +404,48 @@ export interface RowRef {
   code: string;
   name: string;
   deletedAt?: string | null;
+}
+
+export type RowDeleteOpenTasksAction = (typeof ROW_DELETE_OPEN_TASK_ACTIONS)[number];
+
+export interface RowDeleteCounts {
+  /** All tasks referencing the row, including soft-deleted ones (history). */
+  tasks: number;
+  /** Live tasks with status pending | sent. */
+  openTasks: number;
+  harvests: number;
+  activities: number;
+}
+
+export interface RowDeleteOpenTask {
+  id: string;
+  title: string;
+  /** YYYY-MM-DD in the vineyard time zone. */
+  dueDate: string;
+  status: TaskStatus;
+}
+
+/** GET /vineyards/:vid/rows/:rowId/delete-preview */
+export interface RowDeletePreview {
+  rowId: string;
+  code: string;
+  mode: "soft" | "hard";
+  counts: RowDeleteCounts;
+  openTasks: RowDeleteOpenTask[];
+  /** Identical to the message DELETE returns. */
+  message: string;
+}
+
+/** DELETE /vineyards/:vid/rows/:rowId */
+export interface RowDeleteResult {
+  id: string;
+  mode: "soft" | "hard";
+  message: string;
+  openTasks: RowDeleteOpenTasksAction;
+  dismissedTaskCount: number;
+  counts: RowDeleteCounts;
+  /** Present on soft delete. */
+  row?: Row;
 }
 
 export interface ScheduledTask extends Audited {

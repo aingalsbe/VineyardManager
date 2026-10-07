@@ -75,7 +75,15 @@ Out of this slice (no Variety table):
 | GET | `/vineyards/{vid}/rows` | List rows (length, vine count, variety, status) |
 | POST | `/vineyards/{vid}/rows` | Create row |
 | PATCH | `/vineyards/{vid}/rows/{id}` | Partial update (operate). Any subset of row fields; sent fields validated; `{}` → `400 Enter at least one field` |
-| DELETE | `/vineyards/{vid}/rows/{id}` | Operate. Row with any task/harvest/activity (incl. soft-deleted): **soft** — `deletedAt`, `status: retired`, code → `<code>__old_<id8>`; history kept. No references: **hard** delete. Both drop the row from `rowLayout`. `200 { data: { id, mode: "soft"\|"hard", message, row? } }`; `404 NOT_FOUND`; viewer `403` |
+| GET | `/vineyards/{vid}/rows/{id}/delete-preview` | Operate (viewer `403`). `404 NOT_FOUND` if row missing or already deleted. Same helper as DELETE (`rows/row-delete.ts`). `200 { data: { rowId, code, mode: "soft"\|"hard", counts: { tasks, openTasks, harvests, activities }, openTasks: [{ id, title, dueDate, status }], message } }` |
+| DELETE | `/vineyards/{vid}/rows/{id}` | Operate (viewer `403`). Option `openTasks: "keep" \| "dismiss"` via `?openTasks=` and/or JSON body (default `keep`; other values or query/body mismatch → `400 VALIDATION_ERROR`). Row with any task/harvest/activity (incl. soft-deleted): **soft** — `deletedAt`, `status: retired`, code → `<code>__old_<id8>`; history kept. No references: **hard** delete. `dismiss` sets live `pending`/`sent` tasks on the row to `dismissed` in the same transaction (closed tasks untouched). Both drop the row from `rowLayout`. `200 { data: { id, mode, message, openTasks, dismissedTaskCount, counts, row? } }`; `404 NOT_FOUND` |
+
+Row delete details:
+
+- `counts.tasks` / `harvests` / `activities` include soft-deleted records (they are history and decide soft vs hard). `counts.openTasks` = live tasks with status `pending` or `sent`.
+- `openTasks[].dueDate` is `YYYY-MM-DD` in the vineyard time zone, sorted by due date.
+- `message` is identical in preview and DELETE (does not depend on `openTasks`; use `dismissedTaskCount`). Hard: `Row ZZA deleted.` Soft: `Row NS5 removed. Its history (1 task, 0 harvests, 2 activities) is kept and will show as "Removed row".`
+- Kept open tasks on a removed row stay open work: the Dashboard counts/lists them (label "Removed row"); health never scores them against a row but lists them as vineyard-level reasons (`Removed row: Overdue: …`).
 | GET | `/rows/{id}/vines` | List vines |
 | POST | `/rows/{id}/vines` | Add vine |
 | PATCH | `/vines/{id}` | Variety, status, notes |

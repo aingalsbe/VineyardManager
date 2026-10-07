@@ -318,20 +318,28 @@ export function scoreVineyardHealth(input: {
     )
     .slice(0, 3);
 
+  // Open tasks with no live row are vineyard-level work: rowId null, or a
+  // rowId that is not among input.rows (row was removed / soft-deleted).
+  // They never affect row scores; they surface as vineyard reasons so health
+  // lists the same overdue work the Dashboard counts.
+  const liveRowIds = new Set(input.rows.map((row) => row.id));
   const vineyardTaskReasons: HealthReason[] = [];
   for (const task of input.tasks) {
-    if (task.rowId != null || !isOpenTask(task.status)) continue;
+    if (!isOpenTask(task.status)) continue;
+    const removedRow = task.rowId != null && !liveRowIds.has(task.rowId);
+    if (task.rowId != null && !removedRow) continue;
+    const prefix = removedRow ? "Removed row: " : "";
     const dueDate = calendarDateInZone(new Date(task.dueAt), timeZone);
     if (dueDate < asOfDate) {
       vineyardTaskReasons.push({
         code: "task_overdue",
-        message: `Overdue: ${task.title}`,
+        message: `${prefix}Overdue: ${task.title}`,
         severity: "red",
       });
     } else if (dueDate <= addCalendarDays(asOfDate, DUE_SOON_DAYS)) {
       vineyardTaskReasons.push({
         code: "task_due_soon",
-        message: `Due soon: ${task.title}`,
+        message: `${prefix}Due soon: ${task.title}`,
         severity: "yellow",
       });
     }

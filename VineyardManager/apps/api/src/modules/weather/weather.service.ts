@@ -104,7 +104,7 @@ async function findExistingRainActivity(
       activityType: "watering",
       source: "weather",
     },
-    include: { row: { select: { id: true, code: true, name: true } } },
+    include: { row: { select: { id: true, code: true, name: true, deletedAt: true } } },
     orderBy: { performedAt: "desc" },
     take: 50,
   });
@@ -208,7 +208,7 @@ export async function runDailyRainCheck(
       details,
       source: "weather",
     },
-    include: { row: { select: { id: true, code: true, name: true } } },
+    include: { row: { select: { id: true, code: true, name: true, deletedAt: true } } },
   });
 
   return {

@@ -1,11 +1,21 @@
 import { Prisma } from "@prisma/client";
-import { createRowSchema, rowLayoutSchema, updateRowSchema } from "@vineyard/shared";
+import {
+  ROW_DELETE_DISMISSED_TASK_STATUS,
+  createRowSchema,
+  deleteRowOptionsSchema,
+  rowLayoutSchema,
+  updateRowSchema,
+  type RowDeleteOpenTasksAction,
+  type RowDeletePreview,
+  type RowDeleteResult,
+} from "@vineyard/shared";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
 import { serializeRow } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate } from "../auth/auth.middleware.js";
+import { openTaskWhere, planRowDelete } from "./row-delete.js";
 
 export const rowsRouter = Router({ mergeParams: true });
 
@@ -139,15 +149,80 @@ async function removeRowFromLayout(
   });
 }
 
+async function requireLiveRow(vineyardId: string, rowId: string) {
+  const vineyard = await prisma.vineyard.findFirst({
+    where: { id: vineyardId, deletedAt: null },
+    select: { id: true, timezone: true },
+  });
+  if (!vineyard) {
+    throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
+  }
+  const row = await prisma.row.findFirst({
+    where: { id: rowId, vineyardId, deletedAt: null },
+  });
+  if (!row) {
+    throw new HttpError(404, "NOT_FOUND", "Row not found");
+  }
+  return { row, timeZone: vineyard.timezone || "America/Chicago" };
+}
+
+/** Query (?openTasks=) and/or JSON body ({ openTasks }); conflict → 400. */
+function parseDeleteOptions(req: Request): RowDeleteOpenTasksAction {
+  const fromQuery = deleteRowOptionsSchema.parse({
+    openTasks: req.query.openTasks,
+  }).openTasks;
+  const body =
+    req.body && typeof req.body === "object" && !Array.isArray(req.body)
+      ? (req.body as Record<string, unknown>)
+      : {};
+  const fromBody = deleteRowOptionsSchema.parse({
+    openTasks: body.openTasks,
+  }).openTasks;
+  if (fromQuery && fromBody && fromQuery !== fromBody) {
+    throw new HttpError(
+      400,
+      "VALIDATION_ERROR",
+      "openTasks in the query and body do not match",
+    );
+  }
+  return fromBody ?? fromQuery ?? "keep";
+}
+
+/**
+ * Preview what DELETE would do (same planRowDelete helper). Operate roles only.
+ * 200 { data: RowDeletePreview } | 404 NOT_FOUND | 403 FORBIDDEN
+ */
+rowsRouter.get(
+  "/:rowId/delete-preview",
+  requireOperate,
+  async (req: Request<{ vineyardId: string; rowId: string }>, res) => {
+    const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
+    const rowId = rowIdParam.parse(req.params.rowId);
+    const { row, timeZone } = await requireLiveRow(vineyardId, rowId);
+    const plan = await planRowDelete(prisma, row, timeZone);
+    const data: RowDeletePreview = {
+      rowId: row.id,
+      code: row.code,
+      mode: plan.mode,
+      counts: plan.counts,
+      openTasks: plan.openTasks,
+      message: plan.message,
+    };
+    res.json({ data });
+  },
+);
+
 /**
  * Delete a row. Operate roles only.
- * - Any task / harvest / activity references it (including soft-deleted
- *   history): SOFT delete — deletedAt set, status retired, code renamed to
- *   "<code>__old_<id8>" (same pattern as seed vacateCode) so the code can be
- *   reused. History rows keep their rowId; nothing is cascaded or orphaned.
- * - No references at all: HARD delete.
- * Both paths remove the row from Vineyard.rowLayout.
- * 200 { data: { id, mode: "soft" | "hard", message, row? } } | 404 NOT_FOUND
+ * - History (any task / harvest / activity, incl. soft-deleted): SOFT delete —
+ *   deletedAt set, status retired, code renamed "<code>__old_<id8>" (same as
+ *   seed vacateCode). History keeps its rowId; nothing cascades or orphans.
+ * - No references: HARD delete.
+ * - openTasks=keep (default): open tasks stay open (shown as "Removed row").
+ *   openTasks=dismiss: open (pending | sent, live) tasks → "dismissed" in the
+ *   same transaction; closed tasks untouched.
+ * Both paths drop the row from Vineyard.rowLayout.
+ * 200 { data: RowDeleteResult } | 400 VALIDATION_ERROR | 404 NOT_FOUND | 403
  */
 rowsRouter.delete(
   "/:rowId",
@@ -155,32 +230,35 @@ rowsRouter.delete(
   async (req: Request<{ vineyardId: string; rowId: string }>, res) => {
     const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
     const rowId = rowIdParam.parse(req.params.rowId);
-    await requireVineyard(vineyardId);
+    const openTasksAction = parseDeleteOptions(req);
+    const { row: existing, timeZone } = await requireLiveRow(vineyardId, rowId);
 
-    const existing = await prisma.row.findFirst({
-      where: { id: rowId, vineyardId, deletedAt: null },
-    });
-    if (!existing) {
-      throw new HttpError(404, "NOT_FOUND", "Row not found");
-    }
+    const result = await prisma.$transaction(async (tx): Promise<RowDeleteResult> => {
+      const plan = await planRowDelete(tx, existing, timeZone);
 
-    const result = await prisma.$transaction(async (tx) => {
-      const [tasks, harvests, activities] = await Promise.all([
-        tx.task.count({ where: { rowId } }),
-        tx.harvest.count({ where: { rowId } }),
-        tx.activity.count({ where: { rowId } }),
-      ]);
-      const historyCount = tasks + harvests + activities;
+      let dismissedTaskCount = 0;
+      if (openTasksAction === "dismiss" && plan.counts.openTasks > 0) {
+        const updated = await tx.task.updateMany({
+          where: openTaskWhere(rowId),
+          data: { status: ROW_DELETE_DISMISSED_TASK_STATUS },
+        });
+        dismissedTaskCount = updated.count;
+      }
 
       await removeRowFromLayout(tx, vineyardId, rowId);
 
-      if (historyCount === 0) {
+      const base = {
+        id: rowId,
+        mode: plan.mode,
+        message: plan.message,
+        openTasks: openTasksAction,
+        dismissedTaskCount,
+        counts: plan.counts,
+      };
+
+      if (plan.mode === "hard") {
         await tx.row.delete({ where: { id: rowId } });
-        return {
-          id: rowId,
-          mode: "hard" as const,
-          message: `Row ${existing.code} deleted.`,
-        };
+        return base;
       }
 
       const row = await tx.row.update({
@@ -191,13 +269,7 @@ rowsRouter.delete(
           deletedAt: new Date(),
         },
       });
-      return {
-        id: rowId,
-        mode: "soft" as const,
-        message:
-          `Row ${existing.code} removed. Its history (${tasks} tasks, ${harvests} harvests, ${activities} activities) is kept and will show as "Removed row".`,
-        row: serializeRow(row),
-      };
+      return { ...base, row: serializeRow(row) };
     });
 
     res.json({ data: result });

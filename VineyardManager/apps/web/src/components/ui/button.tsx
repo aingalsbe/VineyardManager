@@ -1,6 +1,6 @@
 import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
-import type { ButtonHTMLAttributes } from "react";
+import type { ButtonHTMLAttributes, Ref } from "react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
@@ -12,6 +12,9 @@ const buttonVariants = cva(
         outline: "border border-border bg-card text-foreground hover:bg-background",
         ghost: "text-foreground hover:bg-background",
         link: "text-primary underline-offset-4 hover:underline",
+        /** Irreversible actions. Tailwind red-700 (AA with white), not the health-red token. */
+        destructive:
+          "bg-red-700 text-white hover:bg-red-800 focus-visible:ring-red-700",
       },
       size: {
         default: "h-11 min-h-11 px-4",
@@ -30,6 +33,7 @@ const buttonVariants = cva(
 export type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> &
   VariantProps<typeof buttonVariants> & {
     asChild?: boolean;
+    ref?: Ref<HTMLButtonElement>;
   };
 
 export function Button({
