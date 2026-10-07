@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   TASK_STATUS_LABELS,
@@ -72,10 +72,14 @@ export function TasksPage() {
   const [deleting, setDeleting] = useState<ScheduledTask | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  // Set on a successful delete so focus lands on the h1, not the removed card.
+  const deleteFocusRef = useRef<HTMLElement | null>(null);
 
   const openDelete = (task: ScheduledTask) => {
     setActionError(null);
     setDeleteError(null);
+    deleteFocusRef.current = null;
     setDeleting(task);
   };
 
@@ -86,6 +90,7 @@ export function TasksPage() {
     try {
       await deleteTask(state.vineyard.id, deleting.id);
       setDeleteBusy(false);
+      deleteFocusRef.current = headingRef.current;
       setDeleting(null);
       await reload({ silent: true });
     } catch (error) {
@@ -99,6 +104,7 @@ export function TasksPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
+        headingRef={headingRef}
         title="Tasks"
         description={
           vineyardReady
@@ -244,15 +250,16 @@ export function TasksPage() {
               if (!deleteBusy) setDeleting(null);
             }}
             title="Delete task?"
+            returnFocusRef={deleteFocusRef}
             busy={deleteBusy}
             error={deleteError}
             description={
               deleting ? (
                 <>
-                  <span className="block font-medium text-foreground">
+                  <span className="block min-w-0 font-medium [overflow-wrap:anywhere] text-foreground">
                     {deleting.title}
                   </span>
-                  <span className="block">
+                  <span className="block min-w-0 [overflow-wrap:anywhere]">
                     Due{" "}
                     {new Date(deleting.dueAt).toLocaleDateString(undefined, {
                       year: "numeric",

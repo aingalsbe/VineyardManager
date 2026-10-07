@@ -4,9 +4,14 @@ import {
   type Row,
   type RowStatus,
 } from "@vineyard/shared";
+import { Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import {
+  OverflowMenu,
+  type OverflowMenuItem,
+} from "@/components/ui/overflow-menu";
 import { healthSwatch } from "@/lib/health";
 import { cn } from "@/lib/utils";
 import { rowFullLabel, rowLabel, rowVarietyText } from "@/lib/rowLabel";
@@ -37,12 +42,42 @@ export function RowCard({
   health?: { color: HealthColor; reason?: string } | null;
   highlighted?: boolean;
 }) {
+  // Secondary/write actions live in the ⋯ menu so the header never
+  // overflows at 390px. Viewers get no handlers, so no menu.
+  const menuItems: OverflowMenuItem[] = [
+    ...(onEdit
+      ? [
+          {
+            key: "edit",
+            label: "Edit row",
+            icon: <Pencil className="size-4" aria-hidden />,
+            onSelect: () => onEdit(row),
+          },
+        ]
+      : []),
+    ...(onDelete
+      ? [
+          {
+            key: "delete",
+            label: "Delete row",
+            icon: <Trash2 className="size-4" aria-hidden />,
+            destructive: true,
+            onSelect: () => onDelete(row),
+          },
+        ]
+      : []),
+  ];
+
   return (
-    <Card className={cn(highlighted && "ring-2 ring-primary")}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <CardTitle title={rowFullLabel(row)}>{rowLabel(row)}</CardTitle>
-          <CardDescription>
+    <Card className={cn("min-w-0", highlighted && "ring-2 ring-primary")}>
+      {/* Under sm the badge + ⋯ get their own line above the label so long
+          codes/varieties use the full card width; sm+ keeps them inline. */}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-start sm:gap-3">
+        <div className="min-w-0 sm:flex-1">
+          <CardTitle className="[overflow-wrap:anywhere]" title={rowFullLabel(row)}>
+            {rowLabel(row)}
+          </CardTitle>
+          <CardDescription className="[overflow-wrap:anywhere]">
             {row.name}
             {rowVarietyText(row) && rowVarietyText(row) !== row.variety
               ? ` · ${row.variety}`
@@ -54,7 +89,7 @@ export function RowCard({
                 className={`mt-1 size-2.5 shrink-0 rounded-full ${healthSwatch[health.color]}`}
                 aria-hidden
               />
-              <span>
+              <span className="min-w-0 [overflow-wrap:anywhere]">
                 <span className="font-medium capitalize text-foreground">
                   {health.color}
                 </span>
@@ -63,40 +98,14 @@ export function RowCard({
             </p>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-start">
           <Badge variant={statusVariant[row.status]} className="capitalize">
             {row.status}
           </Badge>
-          {onEdit ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onEdit(row)}
-            >
-              Edit
-            </Button>
-          ) : null}
-          {onRecordHarvest ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onRecordHarvest(row)}
-            >
-              Record harvest
-            </Button>
-          ) : null}
-          {onDelete ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onDelete(row)}
-            >
-              Delete
-            </Button>
-          ) : null}
+          <OverflowMenu
+            label={`More actions for ${rowLabel(row)}`}
+            items={menuItems}
+          />
         </div>
       </div>
       <dl className="mt-4 grid grid-cols-3 gap-3 text-sm">
@@ -116,7 +125,19 @@ export function RowCard({
         </div>
       </dl>
       {row.notes ? (
-        <p className="mt-4 text-sm text-muted">{row.notes}</p>
+        <p className="mt-4 text-sm [overflow-wrap:anywhere] text-muted">{row.notes}</p>
+      ) : null}
+      {onRecordHarvest ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => onRecordHarvest(row)}
+          >
+            Record harvest
+          </Button>
+        </div>
       ) : null}
     </Card>
   );

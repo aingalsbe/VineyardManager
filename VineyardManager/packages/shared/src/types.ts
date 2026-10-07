@@ -409,7 +409,11 @@ export interface RowRef {
 export type RowDeleteOpenTasksAction = (typeof ROW_DELETE_OPEN_TASK_ACTIONS)[number];
 
 export interface RowDeleteCounts {
-  /** All tasks referencing the row, including soft-deleted ones (history). */
+  /**
+   * Live (not soft-deleted) records only, matching the Tasks / Harvests / Log work
+   * pages. Soft vs hard mode is decided separately and also counts soft-deleted
+   * history, so mode can be "soft" while every count is 0.
+   */
   tasks: number;
   /** Live tasks with status pending | sent. */
   openTasks: number;

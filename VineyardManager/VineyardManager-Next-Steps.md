@@ -22,36 +22,49 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 ## Next in pipeline (active)
 
-### Minor gaps slice (Devon)
+### Weekly growing-season digest (Devon, Sage on template)
 
 | Field | Value |
 | --- | --- |
-| **Owner** | Devon (API/app) |
-| **UI help** | Sage |
+| **Owner** | Devon (API/cron/mail) |
+| **UI help** | Sage (email template) |
 | **QA** | Avery |
-| **Status** | In progress |
+| **Status** | Plan approved by Aaron 2026-10-07; build starting |
 | **Then** | Morgan runs `Backup-VineyardManager.ps1` after Avery signs off |
 
-**Acceptance (this slice):**
+**Plan:** Gmail SMTP through the existing nodemailer mailer (moved into a shared mail module). For QA it sends from aingalsbe@gmail.com; a dedicated vineyard Gmail comes later through an env change only. The schedule is Monday 6:30 AM America/Chicago, March through October (`DIGEST_SEASON_MONTHS`), and `DIGEST_CRON_ENABLED=false` until Aaron approves the format. Recipients are active managers/power_users, opt-out per user via `notificationPrefs.weeklyDigest`, and `*.local` addresses are skipped. A `DigestLog` table with a unique index on (vineyard, user, weekStart) prevents double sends.
 
-- [ ] Row delete that keeps history safe (tasks, harvests, activities stay intact)
-- [ ] Task delete (manager+ only, with confirm)
-- [ ] Row `PATCH` supports partial updates
-- [ ] Tasks pointing to deleted rows show "Removed row" instead of raw codes like `NS1__old_xxx`
+**Acceptance:**
 
-### Up next: Weekly growing-season digest
+- [ ] `GET /vineyards/:vid/digest/preview?format=html|text` (manager+) renders tasks (next 7 days plus overdue), weather impacts and health (score plus top 3 reasons), with sensible empty states
+- [ ] Task section matches the Dashboard overdue count
+- [ ] `POST /vineyards/:vid/digest/send-test` delivers to aingalsbe@gmail.com and reads well in Gmail web and mobile; `to` must be on the `DIGEST_TEST_RECIPIENTS` allowlist; viewers get 403
+- [ ] Every send is logged; an SMTP failure returns 502 without crashing the API
+- [ ] Cron off by default; re-runs skip duplicates; opted-out, disabled and viewer users are excluded
+- [ ] Weather v1 rain check unchanged; no secrets in git or logs
 
-Weekly summary during the growing season: maintenance done/due + weather impacts + health summary. **Needs email sending (SMTP) set up.**
+### Small UI follow-up (Sage, alongside the digest)
+
+- Row status badges (Active/Fallow/Replanting) move to blue/neutral so health colors mean health only
+- Rows page delete notice wraps extreme labels (`[overflow-wrap:anywhere]`)
 
 ---
 
+## Recently shipped (2026-10-07)
+
+- **`9b914db`**: row delete keeps history (soft when the row has history, hard when it doesn't), task delete, partial row `PATCH`, "Removed row" labels
+- **`39d1485`**: delete preview that warns about open tasks with Dismiss/Keep, accessible confirm dialogs for row and task delete, removed-row tasks shown in health reasons, plural fixes
+- **Polish commit**: RowCard Edit/Delete moved into a ⋯ menu (no sideways scroll at 390px), focus lands on the page heading after a delete, dialog copy uses "work logs" consistently, modal counts match the Tasks page, long-text wrapping in dialogs and cards
+
+---
 ## Queued after (ordered)
 
 1. **Weather notification prefs** — severe weather, drought/overwater, frost/snow (user-configurable)
 2. **Configurable rain threshold** — Setup editor instead of hard-coded 0.5"
 3. **Dashboard / Metrics weather-sourced watering** — surface rain-logged Activities in UI/trends
 4. **Gate `forceRainInches` for prod** — keep override for local/dev tests only
-5. **External Task Scheduler** — low priority; in-process cron is enough for local
+5. **Map: unplaced-row chips** (wrapping text chips instead of vine-count bars that clip labels)
+6. **External Task Scheduler** — low priority; in-process cron is enough for local
 
 ---
 

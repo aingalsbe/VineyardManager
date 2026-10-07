@@ -117,7 +117,7 @@ export function VineyardMapDialog({
                 {title}
               </p>
               {subtitle ? (
-                <div className="text-xs text-muted" aria-live="polite">
+                <div className="text-xs [overflow-wrap:anywhere] text-muted" aria-live="polite">
                   {subtitle}
                 </div>
               ) : null}

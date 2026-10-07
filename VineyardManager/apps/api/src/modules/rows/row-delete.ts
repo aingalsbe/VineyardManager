@@ -10,9 +10,12 @@ import {
  * Single source of truth for row delete: mode, counts, open tasks, message.
  * Used by GET /rows/:id/delete-preview and DELETE /rows/:id so they can't drift.
  *
- * - Any task / harvest / activity referencing the row (including soft-deleted
- *   ones) is history → SOFT delete. No references at all → HARD delete.
- * - "Open" tasks = live (deletedAt null) tasks with status pending | sent.
+ * - Mode: any task / harvest / activity referencing the row, INCLUDING
+ *   soft-deleted ones, is history → SOFT delete. No references at all → HARD.
+ *   (Internal historyTotal; not exposed in counts.)
+ * - counts.tasks / harvests / activities are LIVE only (deletedAt null) so they
+ *   match the Tasks / Harvests / Log work pages.
+ * - "Open" tasks = live tasks with status pending | sent.
  */
 export type RowDeletePlan = {
   mode: "soft" | "hard";
@@ -35,6 +38,10 @@ export function rowDeleteMessage(
   if (mode === "hard") {
     return `Row ${code} deleted.`;
   }
+  if (counts.tasks + counts.harvests + counts.activities === 0) {
+    // Only soft-deleted history exists: no numbers to show.
+    return `Row ${code} removed. Its history is kept and will show as "Removed row".`;
+  }
   return (
     `Row ${code} removed. Its history (` +
     `${plural(counts.tasks, "task")}, ` +
@@ -55,10 +62,16 @@ export async function planRowDelete(
   row: Pick<Row, "id" | "code">,
   timeZone: string,
 ): Promise<RowDeletePlan> {
-  const [tasks, harvests, activities, open] = await Promise.all([
+  const live = { rowId: row.id, deletedAt: null };
+  const [allTasks, allHarvests, allActivities, tasks, harvests, activities, open] = await Promise.all([
+    // Mode decision: all records, including soft-deleted history.
     db.task.count({ where: { rowId: row.id } }),
     db.harvest.count({ where: { rowId: row.id } }),
     db.activity.count({ where: { rowId: row.id } }),
+    // Visible counts: live records only.
+    db.task.count({ where: live }),
+    db.harvest.count({ where: live }),
+    db.activity.count({ where: live }),
     db.task.findMany({
       where: openTaskWhere(row.id),
       select: { id: true, title: true, dueAt: true, status: true },
@@ -72,7 +85,8 @@ export async function planRowDelete(
     harvests,
     activities,
   };
-  const mode = tasks + harvests + activities === 0 ? "hard" : "soft";
+  const historyTotal = allTasks + allHarvests + allActivities;
+  const mode = historyTotal === 0 ? "hard" : "soft";
 
   return {
     mode,

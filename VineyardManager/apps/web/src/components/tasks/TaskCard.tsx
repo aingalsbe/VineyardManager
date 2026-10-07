@@ -50,17 +50,17 @@ export function TaskCard({
     : undefined;
 
   return (
-    <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
+    <article className="min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-primary" title={rowTitle}>
+          <p className="text-sm font-medium [overflow-wrap:anywhere] text-primary" title={rowTitle}>
             {rowText}
           </p>
-          <h2 className="mt-0.5 text-lg font-semibold tracking-tight">
+          <h2 className="mt-0.5 text-lg font-semibold tracking-tight [overflow-wrap:anywhere]">
             {task.title}
           </h2>
           {task.body ? (
-            <p className="mt-1 text-muted">{task.body}</p>
+            <p className="mt-1 [overflow-wrap:anywhere] text-muted">{task.body}</p>
           ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">

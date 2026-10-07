@@ -177,7 +177,7 @@ function RowLink({
       aria-label={`Show ${label} on the map`}
       title={title}
       className={cn(
-        "inline-flex min-h-11 items-center gap-1 rounded-md text-left font-medium text-primary underline-offset-2 hover:underline",
+        "inline-flex min-h-11 max-w-full min-w-0 items-center gap-1 rounded-md text-left font-medium [overflow-wrap:anywhere] text-primary underline-offset-2 hover:underline",
         focusRing,
         className,
       )}
@@ -445,7 +445,7 @@ export function DashboardPage() {
       </p>
       <ul className="mt-1 space-y-0.5 text-sm text-muted">
         {weatherAlerts.slice(0, 2).map((alert) => (
-          <li key={alert.id} className="flex min-h-8 items-center">
+          <li key={alert.id} className="flex min-h-8 items-center [overflow-wrap:anywhere]">
             {alert.title}
           </li>
         ))}
@@ -702,7 +702,7 @@ export function DashboardPage() {
             {highlightRowId && highlightedRow ? (
               <Button
                 type="button"
-                className="min-h-11"
+                className="h-auto min-h-11 max-w-full py-2 text-left whitespace-normal [overflow-wrap:anywhere]"
                 onClick={() => {
                   setActionError(null);
                   setSelectedRowId(highlightRowId);
@@ -858,7 +858,7 @@ function DueTaskItem({
         <Link
           to="/tasks"
           className={cn(
-            "inline-flex min-h-11 items-center font-medium text-foreground hover:underline",
+            "inline-flex min-h-11 items-center font-medium [overflow-wrap:anywhere] text-foreground hover:underline",
             focusRing,
           )}
         >

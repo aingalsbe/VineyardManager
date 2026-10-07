@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { Row } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
@@ -12,6 +12,27 @@ import { Card } from "@/components/ui/card";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
+import type { DeleteRowResult } from "@/lib/api";
+import { pluralize } from "@/lib/pluralize";
+import { rowLabel } from "@/lib/rowLabel";
+
+/** Past-tense notice built from the DELETE result (not the server message). */
+function rowDeletedNotice(result: DeleteRowResult, label: string): string {
+  const parts = [
+    result.mode === "hard"
+      ? `Deleted ${label}.`
+      : `Removed ${label}. Its history is kept, and past records show it as “Removed row”.`,
+  ];
+  if (result.dismissedTaskCount > 0) {
+    parts.push(`Dismissed ${pluralize(result.dismissedTaskCount, "open task")}.`);
+  } else if (result.counts.openTasks > 0) {
+    const kept = result.counts.openTasks;
+    parts.push(
+      `${pluralize(kept, "open task")} ${kept === 1 ? "stays" : "stay"} open.`,
+    );
+  }
+  return parts.join(" ");
+}
 
 export function RowsPage() {
   const { canOperate } = useRoleAccess();
@@ -28,12 +49,13 @@ export function RowsPage() {
   } | null>(null);
 
   const [deleting, setDeleting] = useState<Row | null>(null);
+  const headingRef = useRef<HTMLHeadingElement>(null);
 
   // Soft vs hard wording comes from the API (delete-preview in the dialog,
   // then the DELETE response message here), never guessed client-side.
-  const handleDeleted = async (message: string) => {
+  const handleDeleted = async (result: DeleteRowResult, label: string) => {
     setDeleting(null);
-    setRowNotice({ tone: "ok", text: message });
+    setRowNotice({ tone: "ok", text: rowDeletedNotice(result, label) });
     await reload({ silent: true });
     void health.reload({ silent: true });
   };
@@ -60,6 +82,7 @@ export function RowsPage() {
   return (
     <div className="mx-auto max-w-5xl">
       <PageHeader
+        headingRef={headingRef}
         title="Rows"
         description={
           vineyardReady
@@ -142,7 +165,7 @@ export function RowsPage() {
       ) : null}
 
       {vineyardReady && state.rows.length > 0 ? (
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {state.rows.map((row) => {
             const rowHealth =
               health.state.status === "ready"
@@ -200,7 +223,10 @@ export function RowsPage() {
               vineyardId={state.vineyard.id}
               row={deleting}
               onClose={() => setDeleting(null)}
-              onDeleted={(result) => handleDeleted(result.message)}
+              onDeleted={(result) =>
+                handleDeleted(result, deleting ? rowLabel(deleting) : "Row")
+              }
+              successFocusRef={headingRef}
             />
           ) : null}
           <HarvestFormDialog

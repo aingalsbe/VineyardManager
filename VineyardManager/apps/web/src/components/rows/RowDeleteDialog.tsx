@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import type { Row } from "@vineyard/shared";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -45,8 +45,10 @@ function OpenTaskItem({ task }: { task: RowDeletePreviewOpenTask }) {
   const due = task.dueDate ? parseLocalDate(task.dueDate) : null;
   const overdue = due ? due < startOfToday() : false;
   return (
-    <li className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2">
-      <span className="min-w-0 font-medium text-foreground">{task.title}</span>
+    <li className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2">
+      <span className="min-w-0 font-medium [overflow-wrap:anywhere] text-foreground">
+        {task.title}
+      </span>
       <span className="shrink-0 text-sm text-muted">
         {due ? `Due ${formatDate(due)}` : "No due date"}
         {overdue ? (
@@ -78,13 +80,19 @@ export function RowDeleteDialog({
   row,
   onClose,
   onDeleted,
+  successFocusRef,
 }: {
   vineyardId: string;
   /** Row to delete; null = closed. */
   row: Row | null;
   onClose: () => void;
   onDeleted: (result: DeleteRowResult) => void | Promise<void>;
+  /** Focus target after a successful delete (the row's card is going away). */
+  successFocusRef?: RefObject<HTMLElement | null>;
 }) {
+  // Empty until a delete succeeds; then ConfirmDialog focuses it on close
+  // instead of the (soon removed) opener. Cancel/Escape keep the opener.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
   const [state, setState] = useState<PreviewState>({ status: "loading" });
   const [pending, setPending] = useState<RowDeleteOpenTasksOption | "plain" | null>(
     null,
@@ -134,6 +142,9 @@ export function RowDeleteDialog({
         choice === "plain" ? undefined : { openTasks: choice },
       );
       setPending(null);
+      returnFocusRef.current =
+        successFocusRef?.current ??
+        document.querySelector<HTMLElement>("main h1");
       await onDeleted(result);
     } catch (err) {
       setPending(null);
@@ -146,17 +157,17 @@ export function RowDeleteDialog({
   const description = (
     <>
       <p>
-        <span className="font-medium text-foreground">{full}</span>
+        <span className="font-medium [overflow-wrap:anywhere] text-foreground">{full}</span>
       </p>
       {preview ? (
         preview.mode === "soft" ? (
           <p className="mt-1">
-            Its history is kept: past records stay and show this row as
-            &ldquo;Removed row&rdquo;.
+            Its history is kept, and past records show this row as
+            “Removed row”.
           </p>
         ) : (
           <p className="mt-1">
-            This row will be permanently deleted. This can&rsquo;t be undone.
+            Deleting removes this row permanently. This can’t be undone.
           </p>
         )
       ) : null}
@@ -210,6 +221,7 @@ export function RowDeleteDialog({
       busy={busy}
       error={error}
       actions={actions}
+      returnFocusRef={returnFocusRef}
     >
       {state.status === "loading" ? (
         <div className="space-y-2" aria-busy="true">
@@ -238,7 +250,8 @@ export function RowDeleteDialog({
         <div className="space-y-4">
           {summary ? (
             <p className="text-sm text-muted">
-              Kept as history: <span className="text-foreground">{summary}</span>
+              Kept as history:{" "}
+              <span className="text-foreground">{summary}</span>
             </p>
           ) : null}
           {hasOpenTasks ? (
@@ -246,7 +259,7 @@ export function RowDeleteDialog({
               <h3 className="text-sm font-semibold text-foreground">
                 {pluralize(openTasks.length, "open task")} on this row
               </h3>
-              <ul className="mt-1 max-h-48 divide-y divide-border overflow-y-auto rounded-lg border border-border bg-background px-3">
+              <ul className="mt-1 max-h-48 min-w-0 divide-y divide-border overflow-x-hidden overflow-y-auto rounded-lg border border-border bg-background px-3">
                 {openTasks.map((task) => (
                   <OpenTaskItem key={task.id} task={task} />
                 ))}
@@ -257,8 +270,9 @@ export function RowDeleteDialog({
                     Dismiss open tasks and delete
                   </dt>
                   <dd className="text-muted">
-                    {openTasks.length === 1 ? "The task is" : "The tasks are"}{" "}
-                    closed as dismissed along with the delete.
+                    {openTasks.length === 1
+                      ? "The task is closed as dismissed when the row is deleted."
+                      : "The tasks are closed as dismissed when the row is deleted."}
                   </dd>
                 </div>
                 <div>
@@ -266,15 +280,13 @@ export function RowDeleteDialog({
                     Keep tasks and delete
                   </dt>
                   <dd className="text-muted">
-                    {openTasks.length === 1 ? "It stays" : "They stay"} open
-                    (still overdue if late) and show &ldquo;Removed row&rdquo;.
+                    {openTasks.length === 1
+                      ? "It stays open (still overdue if late) and shows “Removed row”."
+                      : "They stay open (still overdue if late) and show “Removed row”."}
                   </dd>
                 </div>
               </dl>
             </div>
-          ) : null}
-          {preview.message ? (
-            <p className="text-xs text-muted">{preview.message}</p>
           ) : null}
         </div>
       ) : null}

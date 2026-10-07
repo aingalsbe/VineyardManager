@@ -80,9 +80,10 @@ Out of this slice (no Variety table):
 
 Row delete details:
 
-- `counts.tasks` / `harvests` / `activities` include soft-deleted records (they are history and decide soft vs hard). `counts.openTasks` = live tasks with status `pending` or `sent`.
+- `counts.tasks` / `harvests` / `activities` are **live only** (`deletedAt` null), matching the Tasks / Harvests / Log work pages. `counts.openTasks` = live tasks with status `pending` or `sent`.
+- Soft vs hard is decided separately and **does** count soft-deleted tasks / harvests / activities, so `mode` can be `"soft"` with every count `0`.
 - `openTasks[].dueDate` is `YYYY-MM-DD` in the vineyard time zone, sorted by due date.
-- `message` is identical in preview and DELETE (does not depend on `openTasks`; use `dismissedTaskCount`). Hard: `Row ZZA deleted.` Soft: `Row NS5 removed. Its history (1 task, 0 harvests, 2 activities) is kept and will show as "Removed row".`
+- `message` is identical in preview and DELETE (does not depend on `openTasks`; use `dismissedTaskCount`). Hard: `Row ZZA deleted.` Soft: `Row NS5 removed. Its history (1 task, 0 harvests, 2 activities) is kept and will show as "Removed row".` Soft with only soft-deleted history (all counts 0): `Row NS5 removed. Its history is kept and will show as "Removed row".`
 - Kept open tasks on a removed row stay open work: the Dashboard counts/lists them (label "Removed row"); health never scores them against a row but lists them as vineyard-level reasons (`Removed row: Overdue: …`).
 | GET | `/rows/{id}/vines` | List vines |
 | POST | `/rows/{id}/vines` | Add vine |
