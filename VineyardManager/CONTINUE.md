@@ -31,9 +31,12 @@
 
 - **Weather GET + WeatherCard (shipped 2026-10-06, `b17a284`):** Devon — GET current + 7-day + alerts and history with cache, shared types, api-outline. Sage — Dashboard WeatherCard UI. Avery QA. Morgan backup: `feat(weather): GET current+7-day+alerts and history with cache; Dashboard WeatherCard UI` (pushed nas + origin; NAS synced).
 
+- **Weather icon + pop-down (shipped 2026-10-06, `aee4700`):** Sage — weather icon above the Dashboard health bar opens a pop-down over the map (`WeatherHealthControl` + `WeatherPanel`); replaces `WeatherCard`. No rain-check button; health colors unchanged. Avery full-site QA clear. Pushed nas + origin.
+
 ## Next Priority
 - **Active:** Dashboard redesign prototypes (Sage) — review current Dashboard and deliver alternate modern UI/UX prototypes. **No live Dashboard code changes** until Aaron picks a direction.
 - Pipeline board: `VineyardManager-Next-Steps.md` (queued weather follow-ons: notification prefs, configurable rain threshold, weekly digest, Dashboard/Metrics watering surfacing, gate forceRainInches, external Task Scheduler).
+- Avery minor gaps (queued, non-blocking): no hard-delete for rows or tasks; row `PATCH` needs the full body (no partial updates).
 - Non-goals: photo underlay; camera/leaf analysis.
 
 ## Notes
@@ -51,7 +54,7 @@
 - People API: GET/POST/PATCH/DELETE /api/v1/vineyards/:id/users (power_user). POST returns `{ user, temporaryPassword }` once.
 - Health API: GET /api/v1/vineyards/:id/health
 - Weather API (shipped): POST /api/v1/vineyards/:id/weather/daily-check (operate). Cron 6:15 AM America/Chicago; WEATHER_CRON_ENABLED
-- Weather API (shipped `b17a284`): GET /api/v1/vineyards/:id/weather — current + 7-day + alerts (cached); GET history; Dashboard WeatherCard
+- Weather API (shipped `b17a284`): GET /api/v1/vineyards/:id/weather — current + 7-day + alerts (cached); GET history; Dashboard UI is the weather icon + pop-down (`aee4700`, replaced WeatherCard)
 - Vineyard API: POST/PATCH /api/v1/vineyards (including `rowLayout`), PUT/GET/DELETE /api/v1/vineyards/:id/logo
 - Setup: http://localhost:5173/setup
 - Metrics: http://localhost:5173/metrics

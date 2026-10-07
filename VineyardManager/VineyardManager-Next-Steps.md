@@ -14,6 +14,8 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 **Weather forecast + alerts (2026-10-06, `b17a284`):** Devon — `GET` current + 7-day + alerts and history with cache, shared types, api-outline. Sage — Dashboard `WeatherCard` UI (cool blue chrome; no rain-check button; health colors unchanged). Avery QA. Morgan backup — `feat(weather): GET current+7-day+alerts and history with cache; Dashboard WeatherCard UI` pushed to nas + origin; NAS files synced.
 
+**Weather icon + pop-down (2026-10-06, `aee4700`):** Sage — weather icon above the Dashboard health bar opens a pop-down over the map (`WeatherHealthControl` + `WeatherPanel`); **replaces `WeatherCard`**. No rain-check button; health colors unchanged. Avery full-site QA clear (login/logout, every page, viewer read-only, pop-down closes via Esc / X / outside click). Pushed to nas + origin.
+
 ---
 
 ## Next in pipeline (active)
@@ -23,6 +25,7 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 | Field | Value |
 | --- | --- |
 | **Owner** | Sage (UI/UX) |
+| **Status** | In progress — prototypes only, nothing live |
 | **Constraint** | **No live Dashboard code changes** until Aaron picks a direction |
 | **Then** | Avery QA (when a chosen design is implemented later); Morgan runs `Backup-VineyardManager.ps1` |
 | **Approved by** | Aaron |
@@ -52,6 +55,11 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 4. **Dashboard / Metrics weather-sourced watering** — surface rain-logged Activities in UI/trends
 5. **Gate `forceRainInches` for prod** — keep override for local/dev tests only
 6. **External Task Scheduler** — low priority; in-process cron is enough for local
+
+### Minor gaps (Avery full-site QA, non-blocking)
+
+- **No hard-delete for rows or tasks** — UI/API only deactivate / change status; no permanent delete.
+- **Row `PATCH` needs the full body** — partial updates are not supported; clients must send every row field.
 
 ---
 
@@ -88,4 +96,4 @@ powershell -NoProfile -File C:\AIProjects\Scripts\Backup-VineyardManager.ps1 -Co
 | API outline | `docs/api-outline.md` |
 | App | http://localhost:5173/ |
 | Demo login | `owner@vineyard.local` / `VineyardDev1!` |
-| Latest weather ship | `b17a284` on `main` |
+| Latest weather ship | `aee4700` on `main` (icon + pop-down UI; read API in `b17a284`) |
