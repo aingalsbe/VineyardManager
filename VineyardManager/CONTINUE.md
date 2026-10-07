@@ -1,4 +1,4 @@
-# Continue Here – Vineyard Manager
+# Continue Here Ã¢â‚¬â€œ Vineyard Manager
 
 ## Last Completed
 - Monorepo set up with pnpm + Turborepo (apps/web, apps/api, packages/shared)
@@ -14,10 +14,10 @@
 - Health colors v1: schematic map + scores on Dashboard, chips on Rows; inventory stats moved to Setup
 - Vineyard create/edit on Setup; logo upload shown in the top header on every signed-in page
 - Setup row layout editor; Vineyard.rowLayout saved; bar length from vineCount; Dashboard uses saved positions + health colors; seed vineyard named Abide in the Vine Vineyard
-- 4 N–S rows at 23 vines / 161', 11 E–W rows at 10 vines / 70'; dashboard map scales to show every row with no scroll
+- 4 NÃ¢â‚¬â€œS rows at 23 vines / 161', 11 EÃ¢â‚¬â€œW rows at 10 vines / 70'; dashboard map scales to show every row with no scroll
 - Dashboard map bars open a row action panel; complete overdue task or log watering/pest/weed against that row; health reloads after save
 - Setup varieties catalog, calendar seed, and health cutoff editor
-- Seed + default layout use NS1–NS4 / EW1–EW11 (L/S codes rename in place on re-seed)
+- Seed + default layout use NS1Ã¢â‚¬â€œNS4 / EW1Ã¢â‚¬â€œEW11 (L/S codes rename in place on re-seed)
 - UI chrome is cool blue (buttons, nav, surfaces); health overlay stays green / yellow / orange / red
 - Header shows a larger logo only (vineyard name is not beside it); Dashboard pins vineyard health + map above the work lists
 - Metrics page: health / harvest / activity trends (month, quarter, year); variety rollups sum rows that share a grape; 4-year seed history
@@ -27,8 +27,10 @@
 - Start-VineyardManager.ps1 and Stop-VineyardManager.ps1 scripts working
 - Project backed up to NAS + private GitHub repo
 
+- Weather v1 daily rain check: Open-Meteo past-24h precip at vineyard lat/lng (geocode+persist address if missing); >=0.5 in creates one vineyard-scoped watering Activity (source weather); in-process cron 6:15 AM America/Chicago; POST /vineyards/:id/weather/daily-check for operate roles; no Dashboard button
+
 ## Next Priority
-- Weather v1 (`docs/next_steps_archive/next-steps-weather.md`) unless Aaron says otherwise. No photo underlay.
+- Weather follow-ups (forecast/alerts UI, notification prefs) or weekly growing-season notifications â€” Aaron picks. No photo underlay. See `docs/next_steps_archive/next-steps-weather.md` for what Weather v1 left open.
 
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager
@@ -44,8 +46,9 @@
 - Mail: optional `SMTP_URL` or `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`, `MAIL_FROM`, `APP_URL`. Local reset works without mail (`devResetUrl` in development).
 - People API: GET/POST/PATCH/DELETE /api/v1/vineyards/:id/users (power_user). POST returns `{ user, temporaryPassword }` once.
 - Health API: GET /api/v1/vineyards/:id/health
+- Weather API: POST /api/v1/vineyards/:id/weather/daily-check (operate). Cron 6:15 AM America/Chicago; WEATHER_CRON_ENABLED
 - Vineyard API: POST/PATCH /api/v1/vineyards (including `rowLayout`), PUT/GET/DELETE /api/v1/vineyards/:id/logo
 - Setup: http://localhost:5173/setup
 - Metrics: http://localhost:5173/metrics
 - Metrics API: GET /api/v1/vineyards/:id/metrics?period=month|quarter|year
-- Harvest type on Log work is a note only — yield still lives on Harvests
+- Harvest type on Log work is a note only Ã¢â‚¬â€ yield still lives on Harvests

@@ -241,9 +241,15 @@ export const createActivitySchema = z.object({
 export const updateActivitySchema = createActivitySchema.partial();
 
 export const wateringDetailsSchema = z.object({
-  durationMin: z.number().positive(),
+  durationMin: z.number().positive().optional(),
   method: z.enum(WATERING_METHODS),
   volumeGal: z.number().nonnegative().optional(),
+  rainInches: z.number().nonnegative().optional(),
+  windowStart: z.string().optional(),
+  windowEnd: z.string().optional(),
+  provider: z.string().optional(),
+  checkDate: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 export const createHarvestSchema = z.object({

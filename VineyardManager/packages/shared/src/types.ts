@@ -189,9 +189,15 @@ export type ActivityDetails =
   | Record<string, unknown>;
 
 export interface WateringDetails {
-  durationMin: number;
+  durationMin?: number;
   method: WateringMethod;
   volumeGal?: number;
+  rainInches?: number;
+  windowStart?: string;
+  windowEnd?: string;
+  provider?: string;
+  checkDate?: string;
+  notes?: string;
 }
 
 export interface FertilizationDetails {

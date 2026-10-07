@@ -36,7 +36,7 @@ export const ACTIVITY_SCOPES = [
   "vine",
 ] as const;
 
-export const ACTIVITY_SOURCES = ["manual", "ai_suggested", "imported"] as const;
+export const ACTIVITY_SOURCES = ["manual", "ai_suggested", "imported", "weather"] as const;
 
 export const ACTIVITY_TYPE_LABELS: Record<
   (typeof ACTIVITY_TYPES)[number],
@@ -90,6 +90,7 @@ export const WATERING_METHODS = [
   "flooding",
   "hose",
   "sprinkler",
+  "rainfall",
 ] as const;
 
 export const HARVEST_CONDITIONS = [

@@ -18,4 +18,6 @@ export const config = {
   smtpPort: Number(process.env.SMTP_PORT ?? 587),
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
+  /** Daily Open-Meteo rain check at 6:15 AM America/Chicago. Set WEATHER_CRON_ENABLED=false to disable. */
+  weatherCronEnabled: (process.env.WEATHER_CRON_ENABLED ?? "true").toLowerCase() !== "false",
 };

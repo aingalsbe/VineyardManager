@@ -20,12 +20,12 @@ Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/auth/login` | Email + password → `{ data: { token, user } }`. Public. Invalid credentials: `401 UNAUTHORIZED` “Invalid email or password” |
+| POST | `/auth/login` | Email + password â†’ `{ data: { token, user } }`. Public. Invalid credentials: `401 UNAUTHORIZED` â€œInvalid email or passwordâ€ |
 | POST | `/auth/logout` | Stateless JWT: `{ data: { ok: true } }`. Client discards the token |
 | GET | `/auth/me` | Current user `{ id, email, displayName, role, disabledAt }` (never `passwordHash`) |
 | PATCH | `/auth/me` | Own `{ displayName?, email? }`. Never role/password. `409 EMAIL_TAKEN` if another live user has the email |
 | POST | `/auth/change-password` | `{ currentPassword, newPassword }` (min 10). Wrong current: `401 INVALID_CREDENTIALS` |
-| POST | `/auth/forgot-password` | Public. `{ email }` → always `{ data: { ok: true } }`. Development also may include `devResetUrl`. Disabled/unknown emails still return ok and send nothing |
+| POST | `/auth/forgot-password` | Public. `{ email }` â†’ always `{ data: { ok: true } }`. Development also may include `devResetUrl`. Disabled/unknown emails still return ok and send nothing |
 | POST | `/auth/reset-password` | Public. `{ token, newPassword }`. Invalid/expired/used: `400 RESET_INVALID`. Does not re-enable a disabled account |
 
 Out of this slice:
@@ -47,7 +47,7 @@ Shipped:
 | POST | `/vineyards` | Create (name, address, timezone). `409 CONFLICT` if one already exists |
 | GET | `/vineyards/{id}` | Detail |
 | PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng, `rowLayout`, `healthThresholds`, `varietyCatalog` |
-| PUT | `/vineyards/{id}/logo` | Multipart field `file` (PNG/JPEG/WebP, ≤1 MB) |
+| PUT | `/vineyards/{id}/logo` | Multipart field `file` (PNG/JPEG/WebP, â‰¤1 MB) |
 | GET | `/vineyards/{id}/logo` | Image bytes. Auth required. `404` if none |
 | DELETE | `/vineyards/{id}/logo` | Remove file + clear fields |
 
@@ -124,7 +124,7 @@ Out of this slice:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/vineyards/{vid}/assistant/analyze` | State → suggestions / rationale |
+| POST | `/vineyards/{vid}/assistant/analyze` | State â†’ suggestions / rationale |
 | POST | `/vineyards/{vid}/assistant/suggest-schedule` | Next maintenance window |
 | GET | `/vineyards/{vid}/assistant/history` | Past interactions |
 
@@ -154,6 +154,16 @@ Out of this slice:
 
 ## Weather
 
+Location for rain checks comes from the vineyard record (`lat` / `lng`, else geocode `address` and persist coordinates). Threshold: **0.5 inches** in the past rolling **24 hours** (Open-Meteo, inches). On trigger: one vineyard-scoped `watering` Activity with `source: "weather"` (idempotent per vineyard + local calendar date). No Dashboard button — automated via in-process cron at **6:15 AM America/Chicago** (`WEATHER_CRON_ENABLED`, default on).
+
+Shipped:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/vineyards/{vid}/weather/daily-check` | Run rain check now (`requireOperate`). Creates watering Activity when ≥0.5". Idempotent same local day. |
+
+Out of this slice:
+
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/vineyards/{vid}/weather` | Current + 7-day + alerts (cached) |
@@ -168,12 +178,12 @@ Out of this slice:
 
 ## Users (power user)
 
-Shipped. All four routes: `requireAuth` + `requireSetup` + vineyard exists. No outbound email. No membership table — role lives on `User`.
+Shipped. All four routes: `requireAuth` + `requireSetup` + vineyard exists. No outbound email. No membership table â€” role lives on `User`.
 
 | Method | Path | Description |
 | --- | --- | --- |
 | GET | `/vineyards/{vid}/users` | List people (`deletedAt` null, including disabled). `{ data: PublicUser[] }`. Sort: role then displayName. Optional `?includeDeleted=1` |
-| POST | `/vineyards/{vid}/users` | Invite `{ email, displayName, role }`. Response once: `{ data: { user, temporaryPassword } }`. Live email → `409 USER_EXISTS`. Soft-deleted email is restored with a new temp password |
+| POST | `/vineyards/{vid}/users` | Invite `{ email, displayName, role }`. Response once: `{ data: { user, temporaryPassword } }`. Live email â†’ `409 USER_EXISTS`. Soft-deleted email is restored with a new temp password |
 | PATCH | `/vineyards/{vid}/users/{uid}` | `{ role?, disabled?, displayName? }`. `disabled: true` sets `disabledAt`. Cannot change self, owner, or the last enabled power user |
 | DELETE | `/vineyards/{vid}/users/{uid}` | Soft-delete (`deletedAt` + `disabledAt`). Same guards as PATCH. `{ data: { ok: true } }` |
 
