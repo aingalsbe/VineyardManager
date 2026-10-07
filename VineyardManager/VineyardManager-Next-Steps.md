@@ -1,6 +1,6 @@
 # Vineyard Manager — Pipeline Board
 
-**Updated:** 2026-10-06  
+**Updated:** 2026-10-07  
 **Repo:** `C:\AIProjects\VineyardManager`  
 **Product:** Abide in the Vine Vineyard manager (monorepo: `apps/web`, `apps/api`, `packages/shared`)
 
@@ -16,34 +16,32 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 **Weather icon + pop-down (2026-10-06, `aee4700`):** Sage — weather icon above the Dashboard health bar opens a pop-down over the map (`WeatherHealthControl` + `WeatherPanel`); **replaces `WeatherCard`**. No rain-check button; health colors unchanged. Avery full-site QA clear (login/logout, every page, viewer read-only, pop-down closes via Esc / X / outside click). Pushed to nas + origin.
 
+**Ops Command dashboard (2026-10-07, `d825742`):** prototype A chosen by Aaron. Vineyard map pop-up highlights the selected row; sidebar is a slide-out drawer below 1024px (pinned at 1024px and wider); logo kept up top. Row labels show code + variety (e.g. "NS3 Merlot") everywhere including dropdowns; full label (adds row name) in hovers and the map subtitle. Prototypes A/B/C kept in `apps/web/prototypes/dashboard/`. Avery QA passed at 1280px and 390px.
+
 ---
 
 ## Next in pipeline (active)
 
-### Dashboard redesign prototypes (Sage)
+### Minor gaps slice (Devon)
 
 | Field | Value |
 | --- | --- |
-| **Owner** | Sage (UI/UX) |
-| **Status** | In progress — prototypes only, nothing live |
-| **Constraint** | **No live Dashboard code changes** until Aaron picks a direction |
-| **Then** | Avery QA (when a chosen design is implemented later); Morgan runs `Backup-VineyardManager.ps1` |
-| **Approved by** | Aaron |
-
-**Goal:** Review the current Dashboard and deliver **alternate prototypes** using modern UI/UX practices. Prototypes only — not merged into the live app until Aaron chooses.
+| **Owner** | Devon (API/app) |
+| **UI help** | Sage |
+| **QA** | Avery |
+| **Status** | In progress |
+| **Then** | Morgan runs `Backup-VineyardManager.ps1` after Avery signs off |
 
 **Acceptance (this slice):**
 
-- [ ] Review current Dashboard layout and UX
-- [ ] Deliver alternate prototype(s) (modern UI/UX; cool blue chrome; preserve health color semantics)
-- [ ] Document tradeoffs so Aaron can pick a direction
-- [ ] No live code changes / no commit of Dashboard redesign until Aaron picks
+- [ ] Row delete that keeps history safe (tasks, harvests, activities stay intact)
+- [ ] Task delete (manager+ only, with confirm)
+- [ ] Row `PATCH` supports partial updates
+- [ ] Tasks pointing to deleted rows show "Removed row" instead of raw codes like `NS1__old_xxx`
 
-**Out of scope for this slice:**
+### Up next: Weekly growing-season digest
 
-- Implementing the chosen design in production code (separate slice after Aaron picks)
-- Weather notification prefs, thresholds, digests (see Queued)
-- Photo underlay; camera or leaf analysis
+Weekly summary during the growing season: maintenance done/due + weather impacts + health summary. **Needs email sending (SMTP) set up.**
 
 ---
 
@@ -51,15 +49,9 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 1. **Weather notification prefs** — severe weather, drought/overwater, frost/snow (user-configurable)
 2. **Configurable rain threshold** — Setup editor instead of hard-coded 0.5"
-3. **Weekly growing-season digest** — summary notifications during the season
-4. **Dashboard / Metrics weather-sourced watering** — surface rain-logged Activities in UI/trends
-5. **Gate `forceRainInches` for prod** — keep override for local/dev tests only
-6. **External Task Scheduler** — low priority; in-process cron is enough for local
-
-### Minor gaps (Avery full-site QA, non-blocking)
-
-- **No hard-delete for rows or tasks** — UI/API only deactivate / change status; no permanent delete.
-- **Row `PATCH` needs the full body** — partial updates are not supported; clients must send every row field.
+3. **Dashboard / Metrics weather-sourced watering** — surface rain-logged Activities in UI/trends
+4. **Gate `forceRainInches` for prod** — keep override for local/dev tests only
+5. **External Task Scheduler** — low priority; in-process cron is enough for local
 
 ---
 
@@ -72,7 +64,7 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 ## Process notes
 
-1. **Active slice (prototypes):** Sage delivers prototypes only — **no live Dashboard changes** until Aaron picks.
+1. **Active slice (minor gaps):** Devon owns; Sage helps on UI; Avery QAs before any commit.
 2. For implementation slices: **no commit, push, or backup** until Avery finishes QA.
 3. After Avery signs off, Morgan runs:
 
@@ -97,3 +89,4 @@ powershell -NoProfile -File C:\AIProjects\Scripts\Backup-VineyardManager.ps1 -Co
 | App | http://localhost:5173/ |
 | Demo login | `owner@vineyard.local` / `VineyardDev1!` |
 | Latest weather ship | `aee4700` on `main` (icon + pop-down UI; read API in `b17a284`) |
+| Latest dashboard ship | `d825742` (Ops Command; prototypes in `apps/web/prototypes/dashboard/`) |

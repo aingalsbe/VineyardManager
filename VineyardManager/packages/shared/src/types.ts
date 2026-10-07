@@ -405,6 +405,14 @@ export interface VineyardMetrics {
   };
 }
 
+/** Embedded row ref on tasks. `deletedAt` set when the row was removed. */
+export interface RowRef {
+  id: string;
+  code: string;
+  name: string;
+  deletedAt?: string | null;
+}
+
 export interface ScheduledTask extends Audited {
   id: string;
   vineyardId: string;
@@ -416,11 +424,7 @@ export interface ScheduledTask extends Audited {
   dueAt: string;
   status: TaskStatus;
   relatedActivityType?: ActivityType | null;
-  row?: {
-    id: string;
-    code: string;
-    name: string;
-  } | null;
+  row?: RowRef | null;
 }
 
 

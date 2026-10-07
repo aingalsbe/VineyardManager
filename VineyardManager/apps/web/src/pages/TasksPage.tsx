@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
-import { ApiError, updateTask } from "@/lib/api";
+import { ApiError, deleteTask, updateTask } from "@/lib/api";
 import { buildVarietyLookup, rowLabel } from "@/lib/rowLabel";
 
 export function TasksPage() {
@@ -64,6 +64,24 @@ export function TasksPage() {
         error instanceof ApiError
           ? error.message
           : "Could not update the task status.",
+      );
+    }
+  };
+
+  const handleDelete = async (task: ScheduledTask) => {
+    if (state.status !== "ready") return;
+    // Same confirm pattern as PeopleCard (window.confirm).
+    const confirmed = window.confirm(
+      `Delete task "${task.title}"? This removes it from the task list.`,
+    );
+    if (!confirmed) return;
+    setActionError(null);
+    try {
+      await deleteTask(state.vineyard.id, task.id);
+      await reload({ silent: true });
+    } catch (error) {
+      setActionError(
+        error instanceof ApiError ? error.message : "Could not delete the task.",
       );
     }
   };
@@ -191,6 +209,9 @@ export function TasksPage() {
                       canOperate
                         ? (item, status) => void handleStatusChange(item, status)
                         : undefined
+                    }
+                    onDelete={
+                      canOperate ? (item) => void handleDelete(item) : undefined
                     }
                   />
                 </li>

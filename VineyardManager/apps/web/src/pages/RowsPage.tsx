@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
+import { ApiError, deleteRow } from "@/lib/api";
 
 export function RowsPage() {
   const { canOperate } = useRoleAccess();
@@ -21,6 +22,32 @@ export function RowsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [harvestRow, setHarvestRow] = useState<Row | null>(null);
+  const [rowNotice, setRowNotice] = useState<{
+    tone: "ok" | "error";
+    text: string;
+  } | null>(null);
+
+  const handleDelete = async (row: Row) => {
+    if (state.status !== "ready") return;
+    // Same confirm pattern as PeopleCard (window.confirm).
+    const confirmed = window.confirm(
+      `Delete row ${row.code}? Rows with past tasks, harvests, or work are kept as history and shown as "Removed row".`,
+    );
+    if (!confirmed) return;
+    setRowNotice(null);
+    try {
+      const result = await deleteRow(state.vineyard.id, row.id);
+      setRowNotice({ tone: "ok", text: result.message });
+      await reload({ silent: true });
+      void health.reload({ silent: true });
+    } catch (error) {
+      setRowNotice({
+        tone: "error",
+        text:
+          error instanceof ApiError ? error.message : "Could not delete the row.",
+      });
+    }
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -112,6 +139,19 @@ export function RowsPage() {
         </EmptyState>
       ) : null}
 
+      {rowNotice ? (
+        <p
+          className={
+            rowNotice.tone === "error"
+              ? "mb-4 text-sm text-health-red"
+              : "mb-4 text-sm text-muted"
+          }
+          role={rowNotice.tone === "error" ? "alert" : "status"}
+        >
+          {rowNotice.text}
+        </p>
+      ) : null}
+
       {vineyardReady && state.rows.length > 0 ? (
         <ul className="grid gap-4 sm:grid-cols-2">
           {state.rows.map((row) => {
@@ -127,6 +167,9 @@ export function RowsPage() {
                   row={row}
                   onEdit={canOperate ? openEdit : undefined}
                   onRecordHarvest={canOperate ? setHarvestRow : undefined}
+                  onDelete={
+                    canOperate ? (item) => void handleDelete(item) : undefined
+                  }
                   health={
                     rowHealth
                       ? {

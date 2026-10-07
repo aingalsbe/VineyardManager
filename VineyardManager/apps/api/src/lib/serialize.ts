@@ -82,7 +82,12 @@ export function serializeRow(record: Row): RowDto {
 
 export function serializeTask(
   record: Task & {
-    row?: { id: string; code: string; name: string } | null;
+    row?: {
+      id: string;
+      code: string;
+      name: string;
+      deletedAt?: Date | null;
+    } | null;
   },
 ): ScheduledTask {
   return {
@@ -99,7 +104,14 @@ export function serializeTask(
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,
-    row: record.row ?? null,
+    row: record.row
+      ? {
+          id: record.row.id,
+          code: record.row.code,
+          name: record.row.name,
+          deletedAt: record.row.deletedAt?.toISOString() ?? null,
+        }
+      : null,
   };
 }
 

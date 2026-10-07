@@ -15,7 +15,28 @@ export type RowLabelSource = {
   code: string;
   name?: string | null;
   variety?: string | null;
+  /** Set by the API when the row was removed (soft-deleted). */
+  deletedAt?: string | null;
 };
+
+export const REMOVED_ROW_LABEL = "Removed row";
+
+const OLD_CODE_PATTERN = /__old_[0-9a-f]+$/i;
+
+/**
+ * True when the row was removed: API flag (deletedAt) first, then the
+ * "<code>__old_<id8>" rename used by row delete and seed vacateCode.
+ * Removed rows get no map link.
+ */
+export function isRemovedRow(row: RowLabelSource | null | undefined): boolean {
+  if (!row) return false;
+  return Boolean(row.deletedAt) || OLD_CODE_PATTERN.test(row.code);
+}
+
+/** Original code without the "__old_<id8>" suffix. */
+export function originalRowCode(row: RowLabelSource): string {
+  return row.code.replace(OLD_CODE_PATTERN, "");
+}
 
 /** Row id → variety string. */
 export type RowVarietyLookup = ReadonlyMap<string, string>;
@@ -51,6 +72,7 @@ export function rowVarietyText(
 
 /** Short label: "NS3 Merlot"; falls back to "NS3 North South 3", then "NS3". */
 export function rowLabel(row: RowLabelSource, lookup?: RowVarietyLookup): string {
+  if (isRemovedRow(row)) return REMOVED_ROW_LABEL;
   const variety = rowVarietyText(row, lookup);
   if (variety) return `${row.code} ${variety}`;
   const name = row.name?.trim();
@@ -62,6 +84,7 @@ export function rowSecondaryLabel(
   row: RowLabelSource,
   lookup?: RowVarietyLookup,
 ): string | null {
+  if (isRemovedRow(row)) return null;
   const name = row.name?.trim();
   if (!name) return null;
   // When there's no variety the name is already in the short label.
@@ -70,6 +93,7 @@ export function rowSecondaryLabel(
 
 /** Full label: "NS3 Merlot · North South 3" (or the short label if no extra info). */
 export function rowFullLabel(row: RowLabelSource, lookup?: RowVarietyLookup): string {
+  if (isRemovedRow(row)) return `${REMOVED_ROW_LABEL} (was ${originalRowCode(row)})`;
   const short = rowLabel(row, lookup);
   const secondary = rowSecondaryLabel(row, lookup);
   return secondary ? `${short} · ${secondary}` : short;

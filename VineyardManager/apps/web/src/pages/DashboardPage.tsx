@@ -36,6 +36,7 @@ import { healthSwatch } from "@/lib/health";
 import { cn } from "@/lib/utils";
 import {
   buildVarietyLookup,
+  isRemovedRow,
   rowFullLabel,
   rowLabel,
   rowSecondaryLabel,
@@ -510,7 +511,9 @@ export function DashboardPage() {
               kind={kind}
               varieties={varieties}
               onSelectRow={
-                task.rowId ? () => openMap(task.rowId ?? null) : undefined
+                task.rowId && !isRemovedRow(task.row)
+                  ? () => openMap(task.rowId ?? null)
+                  : undefined
               }
             />
           ))}
@@ -862,7 +865,7 @@ function DueTaskItem({
           {task.title}
         </Link>{" "}
         <span className="text-muted">·</span>{" "}
-        {task.row && onSelectRow ? (
+        {task.row && onSelectRow && !isRemovedRow(task.row) ? (
           <RowLink
             label={rowLabel(task.row, varieties)}
             title={rowFullLabel(task.row, varieties)}

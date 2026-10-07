@@ -74,7 +74,8 @@ Out of this slice (no Variety table):
 | --- | --- | --- |
 | GET | `/vineyards/{vid}/rows` | List rows (length, vine count, variety, status) |
 | POST | `/vineyards/{vid}/rows` | Create row |
-| PATCH | `/vineyards/{vid}/rows/{id}` | Update row fields |
+| PATCH | `/vineyards/{vid}/rows/{id}` | Partial update (operate). Any subset of row fields; sent fields validated; `{}` → `400 Enter at least one field` |
+| DELETE | `/vineyards/{vid}/rows/{id}` | Operate. Row with any task/harvest/activity (incl. soft-deleted): **soft** — `deletedAt`, `status: retired`, code → `<code>__old_<id8>`; history kept. No references: **hard** delete. Both drop the row from `rowLayout`. `200 { data: { id, mode: "soft"\|"hard", message, row? } }`; `404 NOT_FOUND`; viewer `403` |
 | GET | `/rows/{id}/vines` | List vines |
 | POST | `/rows/{id}/vines` | Add vine |
 | PATCH | `/vines/{id}` | Variety, status, notes |
@@ -135,6 +136,7 @@ Out of this slice:
 | GET | `/vineyards/{vid}/tasks` | List tasks (`?rowId=` `?status=`) |
 | POST | `/vineyards/{vid}/tasks` | Create task (optional `rowId`) |
 | PATCH | `/vineyards/{vid}/tasks/{id}` | Edit fields or change status |
+| DELETE | `/vineyards/{vid}/tasks/{id}` | Soft-delete (operate). `200 { data: task }`; `404 NOT_FOUND`; viewer `403`. Task `row` ref includes `deletedAt` (removed rows) |
 
 ## Notifications and schedule
 

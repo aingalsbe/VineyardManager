@@ -25,12 +25,15 @@ export function RowCard({
   row,
   onEdit,
   onRecordHarvest,
+  onDelete,
   health,
   highlighted = false,
 }: {
   row: Row;
   onEdit?: (row: Row) => void;
   onRecordHarvest?: (row: Row) => void;
+  /** Caller confirms before deleting. Omit for viewers. */
+  onDelete?: (row: Row) => void;
   health?: { color: HealthColor; reason?: string } | null;
   highlighted?: boolean;
 }) {
@@ -82,6 +85,16 @@ export function RowCard({
               onClick={() => onRecordHarvest(row)}
             >
               Record harvest
+            </Button>
+          ) : null}
+          {onDelete ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onDelete(row)}
+            >
+              Delete
             </Button>
           ) : null}
         </div>

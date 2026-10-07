@@ -396,7 +396,7 @@ export async function createRow(
 export async function updateRow(
   vineyardId: string,
   rowId: string,
-  payload: RowWritePayload,
+  payload: Partial<RowWritePayload>,
 ): Promise<Row> {
   const body = await apiJson<{ data: Row }>(
     `/vineyards/${vineyardId}/rows/${rowId}`,
@@ -404,6 +404,25 @@ export async function updateRow(
       method: "PATCH",
       body: JSON.stringify(payload),
     },
+  );
+  return body.data;
+}
+
+export type DeleteRowResult = {
+  id: string;
+  mode: "soft" | "hard";
+  message: string;
+  row?: Row;
+};
+
+/** Soft-deletes rows with history, hard-deletes empty rows (API decides). */
+export async function deleteRow(
+  vineyardId: string,
+  rowId: string,
+): Promise<DeleteRowResult> {
+  const body = await apiJson<{ data: DeleteRowResult }>(
+    `/vineyards/${vineyardId}/rows/${rowId}`,
+    { method: "DELETE" },
   );
   return body.data;
 }
@@ -452,6 +471,16 @@ export async function updateTask(
     },
   );
   return body.data;
+}
+
+export async function deleteTask(
+  vineyardId: string,
+  taskId: string,
+): Promise<void> {
+  await apiJson<{ data: ScheduledTask }>(
+    `/vineyards/${vineyardId}/tasks/${taskId}`,
+    { method: "DELETE" },
+  );
 }
 
 export type HarvestWritePayload = {

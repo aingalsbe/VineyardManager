@@ -34,11 +34,14 @@ export function TaskCard({
   task,
   onEdit,
   onStatusChange,
+  onDelete,
   varietyLookup,
 }: {
   task: ScheduledTask;
   onEdit?: (task: ScheduledTask) => void;
   onStatusChange?: (task: ScheduledTask, status: TaskStatus) => void;
+  /** Caller confirms before deleting. Omit for viewers. */
+  onDelete?: (task: ScheduledTask) => void;
   varietyLookup?: RowVarietyLookup;
 }) {
   const rowText = task.row ? rowLabel(task.row, varietyLookup) : "Whole vineyard";
@@ -73,7 +76,7 @@ export function TaskCard({
           <span className="text-muted">Due </span>
           <span className="font-medium">{formatDue(task.dueAt)}</span>
         </p>
-        {onEdit || onStatusChange ? (
+        {onEdit || onStatusChange || onDelete ? (
         <div className="flex flex-wrap gap-2">
           {onStatusChange && task.status !== "acknowledged" ? (
             <Button
@@ -102,6 +105,16 @@ export function TaskCard({
               onClick={() => onEdit(task)}
             >
               Edit
+            </Button>
+          ) : null}
+          {onDelete ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onDelete(task)}
+            >
+              Delete
             </Button>
           ) : null}
         </div>

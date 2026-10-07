@@ -208,7 +208,12 @@ export const createRowSchema = z.object({
     }),
 });
 
-export const updateRowSchema = createRowSchema;
+/** PATCH: any subset of row fields; only sent fields are validated/applied. */
+export const updateRowSchema = createRowSchema
+  .partial()
+  .refine((value) => Object.values(value).some((v) => v !== undefined) , {
+    message: "Enter at least one field",
+  });
 
 export const createTaskSchema = z.object({
   rowId: z

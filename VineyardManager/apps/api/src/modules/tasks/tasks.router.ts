@@ -18,7 +18,7 @@ const taskIdParam = z.string().uuid();
 const rowFilter = z.union([z.string().uuid(), z.literal("")]).optional();
 
 const taskWithRow = {
-  row: { select: { id: true, code: true, name: true } },
+  row: { select: { id: true, code: true, name: true, deletedAt: true } },
 } as const;
 
 function parseDueAt(value: string): Date {
@@ -143,6 +143,34 @@ tasksRouter.patch(
       include: taskWithRow,
     });
 
+    res.json({ data: serializeTask(task) });
+  },
+);
+
+/**
+ * Soft-delete a task (sets deletedAt; hidden from lists). Operate roles only.
+ * 200 { data: task } | 404 NOT_FOUND | 403 FORBIDDEN (viewer)
+ */
+tasksRouter.delete(
+  "/:taskId",
+  requireOperate,
+  async (req: Request<{ vineyardId: string; taskId: string }>, res) => {
+    const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
+    const taskId = taskIdParam.parse(req.params.taskId);
+    await requireVineyard(vineyardId);
+
+    const existing = await prisma.task.findFirst({
+      where: { id: taskId, vineyardId, deletedAt: null },
+    });
+    if (!existing) {
+      throw new HttpError(404, "NOT_FOUND", "Task not found");
+    }
+
+    const task = await prisma.task.update({
+      where: { id: taskId },
+      data: { deletedAt: new Date() },
+      include: taskWithRow,
+    });
     res.json({ data: serializeTask(task) });
   },
 );

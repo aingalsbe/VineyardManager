@@ -33,12 +33,13 @@
 
 - **Weather icon + pop-down (shipped 2026-10-06, `aee4700`):** Sage — weather icon above the Dashboard health bar opens a pop-down over the map (`WeatherHealthControl` + `WeatherPanel`); replaces `WeatherCard`. No rain-check button; health colors unchanged. Avery full-site QA clear. Pushed nas + origin.
 
-## Next Priority
-- **Active:** Dashboard redesign prototypes (Sage) — review current Dashboard and deliver alternate modern UI/UX prototypes. **No live Dashboard code changes** until Aaron picks a direction.
-- Pipeline board: `VineyardManager-Next-Steps.md` (queued weather follow-ons: notification prefs, configurable rain threshold, weekly digest, Dashboard/Metrics watering surfacing, gate forceRainInches, external Task Scheduler).
-- Avery minor gaps (queued, non-blocking): no hard-delete for rows or tasks; row `PATCH` needs the full body (no partial updates).
-- Non-goals: photo underlay; camera/leaf analysis.
+- **Ops Command dashboard (shipped 2026-10-07, `d825742`):** prototype A chosen by Aaron. Map pop-up highlights the selected row; slide-out sidebar drawer below 1024px (pinned at 1024px+); logo kept up top; row labels are code + variety (e.g. "NS3 Merlot") everywhere incl. dropdowns, full label (adds row name) in hovers and the map subtitle. Prototypes A/B/C in `apps/web/prototypes/dashboard/`. Avery QA passed at 1280px and 390px.
 
+## Next Priority
+- **Active:** Minor-gaps slice (owner Devon, UI help Sage, QA Avery) — history-safe row delete; task delete (manager+, confirm); partial row `PATCH`; tasks on deleted rows show "Removed row" instead of raw codes like `NS1__old_xxx`.
+- **Next after that:** Weekly growing-season digest (maintenance + weather impacts + health summary) — needs email sending / SMTP.
+- Pipeline board: `VineyardManager-Next-Steps.md` (queued weather follow-ons: notification prefs, configurable rain threshold, Dashboard/Metrics watering surfacing, gate forceRainInches, external Task Scheduler).
+- Non-goals: photo underlay; camera/leaf analysis.
 ## Notes
 - Working directory: C:\AIProjects\VineyardManager
 - Use the existing Start/Stop scripts when resuming
@@ -60,4 +61,4 @@
 - Metrics: http://localhost:5173/metrics
 - Metrics API: GET /api/v1/vineyards/:id/metrics?period=month|quarter|year
 - Harvest type on Log work is a note only — yield still lives on Harvests
-- Process: no commit/push until Avery QA on implementation slices; then `powershell -NoProfile -File C:\AIProjects\Scripts\Backup-VineyardManager.ps1 -CommitMessage "…"` (Morgan writes message). Active prototypes slice: no live Dashboard changes until Aaron picks.
+- Process: no commit/push until Avery QA on implementation slices; then `powershell -NoProfile -File C:\AIProjects\Scripts\Backup-VineyardManager.ps1 -CommitMessage "…"` (Morgan writes message).
