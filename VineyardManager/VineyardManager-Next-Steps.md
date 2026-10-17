@@ -46,6 +46,50 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 ---
 
+### Close / New Season
+
+> Plan: `docs/season-close-new-plan.md` (Devon, Oct 2026; Aaron answered the questions Oct 17, 2026)
+
+| Field | Value |
+| --- | --- |
+| **Owner** | Devon (API) + Sage (UI) |
+| **QA** | Avery |
+| **Status** | Plan located (docs/season-close-new-plan.md); step 1 starts next session |
+
+**Aaron's answers (Oct 17, 2026):**
+
+1. Only **power users** can close or start a season.
+2. Tasks still open at close become **Dismissed** and show on the season summary.
+3. The **Season Summary email** goes to power users and managers. Until Aaron approves real sends, test sends go only to aingalsbe@gmail.com (reuse the `DIGEST_TEST_RECIPIENTS` allowlist pattern).
+4. The app **suggests a harvest tag** (early / mid / late) per variety from research plus the growing area (degree days). The user confirms or overrides.
+
+**Also adopted from the plan:** tag records by season, preview then create, Reopen within 30 days.
+
+**Build order (6 steps; each ships on its own and gets QA before the next):**
+
+1. [ ] Seasons and tagging: tag existing records by year, keep this year open. Check: totals match the Metrics page.
+2. [ ] Close Season preview and close. Check: viewers/managers refused, open tasks Dismissed, vineyard dormant, rain check and digest skip it.
+3. [ ] Lock and Reopen. Check: editing/deleting a closed-season record is refused with a clear message; Reopen works.
+4. [ ] Summary, Past Seasons page and email. Check: summary matches frozen numbers; test email reaches only the test list.
+5. [ ] New Season with fixed calendar + Dormant Pruning (preview, uncheck, adjust); fixes the skip-reused-task-title bug. Check: second season gets a full calendar.
+6. [ ] Location-based dates (Open-Meteo degree days) with fixed-calendar fallback. Check: expected dates for at least two test locations.
+
+**Facts for step 1 (learned 2026-10-17):**
+
+- The DB is **Postgres** (docker-compose), not SQLite: take a `pg_dump` of the dev DB before migrating.
+- Season-scoped records: `Task` (`dueAt`), `Harvest` (`harvestedAt`), `Activity` (`performedAt`). All have `deletedAt`, so the Metrics comparison must treat soft-deleted records the way Metrics does.
+- The app is a **single-vineyard model** today (roles live on `User`; see `digest.send.ts`).
+- The git root is `C:\AIProjects` (not the VineyardManager folder), so `git status` there also covers `Scripts`.
+- There is no test runner yet (`lint` and `typecheck` are both `tsc --noEmit`); one such as vitest is needed.
+
+**Questions:**
+
+- [x] Is a season a calendar year? Answered by the plan: tag existing records by calendar year (in the vineyard's time zone).
+- [x] Per vineyard or app-wide? Answered by the plan: each vineyard has its own seasons.
+- [ ] Which test runner to add (e.g. vitest)? Open.
+
+---
+
 ## Recently shipped (2026-10-07)
 
 - **Weekly growing-season digest** (Devon + Sage): preview (html/text/json), send-test with allowlist, Monday 6:30 AM CT cron (off), March through October, opt-out via `notificationPrefs.weeklyDigest`, `DigestLog` + `digest_logs_scheduled_once` partial index (a future `prisma migrate dev` may try to drop it; delete that DROP INDEX line), shared mailer in `apps/api/src/lib/mailer.ts`, table-based email template. Format approved by Aaron from a test sent to aingalsbe@gmail.com. SMTP is now live: password resets for real addresses send email.
