@@ -1,0 +1,86 @@
+name: vineyard
+
+services:
+  vineyard-db:
+    image: postgres:16-alpine
+    container_name: vineyard-db
+    env_file:
+      - ./env/db.env
+    volumes:
+      - vineyard_pg_data:/var/lib/postgresql/data
+    networks:
+      - vineyard-internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vineyard -d vineyard_manager"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+    mem_limit: 256m
+
+  vineyard-migrate:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: migrate
+    image: vineyard-migrate:local
+    env_file:
+      - ./env/api.env
+    depends_on:
+      vineyard-db:
+        condition: service_healthy
+    networks:
+      - vineyard-internal
+    restart: "no"
+    mem_limit: 384m
+
+  vineyard-api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: api
+    image: vineyard-api:local
+    env_file:
+      - ./env/api.env
+    environment:
+      DEPLOY_PROFILE: production
+    depends_on:
+      vineyard-db:
+        condition: service_healthy
+      vineyard-migrate:
+        condition: service_completed_successfully
+    volumes:
+      - vineyard_uploads:/data/uploads
+    networks:
+      - vineyard-internal
+      - hipfog-network
+    container_name: vineyard-api
+    restart: unless-stopped
+    mem_limit: 384m
+
+  vineyard-web:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+      target: web
+      args:
+        VITE_API_URL: /api/v1
+    image: vineyard-web:local
+    depends_on:
+      vineyard-api:
+        condition: service_healthy
+    networks:
+      - hipfog-network
+    container_name: vineyard-web
+    restart: unless-stopped
+    mem_limit: 64m
+
+networks:
+  vineyard-internal:
+    internal: true
+  hipfog-network:
+    external: true
+
+volumes:
+  vineyard_pg_data:
+  vineyard_uploads:
