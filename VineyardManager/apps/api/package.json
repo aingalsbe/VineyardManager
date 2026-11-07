@@ -9,6 +9,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.seed.json",
     "lint": "tsc --noEmit",
+    "test": "tsx --test test/*.test.ts",
     "clean": "node -e \"import('node:fs').then((fs) => fs.rmSync('dist', { recursive: true, force: true }))\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

@@ -96,12 +96,31 @@ export async function sendPasswordResetEmail(
       ].join("\n"),
     });
     if (!result.sent) {
-      console.info(`Password reset URL for ${to}: ${resetUrl}`);
+      console.info(`password reset email not sent: ${result.reason}`);
       return false;
     }
     return true;
   } catch (error) {
-    console.error("Failed to send password reset email:", mailErrorMessage(error));
+    const allowed = [
+      "ECONNREFUSED",
+      "ETIMEDOUT",
+      "ECONNECTION",
+      "EAUTH",
+      "ESOCKET",
+      "EENVELOPE",
+      "EMESSAGE",
+      "ETLS",
+      "EDNS",
+    ] as const;
+    const raw =
+      error !== null &&
+      typeof error === "object" &&
+      "code" in error &&
+      typeof error.code === "string"
+        ? error.code
+        : "";
+    const label = allowed.find((item) => item === raw) ?? "unknown";
+    console.error(`password reset email failed: ${label}`);
     return false;
   }
 }

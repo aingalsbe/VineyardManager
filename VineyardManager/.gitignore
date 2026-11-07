@@ -81,3 +81,4 @@ _qa_temp/
 _qa_temp_*
 _qa_body*.json
 apps/api/_qa_cleanup.mjs
+/deploy/compose.yaml
