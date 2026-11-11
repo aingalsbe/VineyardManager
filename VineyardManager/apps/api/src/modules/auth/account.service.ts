@@ -129,7 +129,8 @@ export async function requestPasswordReset(email: string): Promise<{
   ]);
 
   const resetUrl = `${config.appUrl}/reset-password?token=${encodeURIComponent(rawToken)}`;
-  await sendPasswordResetEmail(user.email, resetUrl);
+  // Mail is sent in the background so the response time doesn't depend on mail and doesn't reveal whether the email exists.
+  void sendPasswordResetEmail(user.email, resetUrl).catch(() => {});
 
   if (config.isProduction) {
     return generic;

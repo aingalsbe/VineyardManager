@@ -41,6 +41,13 @@ export function parseSeasonMonths(value: string | undefined): number[] {
 /** Local-dev default only. Set JWT_SECRET in the environment for any real deployment. */
 const DEV_JWT_SECRET = "vineyard-dev-jwt-secret-not-for-production";
 
+/** Positive integer milliseconds. Invalid, zero, and negative values fall back to 10 seconds. */
+function parseMailTimeoutMs(value: string | undefined): number {
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed <= 0) return 10_000;
+  return parsed;
+}
+
 export const config = {
   port: Number(process.env.PORT ?? 3001),
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:5173",
@@ -58,6 +65,10 @@ export const config = {
   smtpSecure: Number(process.env.SMTP_PORT ?? 587) === 465,
   smtpUser: process.env.SMTP_USER ?? "",
   smtpPass: process.env.SMTP_PASS ?? "",
+  /** "resend" or "smtp". Anything else behaves as smtp. */
+  mailTransport: (process.env.MAIL_TRANSPORT ?? "smtp").trim().toLowerCase(),
+  resendApiKey: process.env.RESEND_API_KEY?.trim() || "",
+  mailTimeoutMs: parseMailTimeoutMs(process.env.MAIL_TIMEOUT_MS),
   /** Daily Open-Meteo rain check at 6:15 AM America/Chicago. Set WEATHER_CRON_ENABLED=false to disable. */
   weatherCronEnabled: (process.env.WEATHER_CRON_ENABLED ?? "true").toLowerCase() !== "false",
   /** Weekly digest cron (Mon 6:30 AM America/Chicago). Off unless DIGEST_CRON_ENABLED=true. */

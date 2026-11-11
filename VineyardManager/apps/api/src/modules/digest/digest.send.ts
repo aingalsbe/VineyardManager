@@ -20,7 +20,7 @@ export const DIGEST_WEEK_TZ = "America/Chicago";
 
 const IN_PROGRESS = "in progress";
 const LOCAL_SKIP_REASON = "Recipient is a *.local demo address; not sent.";
-const NOT_CONFIGURED_REASON = "SMTP is not configured (SMTP_HOST / SMTP_URL).";
+const NOT_CONFIGURED_REASON = "Mail is not configured (RESEND_API_KEY or SMTP_HOST / SMTP_URL).";
 
 /** Monday (YYYY-MM-DD, America/Chicago) of the week containing `asOf`. */
 export function digestWeekStart(asOf: Date = new Date()): string {
