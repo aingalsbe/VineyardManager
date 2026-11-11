@@ -10,6 +10,7 @@ import { prisma } from "../../db/prisma.js";
 import { serializeTask } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate } from "../auth/auth.middleware.js";
+import { withSeasonWrite } from "../seasons/season-routing.js";
 
 export const tasksRouter = Router({ mergeParams: true });
 
@@ -85,19 +86,22 @@ tasksRouter.post("/", requireOperate, async (req: Request<{ vineyardId: string }
     await requireRowInVineyard(vineyardId, body.rowId);
   }
 
-  const task = await prisma.task.create({
-    data: {
-      vineyardId,
-      rowId: body.rowId,
-      type: body.type,
-      title: body.title,
-      body: body.body,
-      dueAt: parseDueAt(body.dueAt),
-      status: body.status,
-      relatedActivityType: body.relatedActivityType,
-    },
-    include: taskWithRow,
-  });
+  const task = await withSeasonWrite(vineyardId, (tx, seasonId) =>
+    tx.task.create({
+      data: {
+        vineyardId,
+        seasonId,
+        rowId: body.rowId,
+        type: body.type,
+        title: body.title,
+        body: body.body,
+        dueAt: parseDueAt(body.dueAt),
+        status: body.status,
+        relatedActivityType: body.relatedActivityType,
+      },
+      include: taskWithRow,
+    }),
+  );
 
   res.status(201).json({ data: serializeTask(task) });
 });

@@ -8,6 +8,7 @@ import {
 } from "@vineyard/shared";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../db/prisma.js";
+import { withSeasonWrite } from "../seasons/season-routing.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { serializeActivity } from "../../lib/serialize.js";
 import {
@@ -134,7 +135,19 @@ export async function runDailyRainCheck(
   }
 
   const timeZone = vineyard.timezone || "America/Chicago";
-  const checkDate = calendarDateInZone(asOf, timeZone);
+  let checkDate: string;
+  try {
+    checkDate = calendarDateInZone(asOf, timeZone);
+  } catch (error) {
+    if (error instanceof RangeError) {
+      throw new HttpError(
+        409,
+        "SEASON_SETUP_REQUIRED",
+        "Season setup is required before new records can be written",
+      );
+    }
+    throw error;
+  }
   const { point, geocoded } = await resolveVineyardPoint(vineyard);
 
   const precip = await fetchPast24hPrecipitationInches(point, timeZone, asOf);
@@ -196,20 +209,23 @@ export async function runDailyRainCheck(
     notes: `Auto: ${precip.rainInches} in rain in past 24h (Open-Meteo)`,
   };
 
-  const activity = await prisma.activity.create({
-    data: {
-      vineyardId: vineyard.id,
-      rowId: null,
-      scopeType: "vineyard",
-      scopeId: vineyard.id,
-      activityType: "watering",
-      performedAt: noonLocalIso(checkDate, timeZone),
-      performedBy: options.performedBy ?? null,
-      details,
-      source: "weather",
-    },
-    include: { row: { select: { id: true, code: true, name: true, deletedAt: true } } },
-  });
+  const activity = await withSeasonWrite(vineyard.id, (tx, seasonId) =>
+    tx.activity.create({
+      data: {
+        vineyardId: vineyard.id,
+        seasonId,
+        rowId: null,
+        scopeType: "vineyard",
+        scopeId: vineyard.id,
+        activityType: "watering",
+        performedAt: noonLocalIso(checkDate, timeZone),
+        performedBy: options.performedBy ?? null,
+        details,
+        source: "weather",
+      },
+      include: { row: { select: { id: true, code: true, name: true, deletedAt: true } } },
+    }),
+  );
 
   return {
     vineyardId: vineyard.id,

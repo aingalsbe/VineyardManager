@@ -6,6 +6,7 @@ import { prisma } from "../../db/prisma.js";
 import { serializeHarvest } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate } from "../auth/auth.middleware.js";
+import { withSeasonWrite } from "../seasons/season-routing.js";
 
 export const harvestsRouter = Router();
 
@@ -68,18 +69,21 @@ harvestsRouter.post("/", requireOperate, async (req, res) => {
   const body = createHarvestSchema.parse(req.body);
   const row = await requireRow(body.rowId);
 
-  const harvest = await prisma.harvest.create({
-    data: {
-      rowId: row.id,
-      vineyardId: row.vineyardId,
-      harvestedAt: parseHarvestedAt(body.harvestedAt),
-      yieldAmount: new Prisma.Decimal(body.yieldAmount),
-      yieldUnit: body.yieldUnit,
-      notes: body.notes ?? null,
-      crew: body.crew ?? null,
-    },
-    include: harvestWithRow,
-  });
+  const harvest = await withSeasonWrite(row.vineyardId, (tx, seasonId) =>
+    tx.harvest.create({
+      data: {
+        rowId: row.id,
+        vineyardId: row.vineyardId,
+        seasonId,
+        harvestedAt: parseHarvestedAt(body.harvestedAt),
+        yieldAmount: new Prisma.Decimal(body.yieldAmount),
+        yieldUnit: body.yieldUnit,
+        notes: body.notes ?? null,
+        crew: body.crew ?? null,
+      },
+      include: harvestWithRow,
+    }),
+  );
 
   res.status(201).json({ data: serializeHarvest(harvest) });
 });

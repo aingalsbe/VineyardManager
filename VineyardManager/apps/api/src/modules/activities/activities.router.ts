@@ -10,6 +10,7 @@ import { prisma } from "../../db/prisma.js";
 import { serializeActivity } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { getAuthUser, requireOperate } from "../auth/auth.middleware.js";
+import { withSeasonWrite } from "../seasons/season-routing.js";
 
 export const vineyardActivitiesRouter = Router({ mergeParams: true });
 export const activitiesRouter = Router();
@@ -145,20 +146,23 @@ vineyardActivitiesRouter.post(
       scopeId = row.id;
     }
 
-    const activity = await prisma.activity.create({
-      data: {
-        vineyardId,
-        rowId,
-        scopeType: body.scopeType,
-        scopeId,
-        activityType: body.activityType,
-        performedAt: parsePerformedAt(body.performedAt),
-        performedBy: actor.id,
-        details: (body.details ?? {}) as Prisma.InputJsonValue,
-        source: body.source,
-      },
-      include: activityWithRow,
-    });
+    const activity = await withSeasonWrite(vineyardId, (tx, seasonId) =>
+      tx.activity.create({
+        data: {
+          vineyardId,
+          seasonId,
+          rowId,
+          scopeType: body.scopeType,
+          scopeId,
+          activityType: body.activityType,
+          performedAt: parsePerformedAt(body.performedAt),
+          performedBy: actor.id,
+          details: (body.details ?? {}) as Prisma.InputJsonValue,
+          source: body.source,
+        },
+        include: activityWithRow,
+      }),
+    );
 
     res.status(201).json({
       data: serializeActivity(activity, actor.displayName),

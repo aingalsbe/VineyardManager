@@ -116,6 +116,7 @@ model Vineyard {
   tasks      Task[]
   harvests   Harvest[]
   activities Activity[]
+  seasons    Season[]
   digestLogs DigestLog[]
 
   @@index([ownerId])
@@ -165,12 +166,15 @@ model Task {
   deletedAt           DateTime?     @map("deleted_at") @db.Timestamptz(6)
 
   vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  seasonId String?  @map("season_id") @db.Uuid
+  season   Season?  @relation(fields: [seasonId, vineyardId], references: [id, vineyardId], onDelete: Restrict, onUpdate: Restrict)
   row      Row?     @relation(fields: [rowId], references: [id], onDelete: SetNull)
   user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([vineyardId, dueAt])
   @@index([userId, status])
   @@index([rowId])
+  @@index([vineyardId, seasonId])
   @@map("tasks")
 }
 
@@ -189,9 +193,12 @@ model Harvest {
 
   row      Row      @relation(fields: [rowId], references: [id], onDelete: Restrict)
   vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  seasonId String?  @map("season_id") @db.Uuid
+  season   Season?  @relation(fields: [seasonId, vineyardId], references: [id, vineyardId], onDelete: Restrict, onUpdate: Restrict)
 
   @@index([rowId, harvestedAt])
   @@index([vineyardId, harvestedAt])
+  @@index([vineyardId, seasonId])
   @@map("harvests")
 }
 
@@ -211,11 +218,14 @@ model Activity {
   deletedAt    DateTime?    @map("deleted_at") @db.Timestamptz(6)
 
   vineyard Vineyard @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  seasonId String?  @map("season_id") @db.Uuid
+  season   Season?  @relation(fields: [seasonId, vineyardId], references: [id, vineyardId], onDelete: Restrict, onUpdate: Restrict)
   row      Row?     @relation(fields: [rowId], references: [id], onDelete: SetNull)
 
   @@index([vineyardId, performedAt])
   @@index([rowId])
   @@index([activityType])
+  @@index([vineyardId, seasonId])
   @@map("activities")
 }
 
@@ -257,4 +267,31 @@ model DigestLog {
   @@index([vineyardId, weekStart])
   @@index([userId])
   @@map("digest_logs")
+}
+
+enum SeasonStatus {
+  legacy
+  active
+  planned
+  closed
+}
+
+// Partial unique indexes (one active / one planned per vineyard) are hand-written SQL in the migration; Prisma cannot express them.
+model Season {
+  id         String       @id @default(uuid()) @db.Uuid
+  vineyardId String       @map("vineyard_id") @db.Uuid
+  year       Int
+  status     SeasonStatus
+  startedAt  DateTime?    @map("started_at") @db.Timestamptz(6)
+  closedAt   DateTime?    @map("closed_at") @db.Timestamptz(6)
+  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  vineyard   Vineyard     @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  tasks      Task[]
+  harvests   Harvest[]
+  activities Activity[]
+
+  @@unique([vineyardId, year])
+  @@unique([id, vineyardId])
+  @@map("seasons")
 }
