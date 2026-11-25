@@ -67,7 +67,8 @@ if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath
     Write-Step "Check git status (read-only)"
     Push-Location $repoRoot
     try {
-        $porcelain = @(git status --porcelain)
+        # Scope status to this repo's paths so sibling folders in C:\AIProjects (e.g. other projects) are ignored
+        $porcelain = @(git status --porcelain -- VineyardManager Scripts .github README.md .gitignore)
         $gitStatusExit = $LASTEXITCODE
         $hasDirty = ($porcelain.Count -gt 0) -and (-not [string]::IsNullOrWhiteSpace(($porcelain -join "`n")))
 
@@ -85,14 +86,14 @@ if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath
             } else {
                 if ($hasDirty) {
                     Write-Host "WARNING: Local uncommitted changes detected:" -ForegroundColor Yellow
-                    git status --short
+                    git status --short -- VineyardManager Scripts .github README.md .gitignore
                 }
                 if ($aheadCount -gt 0) {
                     Write-Host "WARNING: $aheadCount local commit(s) have not been pushed to GitHub." -ForegroundColor Yellow
                 }
                 Write-Host ""
                 Write-Host "This script does not commit, push, or back up to NAS." -ForegroundColor DarkGray
-                Write-Host "  Discard throwaway test edits:  git -C `"$repoRoot`" restore ." -ForegroundColor DarkGray
+                Write-Host "  Discard throwaway test edits:  git -C `"$repoRoot`" restore -- VineyardManager Scripts" -ForegroundColor DarkGray
                 Write-Host "  Keep changes:                  commit/push on a branch or share the diff in chat." -ForegroundColor DarkGray
                 Write-Host ""
                 pause

@@ -48,7 +48,8 @@ if ($SkipPull) {
 } else {
     Push-Location $repoRoot
     try {
-        $porcelain = @(git status --porcelain)
+        # Scope status to this repo's paths so sibling folders in C:\AIProjects (e.g. other projects) are ignored
+        $porcelain = @(git status --porcelain -- VineyardManager Scripts .github README.md .gitignore)
         $gitStatusExit = $LASTEXITCODE
         $hasDirty = ($porcelain.Count -gt 0) -and (-not [string]::IsNullOrWhiteSpace(($porcelain -join "`n")))
 
@@ -56,7 +57,7 @@ if ($SkipPull) {
             Write-Host "WARNING: git status failed; skipping automatic pull." -ForegroundColor Yellow
         } elseif ($hasDirty) {
             Write-Host "WARNING: Local uncommitted changes detected; skipping git pull so nothing is overwritten." -ForegroundColor Yellow
-            git status --short
+            git status --short -- VineyardManager Scripts .github README.md .gitignore
         } else {
             $beforeSha = ((git rev-parse HEAD 2>$null) -join "").Trim()
             git pull --ff-only
