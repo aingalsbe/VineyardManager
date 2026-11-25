@@ -200,7 +200,7 @@ export async function runScheduledDigest(
       await prisma.digestLog.update({ where: { id: logId }, data: { status: "failed", error: message } });
       result.failed += 1;
       result.recipients.push({ userId: user.id, email: user.email, outcome: "failed", logId, error: message });
-      console.error(`[digest] send to ${user.email} failed: ${message}`);
+      console.error(`[digest] send failed (user=${user.id}, log=${logId}): ${message}`);
     }
   }
 
@@ -290,7 +290,7 @@ export async function sendTestDigest(input: {
     failure = mail.reason === "local_address" ? LOCAL_SKIP_REASON : NOT_CONFIGURED_REASON;
   } catch (error) {
     failure = mailErrorMessage(error);
-    console.error(`[digest] test send to ${to} failed: ${failure}`);
+    console.error(`[digest] test send failed (caller=${input.caller.id}): ${failure}`);
   }
 
   const log = await prisma.digestLog.create({

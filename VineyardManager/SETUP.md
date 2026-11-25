@@ -61,15 +61,18 @@ The API loads `apps/api/.env` itself (`config.ts`). Variables actually read by t
 | `JWT_EXPIRES_IN` | Token lifetime | `.env.example` |
 | `UPLOAD_DIR` | Folder for uploaded files | `.env.example` (`uploads`) |
 | `APP_URL` | Base URL used in email links | `.env.example` |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` | Mail server for password resets and the digest (465 = TLS) | Aaron's Gmail SMTP settings |
-| `SMTP_PASS` | Mail password | **Aaron types this himself** (a Gmail app password). Never paste it into chat or docs |
+| `MAIL_TRANSPORT` | `"resend"` (recommended in prod) or `"smtp"` | `.env.example` / `deploy/env/api.env` |
+| `RESEND_API_KEY` | Resend HTTPS API key when `MAIL_TRANSPORT=resend` | **Aaron types this himself** (never commit) |
+| `MAIL_TIMEOUT_MS` | Outbound mail timeout in ms (default `10000`) | `.env.example` |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` | Optional SMTP fallback (465 = TLS) | Aaron's SMTP settings |
+| `SMTP_PASS` | SMTP password | **Aaron types this himself**. Never paste it into chat or docs |
 | `SMTP_URL` | Optional single SMTP URL instead of the fields above | Leave unset |
 | `MAIL_FROM` | Sender name and address | Aaron |
 | `WEATHER_CRON_ENABLED` | Daily Open-Meteo rain check, 6:15 AM CT | Default **on**; only `false` turns it off |
 | `DIGEST_CRON_ENABLED` | Weekly digest, Mondays 6:30 AM CT | Default off. **Keep `false`** until Aaron says otherwise |
 | `DIGEST_SEASON_MONTHS` | Months the digest cron may send (e.g. `3-10`) | `.env.example` |
 | `DIGEST_TEST_RECIPIENTS` | Allowlist for `POST /digest/send-test` | Use `aingalsbe@gmail.com` |
-| `NODE_ENV` | `production` changes dev behavior (e.g. no dev reset URLs) | Not set in dev |
+| `NODE_ENV` | `production` changes dev behavior (e.g. Secure cookies, no dev reset URLs, strict JWT secret guard) | Not set in dev |
 | `VITE_API_URL` (web) | API base path for the web app | `apps/web/.env.example` (`/api/v1`) |
 
 To check which keys a `.env` has without showing values:

@@ -1,5 +1,10 @@
 import { ACTIVITY_TYPES, healthColorFromScore } from "./constants.js";
-import { addCalendarDays, calendarDateInZone, scoreVineyardHealth } from "./health.js";
+import {
+  addCalendarDays,
+  calendarDateInZone,
+  prepareHealthContext,
+  scoreVineyardHealthPrepared,
+} from "./health.js";
 import type {
   ActivityType,
   HealthScoreActivityInput,
@@ -208,15 +213,15 @@ export function buildVineyardMetrics(input: {
   const varietyGroups = groupRowsByVariety(input.rows, input.catalog);
   const rowById = new Map(input.rows.map((row) => [row.id, row]));
 
+  const healthCtx = prepareHealthContext({
+    rows: input.rows,
+    tasks: input.tasks,
+    activities: input.activities,
+    timeZone: input.timeZone,
+  });
+
   const scoreAt = (asOfDate: string) =>
-    scoreVineyardHealth({
-      rows: input.rows,
-      tasks: input.tasks,
-      activities: input.activities,
-      healthThresholds: input.healthThresholds,
-      asOf: new Date(`${asOfDate}T12:00:00.000Z`),
-      timeZone: input.timeZone,
-    });
+    scoreVineyardHealthPrepared(healthCtx, asOfDate, input.healthThresholds);
 
   const current = scoreAt(range.end);
   const seriesByRow = new Map<string, MetricsPoint[]>();
@@ -226,7 +231,7 @@ export function buildVineyardMetrics(input: {
   for (const group of varietyGroups) varietySeries.set(group.key, []);
 
   for (const date of dates) {
-    const scored = scoreAt(date);
+    const scored = date === range.end ? current : scoreAt(date);
     vineyardSeries.push({
       date,
       score: scored.vineyard.score,
@@ -373,13 +378,6 @@ export function buildVineyardMetrics(input: {
     };
   });
 
-  const activityDate = (iso: string) =>
-    calendarDateInZone(new Date(iso), input.timeZone);
-
-  const inPeriod = input.activities.filter((activity) =>
-    inRange(activityDate(activity.performedAt), range.start, range.end),
-  );
-
   const vineyardCounts = new Map<ActivityType, number>();
   const seriesCounts = new Map<string, Map<ActivityType, number>>();
   const rowCounts = new Map<string, Map<ActivityType, number>>();
@@ -389,9 +387,15 @@ export function buildVineyardMetrics(input: {
     rowSeries.set(row.id, new Map());
   }
 
-  for (const activity of inPeriod) {
+  for (const activity of input.activities) {
+    const perfDate = calendarDateInZone(
+      new Date(activity.performedAt),
+      input.timeZone,
+    );
+    if (!inRange(perfDate, range.start, range.end)) continue;
+
     bumpType(vineyardCounts, activity.activityType);
-    const bucket = bucketDate(activityDate(activity.performedAt), dates);
+    const bucket = bucketDate(perfDate, dates);
     const seriesMap = seriesCounts.get(bucket) ?? new Map();
     bumpType(seriesMap, activity.activityType);
     seriesCounts.set(bucket, seriesMap);

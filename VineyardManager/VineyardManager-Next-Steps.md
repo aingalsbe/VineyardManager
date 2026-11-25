@@ -33,13 +33,13 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 | **Status** | Proposed by Morgan 2026-10-07 |
 
 - [ ] **APP_URL** set in `apps/api/.env` before the weekly send is enabled (links currently fall back to `http://localhost:5173`)
-- [ ] Digest shows a friendly "Weather unavailable" note instead of the raw provider error
+- [x] Digest shows a friendly "Weather unavailable" note instead of the raw provider error
 - [ ] Health and the digest agree on the due-soon window (health flags day-8 tasks; the digest lists 7 days)
 - [ ] Settings: weekly digest on/off toggle per user, plus a preferences link in the email
 - [ ] Dismissed task badge outlined/dashed so it doesn't look like the grey task-type pill
 - [ ] Read-only preview copy for viewers ("Your role cannot change this." doesn't fit)
-- [ ] Stop logging live reset tokens to the console outside dev
-- [ ] Normalize CRLF line endings (app.ts, main.ts, vineyard-health.router.ts, .env.example)
+- [x] Stop logging live reset tokens to the console outside dev (`384b398`)
+- [x] Normalize CRLF line endings (`.gitattributes` added)
 - [ ] App orange `#c46a2f` fails 4.5:1; align with the email's `#d27838`
 
 **Weekly send:** `DIGEST_CRON_ENABLED=false` per Aaron (2026-10-07). Turn it on only when he asks.
@@ -54,7 +54,7 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 | --- | --- |
 | **Owner** | Devon (API) + Sage (UI) |
 | **QA** | Avery |
-| **Status** | Plan located (docs/season-close-new-plan.md); step 1 starts next session |
+| **Status** | Step 1 shipped (`851bb88`); steps 2–6 queued after Security & Efficiency release |
 
 **Aaron's answers (Oct 17, 2026):**
 
@@ -67,7 +67,7 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 
 **Build order (6 steps; each ships on its own and gets QA before the next):**
 
-1. [ ] Seasons and tagging: tag existing records by year, keep this year open. Check: totals match the Metrics page.
+1. [x] Seasons and tagging: tag existing records by year, keep this year open (`851bb88`).
 2. [ ] Close Season preview and close. Check: viewers/managers refused, open tasks Dismissed, vineyard dormant, rain check and digest skip it.
 3. [ ] Lock and Reopen. Check: editing/deleting a closed-season record is refused with a clear message; Reopen works.
 4. [ ] Summary, Past Seasons page and email. Check: summary matches frozen numbers; test email reaches only the test list.
@@ -80,13 +80,13 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 - Season-scoped records: `Task` (`dueAt`), `Harvest` (`harvestedAt`), `Activity` (`performedAt`). All have `deletedAt`, so the Metrics comparison must treat soft-deleted records the way Metrics does.
 - The app is a **single-vineyard model** today (roles live on `User`; see `digest.send.ts`).
 - The git root is `C:\AIProjects` (not the VineyardManager folder), so `git status` there also covers `Scripts`.
-- There is no test runner yet (`lint` and `typecheck` are both `tsc --noEmit`); one such as vitest is needed.
+- API tests use Node's built-in `node:test` runner via `tsx --test` (`pnpm --filter @vineyard/api test`).
 
 **Questions:**
 
 - [x] Is a season a calendar year? Answered by the plan: tag existing records by calendar year (in the vineyard's time zone).
 - [x] Per vineyard or app-wide? Answered by the plan: each vineyard has its own seasons.
-- [ ] Which test runner to add (e.g. vitest)? Open.
+- [x] Which test runner to add? Using Node `node:test` via `tsx --test`.
 
 ---
 
@@ -104,7 +104,7 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 1. **Weather notification prefs** — severe weather, drought/overwater, frost/snow (user-configurable)
 2. **Configurable rain threshold** — Setup editor instead of hard-coded 0.5"
 3. **Dashboard / Metrics weather-sourced watering** — surface rain-logged Activities in UI/trends
-4. **Gate `forceRainInches` for prod** — keep override for local/dev tests only
+4. ~~**Gate `forceRainInches` for prod**~~ — Done in Security & Efficiency release (rejected in production)
 5. **Map: unplaced-row chips** (wrapping text chips instead of vine-count bars that clip labels)
 6. **External Task Scheduler** — low priority; in-process cron is enough for local
 

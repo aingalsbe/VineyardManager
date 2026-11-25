@@ -1,4 +1,5 @@
 import {
+  OPEN_TASK_STATUSES,
   healthThresholdsSchema,
   scoreVineyardHealth,
   type HealthScoreActivityInput,
@@ -6,8 +7,17 @@ import {
   type HealthScoreTaskInput,
   type VineyardHealth,
 } from "@vineyard/shared";
+import type { ActivityType } from "@prisma/client";
 import { prisma } from "../../db/prisma.js";
 import { HttpError } from "../../middleware/error-handler.js";
+
+const HEALTH_ACTIVITY_TYPES: ActivityType[] = [
+  "watering",
+  "pest_prevention",
+  "weed_prevention",
+  "health_observation",
+];
+const ACTIVITY_LOOKBACK_DAYS = 23;
 
 /**
  * Computed vineyard health (no persistence). Shared by GET /health and the
@@ -19,21 +29,45 @@ export async function computeVineyardHealth(
 ): Promise<VineyardHealth> {
   const vineyard = await prisma.vineyard.findFirst({
     where: { id: vineyardId, deletedAt: null },
+    select: { id: true, timezone: true, healthThresholds: true },
   });
   if (!vineyard) {
     throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
   }
 
+  const activityWindowStart = new Date(
+    asOf.getTime() - ACTIVITY_LOOKBACK_DAYS * 24 * 60 * 60 * 1000,
+  );
+
   const [rows, tasks, activities] = await Promise.all([
     prisma.row.findMany({
       where: { vineyardId, deletedAt: null },
+      select: { id: true, code: true, name: true, status: true },
       orderBy: [{ code: "asc" }],
     }),
     prisma.task.findMany({
-      where: { vineyardId, deletedAt: null },
+      where: {
+        vineyardId,
+        deletedAt: null,
+        status: { in: [...OPEN_TASK_STATUSES] },
+      },
+      select: { id: true, rowId: true, title: true, dueAt: true, status: true },
     }),
     prisma.activity.findMany({
-      where: { vineyardId, deletedAt: null },
+      where: {
+        vineyardId,
+        deletedAt: null,
+        activityType: { in: HEALTH_ACTIVITY_TYPES },
+        performedAt: { gte: activityWindowStart },
+      },
+      select: {
+        id: true,
+        rowId: true,
+        scopeType: true,
+        activityType: true,
+        performedAt: true,
+        details: true,
+      },
     }),
   ]);
 

@@ -12,28 +12,30 @@ List endpoints support `?page=&limit=&sort=` plus common filters. Errors:
 
 ## Auth
 
-Bearer JWT (`Authorization: Bearer <token>`). All `/api/v1/*` routes require auth except `GET /health`, `POST /auth/login`, `POST /auth/forgot-password`, and `POST /auth/reset-password`.
+Dual transport: `HttpOnly; SameSite=Lax` session cookie (`vm_session`, `Secure` in production, `Path=/api`) for web browsers **and** `Authorization: Bearer <token>` fallback for API/mobile clients. Cookie-authenticated state-changing requests (`POST`/`PUT`/`PATCH`/`DELETE`) also require a matching `Origin`/`Referer` (`WEB_ORIGIN`) and `X-Requested-With: fetch`.
 
-Writes check the JWT `role`. **Operate** (`manager` | `power_user`): activities, harvests, tasks, rows. **Setup** (`power_user` only): vineyard create/PATCH, logo, calendar seed, people admin. Viewers get `403 FORBIDDEN` `{ "error": { "code": "FORBIDDEN", "message": "Your role cannot change this." } }` on writes. GETs stay any signed-in user except people admin (power_user only). Soft-deleted or disabled users cannot log in and cannot use an existing token (`401 UNAUTHORIZED`).
+All `/api/v1/*` routes require auth except `GET /health`, `POST /auth/login`, `POST /auth/forgot-password`, and `POST /auth/reset-password`. Rate limiting applies to public auth routes (`429 RATE_LIMITED`) and `/api/v1`.
+
+Writes check the authenticated user's `role`. **Operate** (`manager` | `power_user`): activities, harvests, tasks, rows. **Setup** (`power_user` only): vineyard create/PATCH, logo, calendar seed, people admin. Viewers get `403 FORBIDDEN` `{ "error": { "code": "FORBIDDEN", "message": "Your role cannot change this." } }` on writes. GETs stay any signed-in user except people admin (power_user only). Soft-deleted, disabled, or revoked (`tokenVersion` mismatch) sessions get `401 UNAUTHORIZED`.
 
 Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/auth/login` | Email + password â†’ `{ data: { token, user } }`. Public. Invalid credentials: `401 UNAUTHORIZED` â€œInvalid email or passwordâ€ |
-| POST | `/auth/logout` | Stateless JWT: `{ data: { ok: true } }`. Client discards the token |
+| POST | `/auth/login` | Email + password (max 72 chars) -> sets `vm_session` cookie and returns `{ data: { token, user } }`. Public, rate-limited. Invalid credentials: `401 UNAUTHORIZED` "Invalid email or password" |
+| POST | `/auth/logout` | Increments `user.tokenVersion` (revokes existing tokens) and clears `vm_session` cookie -> `{ data: { ok: true } }` |
 | GET | `/auth/me` | Current user `{ id, email, displayName, role, disabledAt }` (never `passwordHash`) |
-| PATCH | `/auth/me` | Own `{ displayName?, email? }`. Never role/password. `409 EMAIL_TAKEN` if another live user has the email |
-| POST | `/auth/change-password` | `{ currentPassword, newPassword }` (min 10). Wrong current: `401 INVALID_CREDENTIALS` |
-| POST | `/auth/forgot-password` | Public. `{ email }` â†’ always `{ data: { ok: true } }`. Development also may include `devResetUrl`. Disabled/unknown emails still return ok and send nothing |
-| POST | `/auth/reset-password` | Public. `{ token, newPassword }`. Invalid/expired/used: `400 RESET_INVALID`. Does not re-enable a disabled account |
+| PATCH | `/auth/me` | Own `{ displayName?, email?, currentPassword? }`. Changing `email` requires valid `currentPassword` (`401 INVALID_CREDENTIALS`). Never role/password. `409 EMAIL_TAKEN` if another live user has the email |
+| POST | `/auth/change-password` | `{ currentPassword, newPassword }` (10-72 chars). Increments `tokenVersion` (invalidates other sessions) and refreshes caller's session cookie. Wrong current: `401 INVALID_CREDENTIALS` |
+| POST | `/auth/forgot-password` | Public, rate-limited. `{ email }` -> always `{ data: { ok: true } }`. Development also may include `devResetUrl`. Disabled/unknown emails still return ok and send nothing |
+| POST | `/auth/reset-password` | Public, rate-limited. `{ token, newPassword }` (10-72 chars). Atomic single-use claim; increments `tokenVersion`. Invalid/expired/used/disabled account: `400 RESET_INVALID` |
 
 Out of this slice:
 
 | Method | Path | Description |
 | --- | --- | --- |
 | POST | `/auth/register` | Not shipped (no public self-serve signup) |
-| POST | `/auth/refresh` | Not shipped (access token lives 7d; no rotation) |
+| POST | `/auth/refresh` | Not shipped (access token lives 7d with server-side `tokenVersion` revocation) |
 
 ## Vineyards
 
@@ -177,9 +179,9 @@ Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/weather` | Current + 7-day `daily` + `alerts`. Auth: any signed-in user (viewer+). Cached 15 min. |
+| GET | `/vineyards/{vid}/weather` | Current + 7-day `daily` + `alerts`. Auth: any signed-in user (viewer+). Cached 15 min (single-flight; invalidated on location/timezone PATCH). |
 | GET | `/vineyards/{vid}/weather/history` | Recent daily precip / temps / wind. `?days=1..90` (default **14**). Auth: viewer+. Cached 15 min. |
-| POST | `/vineyards/{vid}/weather/daily-check` | Run rain check now (`requireOperate`). Creates watering Activity when ≥0.5". Idempotent same local day. Optional body `{ forceRainInches }` for QA. |
+| POST | `/vineyards/{vid}/weather/daily-check` | Run rain check now (`requireOperate`). Creates watering Activity when ≥0.5". Idempotent same local day. Optional body `{ forceRainInches }` allowed in non-production only (`400 VALIDATION_ERROR` in prod). |
 
 ### `GET /weather` response shape (`{ data }`)
 

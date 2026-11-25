@@ -87,6 +87,7 @@ export async function inviteUser(input: {
             passwordHash,
             deletedAt: null,
             disabledAt: null,
+            tokenVersion: { increment: 1 },
           },
         })
       : await prisma.user.create({
@@ -135,15 +136,17 @@ export async function updateUser(input: {
     deleting: false,
   });
 
-  const data: {
-    role?: UserRole;
-    displayName?: string;
-    disabledAt?: Date | null;
-  } = {};
+  const data: Prisma.UserUpdateInput = {};
   if (input.role !== undefined) data.role = input.role;
   if (input.displayName !== undefined) data.displayName = input.displayName;
   if (input.disabled === true) data.disabledAt = new Date();
   if (input.disabled === false) data.disabledAt = null;
+  if (
+    input.disabled === true ||
+    (input.role !== undefined && input.role !== target.role)
+  ) {
+    data.tokenVersion = { increment: 1 };
+  }
 
   const updated = await prisma.user.update({
     where: { id: target.id },
@@ -169,6 +172,7 @@ export async function removeUser(input: {
     data: {
       deletedAt: target.deletedAt ?? now,
       disabledAt: target.disabledAt ?? now,
+      tokenVersion: { increment: 1 },
     },
   });
 }

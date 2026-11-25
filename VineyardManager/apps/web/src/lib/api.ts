@@ -28,28 +28,11 @@ const apiBase = (import.meta.env.VITE_API_URL ?? API_PREFIX).replace(
   "",
 );
 
-const AUTH_TOKEN_KEY = "vineyard.auth.token";
-
-export function getAuthToken(): string | null {
-  try {
-    return window.localStorage.getItem(AUTH_TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
-
-export function setAuthToken(token: string): void {
-  window.localStorage.setItem(AUTH_TOKEN_KEY, token);
-}
-
-export function clearAuthToken(): void {
-  window.localStorage.removeItem(AUTH_TOKEN_KEY);
-}
-
 export class ApiError extends Error {
   constructor(
     public readonly code: string,
     message: string,
+    public readonly status?: number,
   ) {
     super(message);
   }
@@ -63,14 +46,19 @@ export type ApiHealth = {
 
 export type ListResponse<T> = { data: T[] };
 
+export function vineyardLogoUrl(vineyardId: string, version?: string): string {
+  const query = version ? `?v=${encodeURIComponent(version)}` : "";
+  return `${apiBase}/vineyards/${vineyardId}/logo${query}`;
+}
+
 export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getAuthToken();
   const response = await fetch(`${apiBase}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       Accept: "application/json",
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "X-Requested-With": "fetch",
       ...init?.headers,
     },
   });
@@ -96,19 +84,20 @@ async function throwApiError(response: Response, path: string): Promise<never> {
   }
   if (
     response.status === 401 &&
+    code !== "INVALID_CREDENTIALS" &&
     path !== "/auth/login" &&
+    path !== "/auth/me" &&
     path !== "/auth/change-password"
   ) {
-    clearAuthToken();
     if (window.location.pathname !== "/login") {
       window.location.assign("/login");
     }
   }
-  throw new ApiError(code, message);
+  throw new ApiError(code, message, response.status);
 }
 
-export function getApiHealth(): Promise<ApiHealth> {
-  return apiJson<ApiHealth>("/health");
+export function getApiHealth(signal?: AbortSignal): Promise<ApiHealth> {
+  return apiJson<ApiHealth>("/health", { signal });
 }
 
 export async function login(
@@ -126,14 +115,15 @@ export async function logout(): Promise<void> {
   await apiJson<{ data: { ok: true } }>("/auth/logout", { method: "POST" });
 }
 
-export async function getCurrentUser(): Promise<PublicUser> {
-  const body = await apiJson<{ data: PublicUser }>("/auth/me");
+export async function getCurrentUser(signal?: AbortSignal): Promise<PublicUser> {
+  const body = await apiJson<{ data: PublicUser }>("/auth/me", { signal });
   return body.data;
 }
 
 export type UpdateMePayload = {
   displayName?: string;
   email?: string;
+  currentPassword?: string;
 };
 
 export async function updateCurrentUser(
@@ -184,9 +174,11 @@ export async function resetPassword(payload: {
 
 export async function listVineyardUsers(
   vineyardId: string,
+  signal?: AbortSignal,
 ): Promise<PublicUser[]> {
   const body = await apiJson<ListResponse<PublicUser>>(
     `/vineyards/${vineyardId}/users`,
+    { signal },
   );
   return body.data;
 }
@@ -247,8 +239,8 @@ export async function removeVineyardUser(
   );
 }
 
-export async function listVineyards(): Promise<Vineyard[]> {
-  const body = await apiJson<ListResponse<Vineyard>>("/vineyards");
+export async function listVineyards(signal?: AbortSignal): Promise<Vineyard[]> {
+  const body = await apiJson<ListResponse<Vineyard>>("/vineyards", { signal });
   return body.data;
 }
 
@@ -296,15 +288,15 @@ export async function uploadVineyardLogo(
   vineyardId: string,
   file: File,
 ): Promise<Vineyard> {
-  const token = getAuthToken();
   const form = new FormData();
   form.append("file", file);
   const path = `/vineyards/${vineyardId}/logo`;
   const response = await fetch(`${apiBase}${path}`, {
     method: "PUT",
+    credentials: "include",
     headers: {
       Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      "X-Requested-With": "fetch",
     },
     body: form,
   });
@@ -323,35 +315,24 @@ export async function deleteVineyardLogo(vineyardId: string): Promise<Vineyard> 
   return body.data;
 }
 
-export async function fetchVineyardLogoBlob(vineyardId: string): Promise<Blob> {
-  const token = getAuthToken();
-  const path = `/vineyards/${vineyardId}/logo`;
-  const response = await fetch(`${apiBase}${path}`, {
-    headers: {
-      Accept: "image/*",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-  if (!response.ok) {
-    await throwApiError(response, path);
-  }
-  return response.blob();
-}
-
 export async function getVineyardHealth(
   vineyardId: string,
+  signal?: AbortSignal,
 ): Promise<VineyardHealth> {
   const body = await apiJson<{ data: VineyardHealth }>(
     `/vineyards/${vineyardId}/health`,
+    { signal },
   );
   return body.data;
 }
 
 export async function getVineyardWeather(
   vineyardId: string,
+  signal?: AbortSignal,
 ): Promise<VineyardWeather> {
   const body = await apiJson<{ data: VineyardWeather }>(
     `/vineyards/${vineyardId}/weather`,
+    { signal },
   );
   return body.data;
 }
@@ -359,17 +340,23 @@ export async function getVineyardWeather(
 export async function getVineyardMetrics(
   vineyardId: string,
   period: MetricsPeriod,
+  signal?: AbortSignal,
 ): Promise<VineyardMetrics> {
   const params = new URLSearchParams({ period });
   const body = await apiJson<{ data: VineyardMetrics }>(
     `/vineyards/${vineyardId}/metrics?${params.toString()}`,
+    { signal },
   );
   return body.data;
 }
 
-export async function listRows(vineyardId: string): Promise<Row[]> {
+export async function listRows(
+  vineyardId: string,
+  signal?: AbortSignal,
+): Promise<Row[]> {
   const body = await apiJson<ListResponse<Row>>(
     `/vineyards/${vineyardId}/rows`,
+    { signal },
   );
   return body.data;
 }
@@ -468,9 +455,13 @@ export type TaskWritePayload = {
   relatedActivityType?: ScheduledTask["relatedActivityType"];
 };
 
-export async function listTasks(vineyardId: string): Promise<ScheduledTask[]> {
+export async function listTasks(
+  vineyardId: string,
+  signal?: AbortSignal,
+): Promise<ScheduledTask[]> {
   const body = await apiJson<ListResponse<ScheduledTask>>(
     `/vineyards/${vineyardId}/tasks`,
+    { signal },
   );
   return body.data;
 }
@@ -523,9 +514,14 @@ export type HarvestWritePayload = {
   crew?: string;
 };
 
-export async function listHarvests(rowId?: string): Promise<Harvest[]> {
+export async function listHarvests(
+  rowId?: string,
+  signal?: AbortSignal,
+): Promise<Harvest[]> {
   const query = rowId ? `?rowId=${encodeURIComponent(rowId)}` : "";
-  const body = await apiJson<ListResponse<Harvest>>(`/harvests${query}`);
+  const body = await apiJson<ListResponse<Harvest>>(`/harvests${query}`, {
+    signal,
+  });
   return body.data;
 }
 
@@ -568,6 +564,7 @@ export type ActivityWritePayload = {
 export async function listActivities(
   vineyardId: string,
   filters?: { rowId?: string; activityType?: ActivityType; scopeType?: ActivityScope },
+  signal?: AbortSignal,
 ): Promise<Activity[]> {
   const params = new URLSearchParams();
   if (filters?.rowId) params.set("rowId", filters.rowId);
@@ -576,6 +573,7 @@ export async function listActivities(
   const query = params.toString();
   const body = await apiJson<ListResponse<Activity>>(
     `/vineyards/${vineyardId}/activities${query ? `?${query}` : ""}`,
+    { signal },
   );
   return body.data;
 }

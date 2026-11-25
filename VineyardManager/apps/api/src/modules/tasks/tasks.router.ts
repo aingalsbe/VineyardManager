@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import {
   createTaskSchema,
+  listPaginationQuerySchema,
   taskStatusSchema,
   updateTaskSchema,
 } from "@vineyard/shared";
@@ -62,6 +63,7 @@ tasksRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
   const status = req.query.status
     ? taskStatusSchema.parse(req.query.status)
     : undefined;
+  const { limit, offset } = listPaginationQuerySchema.parse(req.query);
 
   const tasks = await prisma.task.findMany({
     where: {
@@ -72,6 +74,8 @@ tasksRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
     },
     include: taskWithRow,
     orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+    ...(limit !== undefined ? { take: limit } : {}),
+    ...(offset !== undefined ? { skip: offset } : {}),
   });
 
   res.json({ data: tasks.map(serializeTask) });

@@ -25,6 +25,7 @@ import {
   WEATHER_HISTORY_CACHE_TTL_MS,
   cacheGet,
   cacheSet,
+  runSingleFlight,
 } from "./weather.cache.js";
 
 export const RAIN_THRESHOLD_INCHES = 0.5;
@@ -427,66 +428,97 @@ export async function getVineyardWeather(
     };
   }
 
-  const vineyard = await prisma.vineyard.findFirst({
-    where: { id: vineyardId, deletedAt: null },
+  return runSingleFlight(cacheKey, async () => {
+    const rechecked = cacheGet<ForecastPayload>(cacheKey);
+    if (rechecked) {
+      return {
+        ...rechecked.value,
+        fetchedAt: rechecked.fetchedAt,
+        cached: true,
+        cacheExpiresAt: new Date(rechecked.expiresAt).toISOString(),
+      };
+    }
+
+    const vineyard = await prisma.vineyard.findFirst({
+      where: { id: vineyardId, deletedAt: null },
+    });
+    if (!vineyard) {
+      throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
+    }
+
+    const timeZone = vineyard.timezone || "America/Chicago";
+    let point: GeoPoint;
+    let geocoded: boolean;
+    try {
+      ({ point, geocoded } = await resolveVineyardPoint(vineyard));
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(
+        422,
+        "LOCATION_UNRESOLVED",
+        "Vineyard location could not be resolved.",
+      );
+    }
+
+    const historyCacheKey = `weather:history:${vineyardId}:14`;
+    const cachedHistory = cacheGet<HistoryPayload>(historyCacheKey);
+
+    const [forecastResult, historyResult] = await Promise.allSettled([
+      fetchCurrentAndDailyForecast(point, timeZone),
+      cachedHistory
+        ? Promise.resolve(cachedHistory.value.days)
+        : fetchWeatherHistoryDays(point, timeZone, 14),
+    ]);
+
+    if (forecastResult.status === "rejected") {
+      const message =
+        forecastResult.reason instanceof Error
+          ? forecastResult.reason.message
+          : "Weather provider error";
+      throw new HttpError(502, "WEATHER_UNAVAILABLE", message);
+    }
+
+    const forecast = forecastResult.value;
+    const historyDays: OpenMeteoHistoryDay[] =
+      historyResult.status === "fulfilled" ? historyResult.value : [];
+
+    const fetchedAt = new Date().toISOString();
+    if (!cachedHistory && historyResult.status === "fulfilled") {
+      cacheSet<HistoryPayload>(
+        historyCacheKey,
+        {
+          vineyardId: vineyard.id,
+          timeZone,
+          provider: "open-meteo",
+          fetchedAt,
+          days: historyDays,
+        },
+        WEATHER_HISTORY_CACHE_TTL_MS,
+      );
+    }
+
+    const alerts = deriveAlertsFromForecast(forecast.daily, historyDays);
+
+    const payload: ForecastPayload = {
+      vineyardId: vineyard.id,
+      timeZone,
+      lat: point.lat,
+      lng: point.lng,
+      geocoded,
+      provider: "open-meteo",
+      fetchedAt,
+      current: forecast.current,
+      daily: forecast.daily,
+      alerts,
+    };
+
+    const entry = cacheSet(cacheKey, payload, WEATHER_FORECAST_CACHE_TTL_MS);
+    return {
+      ...payload,
+      cached: false,
+      cacheExpiresAt: new Date(entry.expiresAt).toISOString(),
+    };
   });
-  if (!vineyard) {
-    throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
-  }
-
-  const timeZone = vineyard.timezone || "America/Chicago";
-  let point: GeoPoint;
-  let geocoded: boolean;
-  try {
-    ({ point, geocoded } = await resolveVineyardPoint(vineyard));
-  } catch (error) {
-    if (error instanceof HttpError) throw error;
-    throw new HttpError(
-      422,
-      "LOCATION_UNRESOLVED",
-      "Vineyard location could not be resolved.",
-    );
-  }
-
-  let forecast;
-  try {
-    forecast = await fetchCurrentAndDailyForecast(point, timeZone);
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Weather provider error";
-    throw new HttpError(502, "WEATHER_UNAVAILABLE", message);
-  }
-
-  // Best-effort history for drought proxy; ignore archive failures
-  let historyDays: OpenMeteoHistoryDay[] = [];
-  try {
-    historyDays = await fetchWeatherHistoryDays(point, timeZone, 14);
-  } catch {
-    historyDays = [];
-  }
-
-  const alerts = deriveAlertsFromForecast(forecast.daily, historyDays);
-  const fetchedAt = new Date().toISOString();
-
-  const payload: ForecastPayload = {
-    vineyardId: vineyard.id,
-    timeZone,
-    lat: point.lat,
-    lng: point.lng,
-    geocoded,
-    provider: "open-meteo",
-    fetchedAt,
-    current: forecast.current,
-    daily: forecast.daily,
-    alerts,
-  };
-
-  const entry = cacheSet(cacheKey, payload, WEATHER_FORECAST_CACHE_TTL_MS);
-  return {
-    ...payload,
-    cached: false,
-    cacheExpiresAt: new Date(entry.expiresAt).toISOString(),
-  };
 }
 
 type HistoryPayload = Omit<
@@ -510,48 +542,60 @@ export async function getVineyardWeatherHistory(
     };
   }
 
-  const vineyard = await prisma.vineyard.findFirst({
-    where: { id: vineyardId, deletedAt: null },
+  return runSingleFlight(cacheKey, async () => {
+    const rechecked = cacheGet<HistoryPayload>(cacheKey);
+    if (rechecked) {
+      return {
+        ...rechecked.value,
+        fetchedAt: rechecked.fetchedAt,
+        cached: true,
+        cacheExpiresAt: new Date(rechecked.expiresAt).toISOString(),
+      };
+    }
+
+    const vineyard = await prisma.vineyard.findFirst({
+      where: { id: vineyardId, deletedAt: null },
+    });
+    if (!vineyard) {
+      throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
+    }
+
+    const timeZone = vineyard.timezone || "America/Chicago";
+    let point: GeoPoint;
+    try {
+      ({ point } = await resolveVineyardPoint(vineyard));
+    } catch (error) {
+      if (error instanceof HttpError) throw error;
+      throw new HttpError(
+        422,
+        "LOCATION_UNRESOLVED",
+        "Vineyard location could not be resolved.",
+      );
+    }
+
+    let historyDays: OpenMeteoHistoryDay[];
+    try {
+      historyDays = await fetchWeatherHistoryDays(point, timeZone, days);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : "Weather provider error";
+      throw new HttpError(502, "WEATHER_UNAVAILABLE", message);
+    }
+
+    const fetchedAt = new Date().toISOString();
+    const payload: HistoryPayload = {
+      vineyardId: vineyard.id,
+      timeZone,
+      provider: "open-meteo",
+      fetchedAt,
+      days: historyDays,
+    };
+
+    const entry = cacheSet(cacheKey, payload, WEATHER_HISTORY_CACHE_TTL_MS);
+    return {
+      ...payload,
+      cached: false,
+      cacheExpiresAt: new Date(entry.expiresAt).toISOString(),
+    };
   });
-  if (!vineyard) {
-    throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
-  }
-
-  const timeZone = vineyard.timezone || "America/Chicago";
-  let point: GeoPoint;
-  try {
-    ({ point } = await resolveVineyardPoint(vineyard));
-  } catch (error) {
-    if (error instanceof HttpError) throw error;
-    throw new HttpError(
-      422,
-      "LOCATION_UNRESOLVED",
-      "Vineyard location could not be resolved.",
-    );
-  }
-
-  let historyDays: OpenMeteoHistoryDay[];
-  try {
-    historyDays = await fetchWeatherHistoryDays(point, timeZone, days);
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Weather provider error";
-    throw new HttpError(502, "WEATHER_UNAVAILABLE", message);
-  }
-
-  const fetchedAt = new Date().toISOString();
-  const payload: HistoryPayload = {
-    vineyardId: vineyard.id,
-    timeZone,
-    provider: "open-meteo",
-    fetchedAt,
-    days: historyDays,
-  };
-
-  const entry = cacheSet(cacheKey, payload, WEATHER_HISTORY_CACHE_TTL_MS);
-  return {
-    ...payload,
-    cached: false,
-    cacheExpiresAt: new Date(entry.expiresAt).toISOString(),
-  };
 }

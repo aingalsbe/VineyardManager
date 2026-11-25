@@ -21,7 +21,7 @@ function generateResetToken(): string {
 
 export async function updateOwnProfile(
   userId: string,
-  input: { displayName?: string; email?: string },
+  input: { displayName?: string; email?: string; currentPassword?: string },
 ): Promise<PublicUser> {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null, disabledAt: null },
@@ -30,7 +30,29 @@ export async function updateOwnProfile(
     throw new HttpError(401, "UNAUTHORIZED", "Unauthorized");
   }
 
-  if (input.email && input.email !== user.email) {
+  const emailChanging = input.email !== undefined && input.email !== user.email;
+  if (emailChanging) {
+    if (!input.currentPassword) {
+      throw new HttpError(
+        401,
+        "INVALID_CREDENTIALS",
+        "Enter your current password to change your email",
+      );
+    }
+    let matches = false;
+    try {
+      matches = await compare(input.currentPassword, user.passwordHash);
+    } catch {
+      matches = false;
+    }
+    if (!matches) {
+      throw new HttpError(
+        401,
+        "INVALID_CREDENTIALS",
+        "Current password is incorrect",
+      );
+    }
+
     const taken = await prisma.user.findFirst({
       where: {
         email: input.email,
@@ -69,7 +91,7 @@ export async function updateOwnProfile(
 export async function changeOwnPassword(
   userId: string,
   input: { currentPassword: string; newPassword: string },
-): Promise<void> {
+): Promise<{ user: PublicUser; tokenVersion: number }> {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null, disabledAt: null },
   });
@@ -92,10 +114,17 @@ export async function changeOwnPassword(
   }
 
   const passwordHash = await hash(input.newPassword, BCRYPT_ROUNDS);
-  await prisma.user.update({
+  const updated = await prisma.user.update({
     where: { id: user.id },
-    data: { passwordHash },
+    data: {
+      passwordHash,
+      tokenVersion: { increment: 1 },
+    },
   });
+  return {
+    user: serializePublicUser(updated),
+    tokenVersion: updated.tokenVersion,
+  };
 }
 
 export async function requestPasswordReset(email: string): Promise<{
@@ -143,10 +172,20 @@ export async function resetPasswordWithToken(input: {
   newPassword: string;
 }): Promise<void> {
   const tokenHash = hashToken(input.token);
-  const reset = await prisma.passwordReset.findFirst({
+  const now = new Date();
+  const reset = await prisma.passwordReset.findUnique({
     where: { tokenHash },
+    include: {
+      user: { select: { id: true, deletedAt: true, disabledAt: true } },
+    },
   });
-  if (!reset || reset.usedAt || reset.expiresAt.getTime() <= Date.now()) {
+  if (
+    !reset ||
+    reset.usedAt ||
+    reset.expiresAt.getTime() <= now.getTime() ||
+    reset.user.deletedAt ||
+    reset.user.disabledAt
+  ) {
     throw new HttpError(
       400,
       "RESET_INVALID",
@@ -155,14 +194,53 @@ export async function resetPasswordWithToken(input: {
   }
 
   const passwordHash = await hash(input.newPassword, BCRYPT_ROUNDS);
-  await prisma.$transaction([
-    prisma.user.update({
-      where: { id: reset.userId },
-      data: { passwordHash },
-    }),
-    prisma.passwordReset.update({
-      where: { id: reset.id },
-      data: { usedAt: new Date() },
-    }),
-  ]);
+  await prisma.$transaction(async (tx) => {
+    const claimTime = new Date();
+    const claimed = await tx.passwordReset.updateMany({
+      where: {
+        id: reset.id,
+        usedAt: null,
+        expiresAt: { gt: claimTime },
+      },
+      data: { usedAt: claimTime },
+    });
+    if (claimed.count !== 1) {
+      throw new HttpError(
+        400,
+        "RESET_INVALID",
+        "This reset link is invalid or has expired.",
+      );
+    }
+
+    const updated = await tx.user.updateMany({
+      where: { id: reset.userId, deletedAt: null, disabledAt: null },
+      data: {
+        passwordHash,
+        tokenVersion: { increment: 1 },
+      },
+    });
+    if (updated.count !== 1) {
+      throw new HttpError(
+        400,
+        "RESET_INVALID",
+        "This reset link is invalid or has expired.",
+      );
+    }
+  });
+}
+
+/** Delete expired or long-used PasswordReset tokens (housekeeping). */
+export async function pruneExpiredPasswordResets(
+  retentionDays = 7,
+): Promise<number> {
+  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
+  const result = await prisma.passwordReset.deleteMany({
+    where: {
+      OR: [
+        { expiresAt: { lt: cutoff } },
+        { usedAt: { lt: cutoff } },
+      ],
+    },
+  });
+  return result.count;
 }

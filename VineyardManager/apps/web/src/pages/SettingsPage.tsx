@@ -59,6 +59,7 @@ function AccountCard({
 }) {
   const [displayName, setDisplayName] = useState(user?.displayName ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
+  const [currentPassword, setCurrentPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -66,13 +67,26 @@ function AccountCard({
   useEffect(() => {
     setDisplayName(user?.displayName ?? "");
     setEmail(user?.email ?? "");
+    setCurrentPassword("");
   }, [user?.displayName, user?.email]);
+
+  const emailChanged =
+    Boolean(user) &&
+    email.trim().toLowerCase() !== (user?.email ?? "").toLowerCase();
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
     setSaved(false);
-    const parsed = updateMeSchema.safeParse({ displayName, email });
+    if (emailChanged && !currentPassword) {
+      setError("Enter your current password to change your email");
+      return;
+    }
+    const parsed = updateMeSchema.safeParse({
+      displayName,
+      email,
+      ...(emailChanged ? { currentPassword } : {}),
+    });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Check the form");
       return;
@@ -80,6 +94,7 @@ function AccountCard({
     setSaving(true);
     try {
       await updateCurrentUser(parsed.data);
+      setCurrentPassword("");
       await onSaved();
       setSaved(true);
     } catch (err) {
@@ -116,6 +131,22 @@ function AccountCard({
               disabled={saving}
             />
           </div>
+          {emailChanged ? (
+            <div>
+              <Label htmlFor="settings-email-password">
+                Current password (required to change email)
+              </Label>
+              <Input
+                id="settings-email-password"
+                type="password"
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                autoComplete="current-password"
+                disabled={saving}
+                required
+              />
+            </div>
+          ) : null}
           <div>
             <p className="text-sm text-muted">Role</p>
             <p className="font-medium">{USER_ROLE_LABELS[user.role]}</p>

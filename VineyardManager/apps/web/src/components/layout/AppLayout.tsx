@@ -23,11 +23,10 @@ import type { PublicUser, Vineyard } from "@vineyard/shared";
 import { Button } from "@/components/ui/button";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import {
-  clearAuthToken,
-  fetchVineyardLogoBlob,
-  getAuthToken,
+  ApiError,
   listVineyards,
   logout,
+  vineyardLogoUrl,
 } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -45,9 +44,13 @@ const secondaryNav = [
   { to: "/settings", label: "Settings", icon: SlidersHorizontal },
 ] as const;
 
+export type VineyardLoadStatus = "loading" | "ready" | "empty" | "error";
+
 export type AppOutletContext = {
   user: PublicUser | null;
   vineyard: Vineyard | null;
+  vineyardStatus: VineyardLoadStatus;
+  vineyardError: string | null;
   reloadVineyard: () => Promise<void>;
   reloadUser: (options?: { silent?: boolean }) => Promise<void>;
 };
@@ -131,11 +134,14 @@ export function AppLayout() {
   const { state, reload } = useCurrentUser();
   const user = state.status === "ready" ? state.user : null;
   const [vineyard, setVineyard] = useState<Vineyard | null>(null);
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [vineyardStatus, setVineyardStatus] =
+    useState<VineyardLoadStatus>("loading");
+  const [vineyardError, setVineyardError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerId = useId();
   const toggleRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const vineyardAbortRef = useRef<AbortController | null>(null);
   const location = useLocation();
 
   // Close the drawer whenever the route changes.
@@ -191,57 +197,61 @@ export function AppLayout() {
   }, []);
 
   const reloadVineyard = useCallback(async () => {
-    const vineyards = await listVineyards();
-    setVineyard(vineyards[0] ?? null);
+    vineyardAbortRef.current?.abort();
+    const controller = new AbortController();
+    vineyardAbortRef.current = controller;
+
+    try {
+      const vineyards = await listVineyards(controller.signal);
+      if (controller.signal.aborted) return;
+      const first = vineyards[0] ?? null;
+      setVineyard(first);
+      setVineyardError(null);
+      setVineyardStatus(first ? "ready" : "empty");
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      setVineyard(null);
+      setVineyardStatus("error");
+      setVineyardError(
+        error instanceof ApiError
+          ? error.message
+          : "Could not reach the Vineyard Manager API.",
+      );
+    }
   }, []);
 
   useEffect(() => {
-    if (!getAuthToken()) return;
-    void reloadVineyard().catch(() => {
-      setVineyard(null);
-    });
-  }, [reloadVineyard]);
-
-  useEffect(() => {
-    if (!vineyard?.hasLogo) {
-      setLogoUrl(null);
-      return;
-    }
-    let cancelled = false;
-    void fetchVineyardLogoBlob(vineyard.id)
-      .then((blob) => {
-        const url = URL.createObjectURL(blob);
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        setLogoUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setLogoUrl(null);
-      });
+    if (state.status !== "ready") return;
+    void reloadVineyard();
     return () => {
-      cancelled = true;
+      vineyardAbortRef.current?.abort();
     };
-  }, [vineyard?.id, vineyard?.hasLogo]);
+  }, [state.status, reloadVineyard]);
 
-  useEffect(() => {
-    return () => {
-      if (logoUrl) URL.revokeObjectURL(logoUrl);
-    };
-  }, [logoUrl]);
+  const logoUrl =
+    vineyard?.hasLogo ? vineyardLogoUrl(vineyard.id, vineyard.updatedAt) : null;
 
-  if (!getAuthToken()) {
+  if (state.status === "unauthenticated") {
     return <Navigate to="/login" replace />;
+  }
+
+  if (state.status === "loading") {
+    return (
+      <div
+        className="flex min-h-dvh items-center justify-center bg-background px-4 text-muted"
+        aria-busy="true"
+      >
+        <p className="text-base">Loading Vineyard Manager…</p>
+      </div>
+    );
   }
 
   async function onSignOut() {
     try {
       await logout();
     } catch {
-      // Clear the local session even if the API call fails.
+      // Navigate to login even if the API call fails.
     }
-    clearAuthToken();
     navigate("/login", { replace: true });
   }
 
@@ -254,7 +264,7 @@ export function AppLayout() {
         </div>
       ) : (
         <p className="text-sm text-muted">
-          {state.status === "loading" ? "Loading account…" : "Signed in"}
+          {state.status === "error" ? state.message : "Signed in"}
         </p>
       )}
       <Button
@@ -375,6 +385,8 @@ export function AppLayout() {
               {
                 user,
                 vineyard,
+                vineyardStatus,
+                vineyardError,
                 reloadVineyard,
                 reloadUser: reload,
               } satisfies AppOutletContext

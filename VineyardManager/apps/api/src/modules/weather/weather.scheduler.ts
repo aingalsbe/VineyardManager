@@ -1,8 +1,9 @@
 import { schedule, validate, type ScheduledTask } from "node-cron";
 import { config } from "../../config.js";
+import { pruneExpiredPasswordResets } from "../auth/account.service.js";
 import { runDailyRainCheckForAllVineyards } from "./weather.service.js";
 
-/** 6:15 AM America/Chicago â€” odd minute avoids :00/:30 pile-ups. */
+/** 6:15 AM America/Chicago — odd minute avoids :00/:30 pile-ups. */
 export const DAILY_RAIN_CRON = "15 6 * * *";
 export const DAILY_RAIN_CRON_TZ = "America/Chicago";
 
@@ -27,7 +28,7 @@ export function startWeatherScheduler(): ScheduledTask | null {
         const results = await runDailyRainCheckForAllVineyards();
         for (const result of results) {
           console.log(
-            `[weather] ${result.vineyardName}: ${result.rainInches} in / ${result.thresholdInches} in â†’ ` +
+            `[weather] ${result.vineyardName}: ${result.rainInches} in / ${result.thresholdInches} in -> ` +
               (result.activityCreated
                 ? "created watering activity"
                 : result.skippedReason ?? "no action"),
@@ -35,6 +36,15 @@ export function startWeatherScheduler(): ScheduledTask | null {
         }
       } catch (error) {
         console.error("[weather] daily rain check run failed", error);
+      }
+
+      try {
+        const pruned = await pruneExpiredPasswordResets();
+        if (pruned > 0) {
+          console.log(`[auth] pruned ${pruned} expired password reset token(s)`);
+        }
+      } catch (error) {
+        console.error("[auth] password reset cleanup failed", error);
       }
     },
     {

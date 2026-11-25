@@ -1,5 +1,5 @@
 import type { PublicUser } from "@vineyard/shared";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, listVineyardUsers } from "@/lib/api";
 
 export type VineyardUsersState =
@@ -9,6 +9,7 @@ export type VineyardUsersState =
 
 export function useVineyardUsers(vineyardId: string | undefined) {
   const [state, setState] = useState<VineyardUsersState>({ status: "loading" });
+  const abortRef = useRef<AbortController | null>(null);
 
   const load = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -16,13 +17,19 @@ export function useVineyardUsers(vineyardId: string | undefined) {
         setState({ status: "loading" });
         return;
       }
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
       if (!options?.silent) {
         setState({ status: "loading" });
       }
       try {
-        const users = await listVineyardUsers(vineyardId);
+        const users = await listVineyardUsers(vineyardId, controller.signal);
+        if (controller.signal.aborted) return;
         setState({ status: "ready", users });
       } catch (error) {
+        if (controller.signal.aborted) return;
         setState({
           status: "error",
           message:
@@ -37,6 +44,9 @@ export function useVineyardUsers(vineyardId: string | undefined) {
 
   useEffect(() => {
     void load();
+    return () => {
+      abortRef.current?.abort();
+    };
   }, [load]);
 
   return { state, reload: load };
