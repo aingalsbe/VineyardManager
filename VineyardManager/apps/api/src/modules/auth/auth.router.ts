@@ -17,10 +17,18 @@ import {
   updateOwnProfile,
 } from "./account.service.js";
 import { getAuthUser } from "./auth.middleware.js";
-import { signAccessToken } from "./tokens.js";
+import {
+  clearSessionCookie,
+  setSessionCookie,
+  signAccessToken,
+} from "./tokens.js";
 
 export const publicAuthRouter = Router();
 export const authRouter = Router();
+
+/** Precomputed bcrypt (cost 10) hash used when an email is not found to equalize login timing. */
+const DUMMY_PASSWORD_HASH =
+  "$2b$10$CwTycUXWue0Thq9StjUM0uJ8u1uC6E3Q6kY7p3L8b2V7g3lN4y5eK";
 
 const invalidLogin = () =>
   new HttpError(401, "UNAUTHORIZED", "Invalid email or password");
@@ -31,24 +39,29 @@ publicAuthRouter.post("/login", async (req, res) => {
   const user = await prisma.user.findFirst({
     where: { email: body.email, deletedAt: null },
   });
-  if (!user) {
-    throw invalidLogin();
-  }
 
+  const hashToCheck = user?.passwordHash ?? DUMMY_PASSWORD_HASH;
   let passwordMatches = false;
   try {
-    passwordMatches = await compare(body.password, user.passwordHash);
+    passwordMatches = await compare(body.password, hashToCheck);
   } catch {
     passwordMatches = false;
   }
-  if (!passwordMatches || user.disabledAt) {
+
+  if (!user || !passwordMatches || user.disabledAt) {
     throw invalidLogin();
   }
 
   const publicUser = serializePublicUser(user);
+  const token = signAccessToken({
+    ...publicUser,
+    tokenVersion: user.tokenVersion,
+  });
+  setSessionCookie(res, token);
+
   res.json({
     data: {
-      token: signAccessToken(publicUser),
+      token,
       user: publicUser,
     },
   });
@@ -63,22 +76,22 @@ publicAuthRouter.post("/forgot-password", async (req, res) => {
 publicAuthRouter.post("/reset-password", async (req, res) => {
   const body = resetPasswordSchema.parse(req.body);
   await resetPasswordWithToken(body);
+  clearSessionCookie(res);
   res.json({ data: { ok: true } });
 });
 
-authRouter.post("/logout", (_req, res) => {
-  res.json({ data: { ok: true } });
-});
-
-authRouter.get("/me", async (req, res) => {
-  const authUser = getAuthUser(req);
-  const user = await prisma.user.findFirst({
-    where: { id: authUser.id, deletedAt: null, disabledAt: null },
+authRouter.post("/logout", async (req, res) => {
+  const actor = getAuthUser(req);
+  await prisma.user.updateMany({
+    where: { id: actor.id, deletedAt: null },
+    data: { tokenVersion: { increment: 1 } },
   });
-  if (!user) {
-    throw new HttpError(401, "UNAUTHORIZED", "Unauthorized");
-  }
-  res.json({ data: serializePublicUser(user) });
+  clearSessionCookie(res);
+  res.json({ data: { ok: true } });
+});
+
+authRouter.get("/me", (req, res) => {
+  res.json({ data: getAuthUser(req) });
 });
 
 authRouter.patch("/me", async (req, res) => {
@@ -91,6 +104,11 @@ authRouter.patch("/me", async (req, res) => {
 authRouter.post("/change-password", async (req, res) => {
   const actor = getAuthUser(req);
   const body = changePasswordSchema.parse(req.body);
-  await changeOwnPassword(actor.id, body);
+  const updated = await changeOwnPassword(actor.id, body);
+  const token = signAccessToken({
+    ...updated.user,
+    tokenVersion: updated.tokenVersion,
+  });
+  setSessionCookie(res, token);
   res.json({ data: { ok: true } });
 });

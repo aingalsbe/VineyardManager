@@ -41,6 +41,18 @@ export function parseSeasonMonths(value: string | undefined): number[] {
 /** Local-dev default only. Set JWT_SECRET in the environment for any real deployment. */
 const DEV_JWT_SECRET = "vineyard-dev-jwt-secret-not-for-production";
 
+const isProduction = process.env.NODE_ENV === "production";
+const isTest = process.env.NODE_ENV === "test";
+
+if (isProduction) {
+  const rawSecret = process.env.JWT_SECRET?.trim() ?? "";
+  if (rawSecret.length < 32 || rawSecret === DEV_JWT_SECRET) {
+    throw new Error(
+      "JWT_SECRET must be set to a strong random string (at least 32 characters) in production.",
+    );
+  }
+}
+
 /** Positive integer milliseconds. Invalid, zero, and negative values fall back to 10 seconds. */
 function parseMailTimeoutMs(value: string | undefined): number {
   const parsed = Number(value);
@@ -53,9 +65,14 @@ export const config = {
   webOrigin: process.env.WEB_ORIGIN ?? "http://localhost:5173",
   jwtSecret: process.env.JWT_SECRET ?? DEV_JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? "7d",
+  sessionCookieName: "vm_session",
   /** Local-dev default: apps/api/uploads (gitignored). Set UPLOAD_DIR to override. */
   uploadDir: path.resolve(process.env.UPLOAD_DIR ?? "uploads"),
-  isProduction: process.env.NODE_ENV === "production",
+  isProduction,
+  isTest,
+  /** Rate limiting is on everywhere except NODE_ENV=test unless RATE_LIMIT_ENABLED=true. */
+  rateLimitEnabled:
+    (process.env.RATE_LIMIT_ENABLED ?? (isTest ? "false" : "true")).toLowerCase() !== "false",
   appUrl: (process.env.APP_URL ?? "http://localhost:5173").replace(/\/$/, ""),
   mailFrom: process.env.MAIL_FROM ?? "Vineyard Manager <noreply@localhost>",
   smtpUrl: process.env.SMTP_URL?.trim() || "",

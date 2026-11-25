@@ -1,5 +1,9 @@
 import { Prisma } from "@prisma/client";
-import { createHarvestSchema, updateHarvestSchema } from "@vineyard/shared";
+import {
+  createHarvestSchema,
+  listPaginationQuerySchema,
+  updateHarvestSchema,
+} from "@vineyard/shared";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { prisma } from "../../db/prisma.js";
@@ -40,6 +44,7 @@ async function requireRow(rowId: string) {
 
 harvestsRouter.get("/", async (req, res) => {
   const rowId = rowFilter.parse(req.query.rowId);
+  const { limit, offset } = listPaginationQuerySchema.parse(req.query);
 
   const harvests = await prisma.harvest.findMany({
     where: {
@@ -48,6 +53,8 @@ harvestsRouter.get("/", async (req, res) => {
     },
     include: harvestWithRow,
     orderBy: { harvestedAt: "desc" },
+    ...(limit !== undefined ? { take: limit } : {}),
+    ...(offset !== undefined ? { skip: offset } : {}),
   });
 
   res.json({ data: harvests.map(serializeHarvest) });
@@ -111,8 +118,14 @@ harvestsRouter.patch("/:id", requireOperate, async (req: Request<{ id: string }>
   if (body.crew !== undefined) data.crew = body.crew ?? null;
   if (body.rowId !== undefined) {
     const row = await requireRow(body.rowId);
+    if (row.vineyardId !== existing.vineyardId) {
+      throw new HttpError(
+        400,
+        "VALIDATION_ERROR",
+        "Row not found in this vineyard",
+      );
+    }
     data.row = { connect: { id: row.id } };
-    data.vineyard = { connect: { id: row.vineyardId } };
   }
 
   const harvest = await prisma.harvest.update({

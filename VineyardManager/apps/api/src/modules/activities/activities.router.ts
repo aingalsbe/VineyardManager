@@ -2,6 +2,7 @@ import {
   activityScopeSchema,
   activityTypeSchema,
   createActivitySchema,
+  listPaginationQuerySchema,
 } from "@vineyard/shared";
 import { Prisma } from "@prisma/client";
 import { Router, type Request } from "express";
@@ -73,6 +74,7 @@ vineyardActivitiesRouter.get(
     const scopeType = req.query.scopeType
       ? activityScopeSchema.parse(req.query.scopeType)
       : undefined;
+    const { limit, offset } = listPaginationQuerySchema.parse(req.query);
 
     const activities = await prisma.activity.findMany({
       where: {
@@ -84,6 +86,8 @@ vineyardActivitiesRouter.get(
       },
       include: activityWithRow,
       orderBy: { performedAt: "desc" },
+      ...(limit !== undefined ? { take: limit } : {}),
+      ...(offset !== undefined ? { skip: offset } : {}),
     });
 
     const names = await performerNamesById(

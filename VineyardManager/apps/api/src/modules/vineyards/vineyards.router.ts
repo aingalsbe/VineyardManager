@@ -11,6 +11,7 @@ import { prisma } from "../../db/prisma.js";
 import { serializeVineyard } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { getAuthUser, requireSetup } from "../auth/auth.middleware.js";
+import { invalidateVineyardWeather } from "../weather/weather.cache.js";
 import {
   LOGO_MAX_BYTES,
   LOGO_MIME_TO_EXT,
@@ -25,7 +26,7 @@ const idParam = z.string().uuid();
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: LOGO_MAX_BYTES },
+  limits: { fileSize: LOGO_MAX_BYTES, files: 1 },
   fileFilter: (_req, file, cb) => {
     if (!LOGO_MIME_TO_EXT[file.mimetype]) {
       cb(
@@ -61,14 +62,12 @@ function handleLogoUpload(
       next();
       return;
     }
-    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
-      next(
-        new HttpError(
-          400,
-          "VALIDATION_ERROR",
-          "Logo must be 1 MB or smaller",
-        ),
-      );
+    if (err instanceof multer.MulterError) {
+      const message =
+        err.code === "LIMIT_FILE_SIZE"
+          ? "Logo must be 1 MB or smaller"
+          : "Invalid logo upload";
+      next(new HttpError(400, "VALIDATION_ERROR", message));
       return;
     }
     next(err);
@@ -120,7 +119,9 @@ vineyardsRouter.get("/:id/logo", async (req: Request<{ id: string }>, res) => {
     throw new HttpError(404, "NOT_FOUND", "Logo not found");
   }
   res.setHeader("Content-Type", vineyard.logoContentType);
-  res.setHeader("Cache-Control", "private, max-age=0");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Content-Security-Policy", "default-src 'none'");
+  res.setHeader("Cache-Control", "private, no-cache");
   res.sendFile(absoluteLogoPath(vineyard.logoPath));
 });
 
@@ -202,5 +203,15 @@ vineyardsRouter.patch("/:id", requireSetup, async (req: Request<{ id: string }>,
     where: { id },
     data,
   });
+
+  if (
+    body.address !== undefined ||
+    body.lat !== undefined ||
+    body.lng !== undefined ||
+    body.timezone !== undefined
+  ) {
+    invalidateVineyardWeather(id);
+  }
+
   res.json({ data: serializeVineyard(vineyard) });
 });

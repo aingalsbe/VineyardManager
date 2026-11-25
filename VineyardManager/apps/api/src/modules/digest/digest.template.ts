@@ -247,7 +247,7 @@ function taskItem(task: DigestTask, asOf: string, kind: "overdue" | "upcoming"):
 }
 
 function moreLink(count: number, label: string, url: string): string {
-  return `<tr><td style="padding:0 0 4px 15px;${BASE_TEXT}font-size:14px;line-height:20px;"><a href="${esc(url)}" target="_blank" style="color:${COLOR.primary};font-weight:600;text-decoration:underline;">And ${count} more ${esc(label)} in Vineyard Manager</a></td></tr>`;
+  return `<tr><td style="padding:0 0 4px 15px;${BASE_TEXT}font-size:14px;line-height:20px;"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" style="color:${COLOR.primary};font-weight:600;text-decoration:underline;">And ${count} more ${esc(label)} in Vineyard Manager</a></td></tr>`;
 }
 
 function tasksHtml(data: DigestData, tasksUrl: string): string {
@@ -344,11 +344,10 @@ ${rows}</table>`;
 function weatherHtml(data: DigestData): string {
   const { weather } = data;
   if (!weather.available) {
-    const reason = weather.unavailableReason ? oneLine(weather.unavailableReason) : "";
     return block(
       notice(
-        "<strong>Weather isn&#39;t available for this digest.</strong>",
-        reason ? `Reason: ${esc(reason)}` : "Check the forecast in Vineyard Manager.",
+        "<strong>Weather isn&#39;t available this week.</strong>",
+        "Check the forecast in Vineyard Manager.",
       ),
     );
   }
@@ -374,9 +373,9 @@ function weatherHtml(data: DigestData): string {
 function ctaHtml(appUrl: string, tasksUrl: string): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="border-collapse:separate;"><tr>
 <td align="center" bgcolor="${COLOR.primary}" style="background-color:${COLOR.primary};border-radius:6px;">
-<a href="${esc(appUrl)}" target="_blank" style="display:inline-block;padding:14px 28px;border:1px solid ${COLOR.primary};border-radius:6px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:700;color:${COLOR.onPrimary};text-decoration:none;">Open Vineyard Manager</a>
+<a href="${esc(appUrl)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;padding:14px 28px;border:1px solid ${COLOR.primary};border-radius:6px;font-family:${FONT};font-size:16px;line-height:20px;font-weight:700;color:${COLOR.onPrimary};text-decoration:none;">Open Vineyard Manager</a>
 </td></tr></table>
-<div style="padding-top:12px;font-family:${FONT};font-size:14px;line-height:20px;text-align:center;"><a href="${esc(tasksUrl)}" target="_blank" style="color:${COLOR.primary};text-decoration:underline;">View all tasks</a></div>`;
+<div style="padding-top:12px;font-family:${FONT};font-size:14px;line-height:20px;text-align:center;"><a href="${esc(tasksUrl)}" target="_blank" rel="noopener noreferrer" style="color:${COLOR.primary};text-decoration:underline;">View all tasks</a></div>`;
 }
 
 // ---------------------------------------------------------------- render
@@ -511,8 +510,7 @@ ${esc(weatherNote)}
 
   L.push(...underline("WEATHER"));
   if (!weather.available) {
-    para("Weather isn't available for this digest.");
-    if (weather.unavailableReason) para(`Reason: ${weather.unavailableReason}`);
+    para("Weather isn't available this week. Check the forecast in Vineyard Manager.");
   } else {
     if (weather.alerts.length === 0) {
       para("Alerts: none for the next 7 days.");

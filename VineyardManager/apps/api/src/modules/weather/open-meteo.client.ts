@@ -14,6 +14,17 @@ const ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive";
 const GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search";
 const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search";
 const USER_AGENT = "VineyardManager/0.1 (local vineyard ops)";
+const WEATHER_FETCH_TIMEOUT_MS = 8_000;
+
+function fetchWithTimeout(
+  url: URL,
+  init: RequestInit = {},
+): Promise<Response> {
+  return fetch(url, {
+    ...init,
+    signal: AbortSignal.timeout(WEATHER_FETCH_TIMEOUT_MS),
+  });
+}
 
 export type GeoPoint = { lat: number; lng: number };
 
@@ -133,7 +144,7 @@ export async function fetchPast24hPrecipitationInches(
   url.searchParams.set("timezone", timeZone);
   url.searchParams.set("timeformat", "unixtime");
 
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) {
     throw new Error(`Open-Meteo forecast failed (${response.status})`);
   }
@@ -206,7 +217,7 @@ export async function fetchCurrentAndDailyForecast(
   url.searchParams.set("precipitation_unit", "inch");
   url.searchParams.set("timezone", timeZone);
 
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) {
     throw new Error(`Open-Meteo forecast failed (${response.status})`);
   }
@@ -321,7 +332,7 @@ export async function fetchWeatherHistoryDays(
   url.searchParams.set("precipitation_unit", "inch");
   url.searchParams.set("timezone", timeZone);
 
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) {
     throw new Error(`Open-Meteo archive failed (${response.status})`);
   }
@@ -357,7 +368,7 @@ async function geocodeViaOpenMeteo(address: string): Promise<GeoPoint | null> {
   url.searchParams.set("count", "1");
   url.searchParams.set("language", "en");
 
-  const response = await fetch(url);
+  const response = await fetchWithTimeout(url);
   if (!response.ok) return null;
   const body = (await response.json()) as OpenMeteoGeocodeResponse;
   const hit = body.results?.[0];
@@ -371,7 +382,7 @@ async function geocodeViaNominatim(address: string): Promise<GeoPoint | null> {
   url.searchParams.set("format", "json");
   url.searchParams.set("limit", "1");
 
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
   });
   if (!response.ok) return null;

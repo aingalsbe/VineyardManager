@@ -9,9 +9,9 @@ import {
   ApiError,
   createVineyard,
   deleteVineyardLogo,
-  fetchVineyardLogoBlob,
   updateVineyard,
   uploadVineyardLogo,
+  vineyardLogoUrl,
 } from "@/lib/api";
 
 type Values = {
@@ -75,25 +75,8 @@ export function VineyardForm({
       setLogoPreview(null);
       return;
     }
-    let cancelled = false;
-    let url: string | null = null;
-    void fetchVineyardLogoBlob(vineyard.id)
-      .then((blob) => {
-        url = URL.createObjectURL(blob);
-        if (cancelled) {
-          URL.revokeObjectURL(url);
-          return;
-        }
-        setLogoPreview(url);
-      })
-      .catch(() => {
-        if (!cancelled) setLogoPreview(null);
-      });
-    return () => {
-      cancelled = true;
-      if (url) URL.revokeObjectURL(url);
-    };
-  }, [logoFile, vineyard?.id, vineyard?.hasLogo]);
+    setLogoPreview(vineyardLogoUrl(vineyard.id, vineyard.updatedAt));
+  }, [logoFile, vineyard?.id, vineyard?.hasLogo, vineyard?.updatedAt]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

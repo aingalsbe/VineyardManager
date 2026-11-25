@@ -1,6 +1,9 @@
 import {
+  OPEN_TASK_STATUSES,
+  addCalendarDays,
   buildVineyardMetrics,
   healthThresholdsSchema,
+  periodRange,
   type HealthScoreActivityInput,
   type HealthScoreTaskInput,
   type MetricsPeriod,
@@ -9,6 +12,8 @@ import {
 } from "@vineyard/shared";
 import { prisma } from "../../db/prisma.js";
 import { HttpError } from "../../middleware/error-handler.js";
+
+const ACTIVITY_LOOKBACK_DAYS = 23;
 
 function parseVarietyCatalog(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -24,24 +29,59 @@ export async function getVineyardMetrics(
 ) {
   const vineyard = await prisma.vineyard.findFirst({
     where: { id: vineyardId, deletedAt: null },
+    select: {
+      id: true,
+      timezone: true,
+      varietyCatalog: true,
+      healthThresholds: true,
+    },
   });
   if (!vineyard) {
     throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
   }
 
+  const range = periodRange(asOf, period, vineyard.timezone);
+  const activityWindowStart = new Date(
+    `${addCalendarDays(range.start, -ACTIVITY_LOOKBACK_DAYS)}T00:00:00.000Z`,
+  );
+
   const [rows, tasks, activities, harvests] = await Promise.all([
     prisma.row.findMany({
       where: { vineyardId, deletedAt: null },
+      select: { id: true, code: true, name: true, variety: true, status: true },
       orderBy: [{ code: "asc" }],
     }),
     prisma.task.findMany({
-      where: { vineyardId, deletedAt: null },
+      where: {
+        vineyardId,
+        deletedAt: null,
+        status: { in: [...OPEN_TASK_STATUSES] },
+      },
+      select: { id: true, rowId: true, title: true, dueAt: true, status: true },
     }),
     prisma.activity.findMany({
-      where: { vineyardId, deletedAt: null },
+      where: {
+        vineyardId,
+        deletedAt: null,
+        performedAt: { gte: activityWindowStart },
+      },
+      select: {
+        id: true,
+        rowId: true,
+        scopeType: true,
+        activityType: true,
+        performedAt: true,
+        details: true,
+      },
     }),
     prisma.harvest.findMany({
       where: { vineyardId, deletedAt: null },
+      select: {
+        rowId: true,
+        harvestedAt: true,
+        yieldAmount: true,
+        yieldUnit: true,
+      },
     }),
   ]);
 

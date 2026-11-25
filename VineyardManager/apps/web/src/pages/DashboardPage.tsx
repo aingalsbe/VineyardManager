@@ -191,8 +191,8 @@ export function DashboardPage() {
   const { canOperate } = useRoleAccess();
   const api = useApiHealth();
   const rows = useVineyardRows();
-  const tasks = useVineyardTasks();
-  const harvests = useHarvests();
+  const tasks = useVineyardTasks({ skipRows: true });
+  const harvests = useHarvests({ skipRows: true });
   const health = useVineyardHealth();
   const weather = useVineyardWeather();
 

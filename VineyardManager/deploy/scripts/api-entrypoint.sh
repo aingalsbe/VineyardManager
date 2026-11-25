@@ -63,7 +63,10 @@ case "$WEATHER_CRON_ENABLED" in
   *) fail WEATHER_CRON_ENABLED ;;
 esac
 
-if [ -n "${SMTP_URL-}" ]; then
+mail_transport=$(printf '%s' "${MAIL_TRANSPORT-smtp}" | tr '[:upper:]' '[:lower:]')
+if [ "$mail_transport" = "resend" ]; then
+  require_set RESEND_API_KEY
+elif [ -n "${SMTP_URL-}" ]; then
   :
 elif [ -n "${SMTP_HOST-}" ]; then
   require_set SMTP_PORT

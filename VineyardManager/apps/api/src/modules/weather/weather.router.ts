@@ -1,6 +1,8 @@
 import { Router, type Request } from "express";
 import { weatherHistoryQuerySchema } from "@vineyard/shared";
 import { z } from "zod";
+import { config } from "../../config.js";
+import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate, getAuthUser } from "../auth/auth.middleware.js";
 import {
   getVineyardWeather,
@@ -54,6 +56,13 @@ vineyardWeatherRouter.post(
     const body = z
       .object({ forceRainInches: z.number().nonnegative().max(50).optional() })
       .parse(req.body ?? {});
+    if (body.forceRainInches !== undefined && config.isProduction) {
+      throw new HttpError(
+        400,
+        "VALIDATION_ERROR",
+        "forceRainInches is not allowed in production",
+      );
+    }
     const result = await runDailyRainCheck(vineyardId, {
       performedBy: actor.id,
       forceRainInches: body.forceRainInches,

@@ -12,12 +12,30 @@ export class HttpError extends Error {
   }
 }
 
+function isJsonSyntaxError(err: unknown): boolean {
+  return (
+    err instanceof SyntaxError &&
+    "status" in err &&
+    (err as { status?: unknown }).status === 400
+  );
+}
+
 export function errorHandler(
   err: unknown,
-  _req: Request,
+  req: Request,
   res: Response<ApiErrorBody>,
   _next: NextFunction,
 ): void {
+  if (isJsonSyntaxError(err)) {
+    res.status(400).json({
+      error: {
+        code: "VALIDATION_ERROR",
+        message: "Invalid JSON request body",
+      },
+    });
+    return;
+  }
+
   if (err instanceof ZodError) {
     res.status(400).json({
       error: {
@@ -35,7 +53,14 @@ export function errorHandler(
     return;
   }
 
-  console.error(err);
+  const name = err instanceof Error ? err.name : typeof err;
+  const code =
+    err !== null && typeof err === "object" && "code" in err && typeof err.code === "string"
+      ? ` code=${err.code}`
+      : "";
+  const message =
+    err instanceof Error ? err.message.replace(/\s+/g, " ").slice(0, 200) : "unknown";
+  console.error(`[api] 500 ${req.method} ${req.path} ${name}${code}: ${message}`);
   res.status(500).json({
     error: { code: "INTERNAL_ERROR", message: "Unexpected server error" },
   });

@@ -37,6 +37,10 @@ vineyardDigestRouter.get(
       res.type("text/plain; charset=utf-8").send(rendered.text);
       return;
     }
+    res.setHeader(
+      "Content-Security-Policy",
+      "sandbox; default-src 'none'; style-src 'unsafe-inline'",
+    );
     res.type("text/html; charset=utf-8").send(rendered.html);
   },
 );

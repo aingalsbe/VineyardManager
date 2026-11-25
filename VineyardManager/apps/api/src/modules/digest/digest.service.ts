@@ -57,17 +57,52 @@ export async function buildDigestData(
   const asOfDate = calendarDateInZone(asOf, timeZone);
   const upcomingEnd = addCalendarDays(asOfDate, UPCOMING_DAYS - 1);
 
-  const openTasks = await prisma.task.findMany({
-    where: {
-      vineyardId,
-      deletedAt: null,
-      status: { in: [...OPEN_TASK_STATUSES] },
-    },
-    include: {
-      row: { select: { code: true, name: true, variety: true, deletedAt: true } },
-    },
-    orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
-  });
+  const [openTasks, weather, health] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        vineyardId,
+        deletedAt: null,
+        status: { in: [...OPEN_TASK_STATUSES] },
+      },
+      include: {
+        row: { select: { code: true, name: true, variety: true, deletedAt: true } },
+      },
+      orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+    }),
+    getVineyardWeather(vineyardId)
+      .then(
+        (w): DigestData["weather"] => ({
+          available: true,
+          unavailableReason: null,
+          alerts: w.alerts.map((alert) => ({
+            hazard: alert.hazard,
+            severity: alert.severity,
+            title: alert.title,
+            description: alert.description,
+            startsAt: alert.startsAt,
+          })),
+          outlook: w.daily.map((day) => ({
+            date: day.date,
+            summary: day.summary,
+            tempMaxF: day.tempMaxF,
+            tempMinF: day.tempMinF,
+            precipInches: day.precipInches,
+            precipProbabilityPct: day.precipProbabilityPct,
+          })),
+        }),
+      )
+      .catch((error): DigestData["weather"] => {
+        const detail = error instanceof Error ? error.message : "unknown";
+        console.warn(`[digest] weather unavailable for vineyard ${vineyardId}: ${detail}`);
+        return {
+          available: false,
+          unavailableReason: "Weather unavailable this week",
+          alerts: [],
+          outlook: [],
+        };
+      }),
+    computeVineyardHealth(vineyardId, asOf),
+  ]);
 
   const overdue: DigestTask[] = [];
   const upcoming: DigestTask[] = [];
@@ -85,40 +120,6 @@ export async function buildDigestData(
     if (dueDate < asOfDate) overdue.push(item);
     else if (dueDate <= upcomingEnd) upcoming.push(item);
   }
-
-  let weather: DigestData["weather"];
-  try {
-    const w = await getVineyardWeather(vineyardId);
-    weather = {
-      available: true,
-      unavailableReason: null,
-      alerts: w.alerts.map((alert) => ({
-        hazard: alert.hazard,
-        severity: alert.severity,
-        title: alert.title,
-        description: alert.description,
-        startsAt: alert.startsAt,
-      })),
-      outlook: w.daily.map((day) => ({
-        date: day.date,
-        summary: day.summary,
-        tempMaxF: day.tempMaxF,
-        tempMinF: day.tempMinF,
-        precipInches: day.precipInches,
-        precipProbabilityPct: day.precipProbabilityPct,
-      })),
-    };
-  } catch (error) {
-    weather = {
-      available: false,
-      unavailableReason:
-        error instanceof Error ? error.message : "Weather unavailable",
-      alerts: [],
-      outlook: [],
-    };
-  }
-
-  const health = await computeVineyardHealth(vineyardId, asOf);
 
   return {
     vineyard: { id: vineyard.id, name: vineyard.name, timeZone },

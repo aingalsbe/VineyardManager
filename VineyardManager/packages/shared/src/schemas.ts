@@ -19,6 +19,22 @@ import {
   WEATHER_HAZARDS,
 } from "./constants.js";
 
+export const MAX_PASSWORD_LENGTH = 72;
+
+export function isValidIanaTimeZone(value: string): boolean {
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export const listPaginationQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(500).optional(),
+  offset: z.coerce.number().int().min(0).max(100_000).optional(),
+});
+
 export const userRoleSchema = z.enum(USER_ROLES);
 
 export const loginSchema = z.object({
@@ -26,8 +42,12 @@ export const loginSchema = z.object({
     .string()
     .trim()
     .email("Enter a valid email")
+    .max(254)
     .toLowerCase(),
-  password: z.string().min(1, "Enter a password"),
+  password: z
+    .string()
+    .min(1, "Enter a password")
+    .max(MAX_PASSWORD_LENGTH, `Password must be at most ${MAX_PASSWORD_LENGTH} characters`),
 });
 
 export const updateMeSchema = z
@@ -37,7 +57,13 @@ export const updateMeSchema = z
       .string()
       .trim()
       .email("Enter a valid email")
+      .max(254)
       .toLowerCase()
+      .optional(),
+    currentPassword: z
+      .string()
+      .min(1, "Enter your current password")
+      .max(MAX_PASSWORD_LENGTH, `Password must be at most ${MAX_PASSWORD_LENGTH} characters`)
       .optional(),
   })
   .refine(
@@ -46,10 +72,14 @@ export const updateMeSchema = z
   );
 
 export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, "Enter your current password"),
+  currentPassword: z
+    .string()
+    .min(1, "Enter your current password")
+    .max(MAX_PASSWORD_LENGTH, `Password must be at most ${MAX_PASSWORD_LENGTH} characters`),
   newPassword: z
     .string()
-    .min(10, "Password must be at least 10 characters"),
+    .min(10, "Password must be at least 10 characters")
+    .max(MAX_PASSWORD_LENGTH, `Password must be at most ${MAX_PASSWORD_LENGTH} characters`),
 });
 
 export const forgotPasswordSchema = z.object({
@@ -57,14 +87,16 @@ export const forgotPasswordSchema = z.object({
     .string()
     .trim()
     .email("Enter a valid email")
+    .max(254)
     .toLowerCase(),
 });
 
 export const resetPasswordSchema = z.object({
-  token: z.string().min(1, "Reset token is required"),
+  token: z.string().min(1, "Reset token is required").max(256),
   newPassword: z
     .string()
-    .min(10, "Password must be at least 10 characters"),
+    .min(10, "Password must be at least 10 characters")
+    .max(MAX_PASSWORD_LENGTH, `Password must be at most ${MAX_PASSWORD_LENGTH} characters`),
 });
 
 export const inviteUserSchema = z.object({
@@ -72,6 +104,7 @@ export const inviteUserSchema = z.object({
     .string()
     .trim()
     .email("Enter a valid email")
+    .max(254)
     .toLowerCase(),
   displayName: z.string().trim().min(1, "Enter a name").max(120),
   role: userRoleSchema,
@@ -96,8 +129,12 @@ export const registerSchema = z.object({
     .string()
     .trim()
     .email("Enter a valid email")
+    .max(254)
     .toLowerCase(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z
+    .string()
+    .min(8, "Password must be at least 8 characters")
+    .max(MAX_PASSWORD_LENGTH, `Password must be at most ${MAX_PASSWORD_LENGTH} characters`),
   displayName: z.string().trim().min(1, "Enter a name").max(120),
 });
 
@@ -124,31 +161,35 @@ export const healthThresholdsSchema = z
     { message: "Green cutoff must be above yellow, and yellow above orange" },
   );
 
-export const varietyCatalogSchema = z.array(
-  z.string().trim().min(1, "Enter a variety").max(80),
-);
+export const varietyCatalogSchema = z
+  .array(z.string().trim().min(1, "Enter a variety").max(80))
+  .max(200, "At most 200 varieties");
 
 export const rowLayoutSchema = z.object({
   version: z.literal(1),
-  rows: z.array(
-    z.object({
-      rowId: z.string().uuid(),
-      x: z.number().finite(),
-      y: z.number().finite(),
-      rotationDeg: z.number().finite(),
-    }),
-  ),
+  rows: z
+    .array(
+      z.object({
+        rowId: z.string().uuid(),
+        x: z.number().finite(),
+        y: z.number().finite(),
+        rotationDeg: z.number().finite(),
+      }),
+    )
+    .max(500, "At most 500 rows in layout"),
 });
+
+const ianaTimeZoneSchema = z
+  .string()
+  .trim()
+  .min(1, "Enter a timezone")
+  .max(80)
+  .refine(isValidIanaTimeZone, { message: "Enter a valid IANA timezone" });
 
 export const createVineyardSchema = z.object({
   name: z.string().trim().min(1, "Enter a vineyard name").max(120),
   address: z.string().trim().min(1, "Enter an address").max(300),
-  timezone: z
-    .string()
-    .trim()
-    .min(1, "Enter a timezone")
-    .max(80)
-    .default("America/Chicago"),
+  timezone: ianaTimeZoneSchema.default("America/Chicago"),
   lat: z.number().min(-90).max(90).optional(),
   lng: z.number().min(-180).max(180).optional(),
 });
@@ -157,7 +198,7 @@ export const updateVineyardSchema = z
   .object({
     name: z.string().trim().min(1, "Enter a vineyard name").max(120).optional(),
     address: z.string().trim().min(1, "Enter an address").max(300).optional(),
-    timezone: z.string().trim().min(1, "Enter a timezone").max(80).optional(),
+    timezone: ianaTimeZoneSchema.optional(),
     lat: z.number().min(-90).max(90).nullable().optional(),
     lng: z.number().min(-180).max(180).nullable().optional(),
     rowLayout: rowLayoutSchema.nullable().optional(),
@@ -186,13 +227,21 @@ export const createRowSchema = z.object({
     .transform((value) => value.toUpperCase()),
   name: z.string().trim().min(1, "Enter a name").max(120),
   variety: z.string().trim().min(1, "Enter a variety").max(80),
-  lengthFeet: z.coerce.number().int().nonnegative("Feet cannot be negative"),
+  lengthFeet: z.coerce
+    .number()
+    .int()
+    .nonnegative("Feet cannot be negative")
+    .max(100_000, "Feet value is too large"),
   lengthInches: z.coerce
     .number()
     .int()
     .min(0, "Inches must be 0–11")
     .max(11, "Inches must be 0–11"),
-  vineCount: z.coerce.number().int().nonnegative("Vine count cannot be negative"),
+  vineCount: z.coerce
+    .number()
+    .int()
+    .nonnegative("Vine count cannot be negative")
+    .max(100_000, "Vine count is too large"),
   plantedYear: z.coerce
     .number()
     .int()
@@ -247,12 +296,26 @@ export const createTaskSchema = z.object({
 
 export const updateTaskSchema = createTaskSchema.partial();
 
+const MAX_ACTIVITY_DETAILS_BYTES = 8192;
+
 export const createActivitySchema = z.object({
   scopeType: activityScopeSchema,
   scopeId: z.string().uuid(),
   activityType: activityTypeSchema,
   performedAt: z.string().optional(),
-  details: z.record(z.unknown()).default({}),
+  details: z
+    .record(z.unknown())
+    .default({})
+    .refine(
+      (value) => {
+        try {
+          return JSON.stringify(value).length <= MAX_ACTIVITY_DETAILS_BYTES;
+        } catch {
+          return false;
+        }
+      },
+      { message: "Activity details are too large" },
+    ),
   source: activitySourceSchema.default("manual"),
 });
 
@@ -273,7 +336,10 @@ export const wateringDetailsSchema = z.object({
 export const createHarvestSchema = z.object({
   rowId: z.string().uuid("Select a row"),
   harvestedAt: z.string().min(1, "Enter a harvest date"),
-  yieldAmount: z.coerce.number().positive("Enter a yield amount"),
+  yieldAmount: z.coerce
+    .number()
+    .positive("Enter a yield amount")
+    .max(999_999.99, "Yield amount is too large"),
   yieldUnit: yieldUnitSchema,
   notes: z
     .string()

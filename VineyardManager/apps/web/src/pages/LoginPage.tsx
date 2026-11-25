@@ -1,11 +1,11 @@
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, getAuthToken, login, setAuthToken } from "@/lib/api";
+import { ApiError, getCurrentUser, login } from "@/lib/api";
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -15,8 +15,21 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [message, setMessage] = useState("");
+  const [alreadySignedIn, setAlreadySignedIn] = useState(false);
 
-  if (getAuthToken()) {
+  useEffect(() => {
+    const controller = new AbortController();
+    void getCurrentUser(controller.signal)
+      .then(() => {
+        if (!controller.signal.aborted) setAlreadySignedIn(true);
+      })
+      .catch(() => {
+        // Not signed in; stay on login form.
+      });
+    return () => controller.abort();
+  }, []);
+
+  if (alreadySignedIn) {
     return <Navigate to="/" replace />;
   }
 
@@ -27,8 +40,7 @@ export function LoginPage() {
     setStatus("loading");
     setMessage("");
     try {
-      const session = await login(email, password);
-      setAuthToken(session.token);
+      await login(email, password);
       navigate("/", { replace: true });
     } catch (error) {
       setStatus("error");
