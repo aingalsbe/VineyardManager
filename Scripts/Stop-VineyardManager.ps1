@@ -1,21 +1,20 @@
 # Vineyard Manager - Stop Script
-# Stops the local web + API, then runs Backup-VineyardManager.ps1
-# (commit if dirty, NAS file mirror, nas git push, GitHub push).
-#
-# To snapshot without stopping the app, run Backup-VineyardManager.ps1 instead.
+# Stops the local web + API (and optionally Docker Postgres), then runs a
+# read-only git check so any leftover local edits don't go unnoticed.
+# Does NOT commit, push, or upload to NAS.
 
 [CmdletBinding()]
 param(
-    [string]$CommitMessage,
-    [switch]$StopDocker,
-    [switch]$SkipBackup
+    [switch]$StopDocker
 )
 
 $ErrorActionPreference = "Continue"
 
-$project      = "C:\AIProjects\VineyardManager"
-$scriptDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
-$backupScript = Join-Path $scriptDir "Backup-VineyardManager.ps1"
+$repoRoot = if ($PSScriptRoot) { Split-Path -Parent $PSScriptRoot } else { "C:\AIProjects" }
+if (-not (Test-Path -LiteralPath (Join-Path $repoRoot "VineyardManager"))) {
+    $repoRoot = "C:\AIProjects"
+}
+$project = Join-Path $repoRoot "VineyardManager"
 
 function Write-Step([string]$Text) {
     Write-Host "`n==> $Text" -ForegroundColor Cyan
@@ -63,22 +62,45 @@ if ($StopDocker) {
     Write-Host "Leaving Docker / Postgres running (pass -StopDocker to shut it down)."
 }
 
-if ($SkipBackup) {
-    Write-Host "`nStopped. Backup skipped (-SkipBackup)." -ForegroundColor Yellow
-    return
-}
+# Read-only Git status check so local test edits aren't forgotten
+if ((Get-Command git -ErrorAction SilentlyContinue) -and (Test-Path -LiteralPath (Join-Path $repoRoot ".git"))) {
+    Write-Step "Check git status (read-only)"
+    Push-Location $repoRoot
+    try {
+        $porcelain = @(git status --porcelain)
+        $gitStatusExit = $LASTEXITCODE
+        $hasDirty = ($porcelain.Count -gt 0) -and (-not [string]::IsNullOrWhiteSpace(($porcelain -join "`n")))
 
-if (-not (Test-Path -LiteralPath $backupScript)) {
-    Write-Host "Backup script not found: $backupScript" -ForegroundColor Red
-    exit 1
-}
+        if ($gitStatusExit -ne 0) {
+            Write-Host "WARNING: git status failed; could not check for local changes." -ForegroundColor Yellow
+        } else {
+            $aheadRaw = ((git rev-list --count "@{u}..HEAD" 2>$null) -join "").Trim()
+            $aheadCount = 0
+            if ($LASTEXITCODE -eq 0 -and $aheadRaw -match '^\d+$') {
+                $aheadCount = [int]$aheadRaw
+            }
 
-Write-Step "Backup (commit + NAS + git remotes)"
-$backupArgs = @()
-if ($CommitMessage) {
-    $backupArgs += "-CommitMessage"
-    $backupArgs += $CommitMessage
+            if (-not $hasDirty -and $aheadCount -eq 0) {
+                Write-Host "Git working tree is clean and in sync with GitHub." -ForegroundColor Green
+            } else {
+                if ($hasDirty) {
+                    Write-Host "WARNING: Local uncommitted changes detected:" -ForegroundColor Yellow
+                    git status --short
+                }
+                if ($aheadCount -gt 0) {
+                    Write-Host "WARNING: $aheadCount local commit(s) have not been pushed to GitHub." -ForegroundColor Yellow
+                }
+                Write-Host ""
+                Write-Host "This script does not commit, push, or back up to NAS." -ForegroundColor DarkGray
+                Write-Host "  Discard throwaway test edits:  git -C `"$repoRoot`" restore ." -ForegroundColor DarkGray
+                Write-Host "  Keep changes:                  commit/push on a branch or share the diff in chat." -ForegroundColor DarkGray
+                Write-Host ""
+                pause
+            }
+        }
+    } finally {
+        Pop-Location
+    }
 }
-& $backupScript @backupArgs
 
 Write-Host "`n=== Stop complete ===" -ForegroundColor Cyan

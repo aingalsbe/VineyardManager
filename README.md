@@ -40,7 +40,7 @@ Built as a TypeScript monorepo (`apps/web`, `apps/api`, `packages/shared`) so th
 .
 ├── .github/workflows/
 │   └── ci.yml                 # Typecheck, API tests, build, and advisory prod audit
-├── Scripts/                   # Windows local dev Start / Stop / Backup PowerShell helpers
+├── Scripts/                   # Windows local dev Start / Stop PowerShell helpers
 └── VineyardManager/           # pnpm + Turborepo workspace
     ├── apps/
     │   ├── web/               # React + Vite SPA (proxies /api -> :3001 in dev)

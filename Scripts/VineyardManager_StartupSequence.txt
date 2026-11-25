@@ -8,18 +8,20 @@
    - Wait until the whale icon is steady and it says “Docker Desktop is running”.
 
 2. **Run the Master Startup Script**
-   - Double-click the desktop shortcut **Start Vineyard Manager**  
+   - Double-click the desktop shortcut **Start Vineyard Manager**
      (or run: `C:\AIProjects\Scripts\Start-VineyardManager.ps1`)
    - The script will:
-     - Start Docker Desktop if needed
-     - Wait for the Docker engine
-     - Bring up Postgres (`docker compose up -d`)
-     - Open a new window for the API server
-     - Open a new window for the Web (frontend) server
+     - Pull the latest code from GitHub (`git pull --ff-only`, skipped if local files are modified or `-SkipPull` is passed)
+     - Run `pnpm install` / `pnpm db:generate` automatically if dependencies or the Prisma schema changed
+     - Start Docker Desktop if needed and wait for the Docker engine
+     - Bring up Postgres (`docker compose up -d`) and wait for it to accept connections
+     - Apply any new database migrations (`pnpm db:migrate:deploy`, skipped with `-SkipMigrate`)
+     - Open a new window for the API server (port 3001)
+     - Open a new window for the Web (frontend) server (port 5173)
      - Open the app in your browser
 
 3. **Verify**
-   - API window should show the server listening (usually on port 3000 or whatever you configured).
+   - API window should show the server listening on http://localhost:3001
    - Web window should show Vite ready on http://localhost:5173
    - Browser should open to the app with your seeded data.
 
@@ -28,5 +30,9 @@
 1. Start Docker Desktop and wait for it to be ready.
 2. Open PowerShell and run:
    ```powershell
+   git -C C:\AIProjects pull --ff-only
    cd C:\AIProjects\VineyardManager
    docker compose up -d
+   pnpm db:migrate:deploy
+   pnpm dev
+   ```
