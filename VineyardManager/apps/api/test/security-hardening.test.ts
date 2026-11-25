@@ -275,7 +275,12 @@ test("digest template hides raw weather provider errors and adds rel=noopener no
   assert.equal(/target="_blank"(?!\s+rel="noopener noreferrer")/.test(rendered.html), false);
 });
 
-test("api-entrypoint.sh fails closed when MAIL_TRANSPORT=resend lacks RESEND_API_KEY", () => {
+test("api-entrypoint.sh fails closed when MAIL_TRANSPORT=resend lacks RESEND_API_KEY", (t) => {
+  if (process.platform === "win32") {
+    t.skip("POSIX sh entrypoint test runs on Linux/macOS and CI");
+    return;
+  }
+
   const here = path.dirname(fileURLToPath(import.meta.url));
   const entrypoint = path.resolve(here, "../../../deploy/scripts/api-entrypoint.sh");
 
@@ -298,12 +303,14 @@ test("api-entrypoint.sh fails closed when MAIL_TRANSPORT=resend lacks RESEND_API
     env: baseEnv,
     encoding: "utf8",
   });
+  assert.ifError(missing.error);
   assert.notEqual(missing.status, 0);
-  assert.match(missing.stderr, /RESEND_API_KEY/);
+  assert.match(missing.stderr ?? "", /RESEND_API_KEY/);
 
   const valid = spawnSync("sh", [entrypoint, "true"], {
     env: { ...baseEnv, RESEND_API_KEY: "re_test_key" },
     encoding: "utf8",
   });
+  assert.ifError(valid.error);
   assert.equal(valid.status, 0, valid.stderr);
 });
