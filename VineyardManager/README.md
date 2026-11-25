@@ -8,25 +8,28 @@ The first users are power users who know the vineyard well — they set up rows 
 
 | Layer | Choice | Why |
 | --- | --- | --- |
-| Web | React + Vite + TypeScript + Tailwind CSS | Fast local UI, shadcn/ui-ready |
-| API | Express + TypeScript | Same language as the web app and `@vineyard/shared`; easy to keep the `/api/v1` contract explicit |
-| Shared | Zod + TypeScript types | One source of truth for roles, activities, health colors, and payloads |
+| Web | React 19 + Vite + TypeScript + Tailwind CSS v4 | Fast field-ready UI with shadcn/ui and lazy-loaded Recharts |
+| API | Express 5 + TypeScript | Same language as web and `@vineyard/shared`; explicit `/api/v1` contract |
+| Shared | Zod + TypeScript types | One source of truth for roles, activities, health colors, and scoring |
 | Database | PostgreSQL + Prisma | Versioned migrations in `apps/api/prisma` |
 | Workspace | pnpm + Turborepo | Install once, run `web` and `api` together |
 
-Auth, weather, and the Android/Expo client come later. Rows and scheduled tasks are the first persisted slice.
+See the [repository README](../README.md) for the full project overview and [CHANGELOG.md](CHANGELOG.md) for release history (`v1.1.0`).
 
-## Repository layout
+## Workspace layout
 
 ```text
 VineyardManager/
 ├── apps/
-│   ├── web/          # React + Vite app shell (routed pages)
-│   └── api/          # Express API
+│   ├── web/          # React + Vite SPA
+│   └── api/          # Express API, Prisma schema/migrations, tests
 ├── packages/
-│   └── shared/       # Types, Zod schemas, constants
-├── docs/             # Domain and API notes for humans and agents
-├── AGENTS.md         # Conventions for future coding sessions
+│   └── shared/       # Types, Zod schemas, health & metrics scoring
+├── deploy/           # Dockerfile, Nginx configs, backup & entrypoint scripts
+├── docs/             # Domain, API, and season plans
+├── CHANGELOG.md      # Release notes
+├── SETUP.md          # New-machine setup guide
+├── AGENTS.md         # Conventions for coding sessions
 └── package.json
 ```
 
@@ -107,14 +110,9 @@ Shared types already cover the vineyard model from the product docs:
 
 See `packages/shared` and `docs/` before adding tables or routes.
 
-## Next build slices
+## Roadmap & active backlog
 
-1. Auth + vineyard / row / vine CRUD
-2. Activity logging + rule-based health colors
-3. Offline outbox + sync (needed in the field)
-4. Weather + weekly notifications
-5. Assistant endpoints
-6. Roles, invites, and an Expo client
+See [`VineyardManager-Next-Steps.md`](VineyardManager-Next-Steps.md), [`VineyardManager-Bugs.md`](VineyardManager-Bugs.md), and [`docs/season-close-new-plan.md`](docs/season-close-new-plan.md) for current slices and upcoming work.
 
 ## License
 
