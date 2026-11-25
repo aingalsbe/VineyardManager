@@ -23,17 +23,13 @@ git config --global user.email aingalsbe@gmail.com
 
 ## 3. Clone
 
-The git root is **`C:\AIProjects`** (not the VineyardManager folder). Remotes (`git -C C:\AIProjects remote -v`):
+The git root is **`C:\AIProjects`** (not the VineyardManager folder). Remote (`git -C C:\AIProjects remote -v`):
 
 - `origin` = https://github.com/aingalsbe/VineyardManager.git
-- `nas` = `N:\AIProjects\VineyardManager.git` (NAS backup copy, needs the N: drive mapped)
 
 ```powershell
 git clone https://github.com/aingalsbe/VineyardManager.git C:\AIProjects
-git -C C:\AIProjects remote add nas N:\AIProjects\VineyardManager.git   # optional, if the NAS is mapped
 ```
-
-If GitHub is unavailable, clone from the NAS instead: `git clone N:\AIProjects\VineyardManager.git C:\AIProjects`.
 
 ## 4. Folder locations
 
@@ -42,7 +38,7 @@ If GitHub is unavailable, clone from the NAS instead: `git clone N:\AIProjects\V
 
 ## 5. Environment files (.env)
 
-`.env` files are gitignored (`git check-ignore .env` holds) and the NAS mirror skips them, so recreate them from the examples. Never commit `.env`.
+`.env` files are gitignored (`git check-ignore .env` holds), so recreate them from the examples on a new machine. Never commit `.env`.
 
 ```powershell
 cd C:\AIProjects\VineyardManager
@@ -89,19 +85,18 @@ pnpm install
 pnpm db:generate
 ```
 
-**Start everything:** `C:\AIProjects\Scripts\Start-VineyardManager.ps1`. It starts Docker Desktop if needed, waits for the engine, runs `docker compose up -d` (Postgres), opens one PowerShell window for the API (`pnpm dev` in `apps\api`) and one for the web app (`pnpm dev` in `apps\web`), then opens http://localhost:5173.
+**Start everything:** `C:\AIProjects\Scripts\Start-VineyardManager.ps1`. It pulls the latest commits from GitHub (`git pull --ff-only`, skipped automatically if the working tree is dirty or with `-SkipPull`), runs `pnpm install` / `pnpm db:generate` if dependencies or `schema.prisma` changed, starts Docker Desktop and Postgres (`docker compose up -d`), applies pending migrations (`pnpm db:migrate:deploy`, skipped with `-SkipMigrate`), opens PowerShell windows for the API (`pnpm dev` in `apps\api`) and web app (`pnpm dev` in `apps\web`), then opens http://localhost:5173.
 
-**Manual start:** `docker compose up -d`, then `pnpm dev:api` and `pnpm dev:web` in two windows (or `pnpm dev` for both through turbo).
+**Manual start:** `docker compose up -d`, `pnpm db:migrate:deploy`, then `pnpm dev:api` and `pnpm dev:web` in two windows (or `pnpm dev` for both through turbo).
 
-**Stop:** close the API and web windows, then `docker compose down` (data stays in the `vineyard_pg` volume).
-`Stop-VineyardManager.ps1` stops ports 5173/3001, but **by default it then runs the backup script** (commit + NAS + push). Use `Stop-VineyardManager.ps1 -SkipBackup` unless you mean to back up; add `-StopDocker` to also stop Postgres.
+**Stop:** `C:\AIProjects\Scripts\Stop-VineyardManager.ps1` stops ports 5173/3001 and leftover VineyardManager Node/pnpm processes, then runs a read-only `git status` check to warn if any local edits or unpushed commits were left behind. Pass `-StopDocker` to also run `docker compose down` (data stays in the `vineyard_pg` volume). It does **not** commit, push, or upload to NAS.
 
 ## 7. Database: migrate, seed, back up, restore
 
 Postgres runs in Docker (user `vineyard`, database `vineyard_manager`, port 5432, volume `vineyard_pg`).
 
 ```powershell
-pnpm db:migrate:deploy   # apply the existing migrations (new laptop)
+pnpm db:migrate:deploy   # apply the existing migrations (also run automatically by Start-VineyardManager.ps1)
 pnpm db:seed             # demo data + dev logins (fresh DB only)
 ```
 
@@ -121,13 +116,7 @@ docker compose cp .\vineyard.dump postgres:/tmp/vineyard.dump
 docker compose exec postgres pg_restore -U vineyard -d vineyard_manager --clean --if-exists /tmp/vineyard.dump
 ```
 
-**NAS backup:** `C:\AIProjects\Scripts\Backup-VineyardManager.ps1`. It:
-
-1. runs `git add -A` and commits if the tree is dirty, unless you pass `-SkipCommit`
-2. mirrors files with robocopy to `N:\AIProjects\VineyardManager`, skipping `node_modules`, `.git`, `dist`, `.turbo`, `*.log` and `.env`
-3. pushes `main` to `nas` (`N:\AIProjects\VineyardManager.git`) and to `origin` (GitHub)
-
-It does **not** dump the database. Take a `pg_dump` (above) and keep it with the NAS copy if you need the data. Restoring from the NAS: clone from `N:\AIProjects\VineyardManager.git` (or copy the mirror), recreate the `.env` files, then restore a dump.
+GitHub (`origin`) is the source of truth for code (the old NAS `Backup-VineyardManager.ps1` script has been retired). Production database backups are handled separately by `deploy/scripts/backup-prod.sh`.
 
 ## 8. URLs, ports and dev logins
 
@@ -142,8 +131,6 @@ Dev logins from `prisma/seed.ts` (dev only), all with password `VineyardDev1!`:
 - `owner@vineyard.local`: power user
 - `manager@vineyard.local`: manager
 - `viewer@vineyard.local`: viewer
-
-(The old `VineyardManager_StartupSequence.txt` says the API is "usually on port 3000"; it's actually **3001**.)
 
 ## 9. Cron flags
 
