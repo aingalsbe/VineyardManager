@@ -3,6 +3,8 @@ import {
   ACTIVITY_TYPES,
   WATERING_METHODS,
   createActivitySchema,
+  updateActivitySchema,
+  type Activity,
   type ActivityType,
   type Row,
   type WateringMethod,
@@ -12,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ApiError, createActivity } from "@/lib/api";
+import { ApiError, createActivity, updateActivity } from "@/lib/api";
 import { rowLabel } from "@/lib/rowLabel";
 
 type FormValues = {
@@ -32,6 +34,14 @@ function todayIsoDate(): string {
   return `${now.getFullYear()}-${month}-${day}`;
 }
 
+function isoDatePart(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return todayIsoDate();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 function emptyValues(presetType?: ActivityType): FormValues {
   return {
     activityType: presetType ?? "pruning",
@@ -44,9 +54,35 @@ function emptyValues(presetType?: ActivityType): FormValues {
   };
 }
 
+function valuesFromActivity(activity: Activity): FormValues {
+  const details =
+    activity.details && typeof activity.details === "object"
+      ? (activity.details as Record<string, unknown>)
+      : {};
+  const notes = typeof details.notes === "string" ? details.notes : "";
+  const durationMin =
+    typeof details.durationMin === "number" && Number.isFinite(details.durationMin)
+      ? String(details.durationMin)
+      : "";
+  const rawMethod = typeof details.method === "string" ? details.method : "drip";
+  const method = (WATERING_METHODS as readonly string[]).includes(rawMethod)
+    ? (rawMethod as WateringMethod)
+    : "drip";
+  return {
+    activityType: activity.activityType,
+    scopeType: activity.scopeType === "row" ? "row" : "vineyard",
+    rowId: activity.rowId ?? "",
+    performedAt: isoDatePart(activity.performedAt),
+    notes,
+    durationMin,
+    method,
+  };
+}
+
 export function ActivityFormDialog({
   vineyardId,
   rows,
+  activity,
   presetType,
   presetRowId,
   open,
@@ -55,6 +91,8 @@ export function ActivityFormDialog({
 }: {
   vineyardId: string;
   rows: Row[];
+  /** Present when editing an existing work log entry (F1, D-06). */
+  activity?: Activity | null;
   presetType?: ActivityType;
   presetRowId?: string;
   open: boolean;
@@ -62,6 +100,7 @@ export function ActivityFormDialog({
   onSaved: () => Promise<void> | void;
 }) {
   const titleId = useId();
+  const isEditing = Boolean(activity);
   const [values, setValues] = useState<FormValues>(emptyValues(presetType));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -69,15 +108,19 @@ export function ActivityFormDialog({
 
   useEffect(() => {
     if (!open) return;
-    const next = emptyValues(presetType);
-    if (presetRowId) {
-      next.scopeType = "row";
-      next.rowId = presetRowId;
+    if (activity) {
+      setValues(valuesFromActivity(activity));
+    } else {
+      const next = emptyValues(presetType);
+      if (presetRowId) {
+        next.scopeType = "row";
+        next.rowId = presetRowId;
+      }
+      setValues(next);
     }
-    setValues(next);
     setFieldErrors({});
     setFormError(null);
-  }, [open, presetType, presetRowId]);
+  }, [open, activity, presetType, presetRowId]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,13 +146,58 @@ export function ActivityFormDialog({
       return;
     }
 
-    const details: Record<string, unknown> = {};
+    const existingDetails =
+      activity?.details && typeof activity.details === "object"
+        ? { ...(activity.details as Record<string, unknown>) }
+        : {};
+    const details: Record<string, unknown> = { ...existingDetails };
     if (values.notes.trim()) details.notes = values.notes.trim();
+    else delete details.notes;
+
     if (values.activityType === "watering") {
       if (values.durationMin) {
         details.durationMin = Number(values.durationMin);
+      } else {
+        delete details.durationMin;
       }
       details.method = values.method;
+    }
+
+    if (activity) {
+      const parsed = updateActivitySchema.safeParse({
+        scopeType: values.scopeType,
+        scopeId: values.scopeType === "vineyard" ? vineyardId : values.rowId,
+        activityType: values.activityType,
+        performedAt: values.performedAt,
+        details,
+      });
+
+      if (!parsed.success) {
+        const next: Record<string, string> = {};
+        for (const issue of parsed.error.issues) {
+          const key = issue.path[0];
+          if (typeof key === "string" && !next[key]) next[key] = issue.message;
+        }
+        setFieldErrors(next);
+        return;
+      }
+
+      setFieldErrors({});
+      setSaving(true);
+      try {
+        await updateActivity(activity.id, parsed.data);
+        await onSaved();
+        onClose();
+      } catch (error) {
+        setFormError(
+          error instanceof ApiError
+            ? error.message
+            : "Could not save changes. Try again.",
+        );
+      } finally {
+        setSaving(false);
+      }
+      return;
     }
 
     const parsed = createActivitySchema.safeParse({
@@ -163,10 +251,12 @@ export function ActivityFormDialog({
         className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-lg"
       >
         <h2 id={titleId} className="text-2xl font-semibold tracking-tight">
-          Log work
+          {isEditing ? "Edit work entry" : "Log work"}
         </h2>
         <p className="mt-1 text-muted">
-          Record what happened on the vineyard or a single row.
+          {isEditing
+            ? "Update what happened on the vineyard or a single row."
+            : "Record what happened on the vineyard or a single row."}
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={(event) => void handleSubmit(event)}>
@@ -202,7 +292,7 @@ export function ActivityFormDialog({
               id="activity-scope"
               className="h-11 w-full rounded-md border border-border bg-card px-3 text-base"
               value={values.scopeType}
-              disabled={Boolean(presetRowId)}
+              disabled={!isEditing && Boolean(presetRowId)}
               onChange={(event) =>
                 setField("scopeType", event.target.value as "vineyard" | "row")
               }
@@ -218,7 +308,7 @@ export function ActivityFormDialog({
                 id="activity-row"
                 className="h-11 w-full rounded-md border border-border bg-card px-3 text-base"
                 value={values.rowId}
-                disabled={Boolean(presetRowId)}
+                disabled={!isEditing && Boolean(presetRowId)}
                 onChange={(event) => setField("rowId", event.target.value)}
               >
                 <option value="">Select a row</option>
@@ -295,7 +385,7 @@ export function ActivityFormDialog({
               Cancel
             </Button>
             <Button type="submit" disabled={saving}>
-              {saving ? "Saving…" : "Log work"}
+              {saving ? "Saving…" : isEditing ? "Save changes" : "Log work"}
             </Button>
           </div>
         </form>

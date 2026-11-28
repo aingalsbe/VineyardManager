@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ApiError, changePassword, updateCurrentUser } from "@/lib/api";
+import {
+  ApiError,
+  changePassword,
+  getNotificationPrefs,
+  updateCurrentUser,
+  updateNotificationPrefs,
+} from "@/lib/api";
 
 const roleHelp: Record<(typeof USER_ROLES)[number], string> = {
   power_user: "Full setup, vineyard management, and user invites",
@@ -27,13 +33,7 @@ export function SettingsPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <AccountCard user={user} onSaved={() => reloadUser({ silent: true })} />
         <ChangePasswordCard />
-        <Card>
-          <CardTitle>Notifications</CardTitle>
-          <CardDescription>
-            Weekly growing-season summaries, weather alerts, and task reminders.
-            Frequency will come from user notification prefs.
-          </CardDescription>
-        </Card>
+        <NotificationsCard user={user} />
         <Card>
           <CardTitle>Roles</CardTitle>
           <ul className="mt-3 space-y-2">
@@ -47,6 +47,115 @@ export function SettingsPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function NotificationsCard({ user }: { user: AppOutletContext["user"] }) {
+  const isViewer = user?.role === "viewer";
+  const [weeklyDigest, setWeeklyDigest] = useState(true);
+  const [loading, setLoading] = useState(!isViewer);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!user || isViewer) {
+      setLoading(false);
+      return;
+    }
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+    getNotificationPrefs(controller.signal)
+      .then((prefs) => {
+        if (!controller.signal.aborted) {
+          setWeeklyDigest(prefs.weeklyDigest !== false);
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (controller.signal.aborted) return;
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Could not load notification preferences.",
+        );
+        setLoading(false);
+      });
+    return () => controller.abort();
+  }, [user, isViewer]);
+
+  async function onToggle(checked: boolean) {
+    setError(null);
+    setSaved(false);
+    setWeeklyDigest(checked);
+    setSaving(true);
+    try {
+      const updated = await updateNotificationPrefs({ weeklyDigest: checked });
+      setWeeklyDigest(updated.weeklyDigest !== false);
+      setSaved(true);
+    } catch (err) {
+      setWeeklyDigest(!checked);
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Could not save notification preferences.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card id="notifications">
+      <CardTitle>Notifications</CardTitle>
+      <CardDescription>
+        Email summaries during the growing season.
+      </CardDescription>
+      {!user ? (
+        <p className="mt-4 text-sm text-muted">Loading preferences…</p>
+      ) : isViewer ? (
+        <p className="mt-4 text-sm text-muted">
+          Viewers don't receive the weekly digest.
+        </p>
+      ) : loading ? (
+        <p className="mt-4 text-sm text-muted">Loading preferences…</p>
+      ) : (
+        <div className="mt-4 space-y-3">
+          <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-border bg-background/50 p-3">
+            <input
+              type="checkbox"
+              role="switch"
+              aria-checked={weeklyDigest}
+              checked={weeklyDigest}
+              disabled={saving}
+              onChange={(event) => void onToggle(event.target.checked)}
+              className="mt-0.5 size-5 shrink-0 accent-primary"
+            />
+            <span className="min-w-0">
+              <span className="block font-medium text-foreground">
+                Weekly digest email
+              </span>
+              <span className="mt-0.5 block text-sm text-muted">
+                Receive the weekly summary of vineyard health, weather, and
+                upcoming tasks. End-of-season summaries are still sent when a
+                season closes.
+              </span>
+            </span>
+          </label>
+          {error ? (
+            <p className="text-sm font-medium text-health-red" role="alert">
+              {error}
+            </p>
+          ) : null}
+          {saved ? (
+            <p className="text-sm font-medium text-health-green" role="status">
+              Preferences saved.
+            </p>
+          ) : null}
+        </div>
+      )}
+    </Card>
   );
 }
 

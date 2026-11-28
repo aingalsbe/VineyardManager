@@ -15,7 +15,12 @@ export type ActivitiesState =
       activities: Activity[];
     };
 
-export function useActivities() {
+export function useActivities(hookOptions?: {
+  deleted?: "only";
+  seasonId?: string;
+}) {
+  const deleted = hookOptions?.deleted;
+  const seasonId = hookOptions?.seasonId;
   const { vineyard, vineyardStatus, vineyardError, reloadVineyard } =
     useOutletContext<AppOutletContext>();
   const [state, setState] = useState<ActivitiesState>({ status: "loading" });
@@ -49,7 +54,14 @@ export function useActivities() {
       try {
         const [rows, activities] = await Promise.all([
           listRows(vineyard.id, controller.signal),
-          listActivities(vineyard.id, undefined, controller.signal),
+          listActivities(
+            vineyard.id,
+            {
+              ...(deleted ? { deleted } : {}),
+              ...(seasonId ? { seasonId } : {}),
+            },
+            controller.signal,
+          ),
         ]);
         if (controller.signal.aborted) return;
         setState({
@@ -67,7 +79,7 @@ export function useActivities() {
         setState({ status: "error", message });
       }
     },
-    [vineyard, vineyardStatus, vineyardError],
+    [vineyard, vineyardStatus, vineyardError, deleted, seasonId],
   );
 
   useEffect(() => {

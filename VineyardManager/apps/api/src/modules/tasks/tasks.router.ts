@@ -12,13 +12,17 @@ import { serializeTask } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate } from "../auth/auth.middleware.js";
 import { withSeasonWrite } from "../seasons/season-routing.js";
-import { assertSeasonWritable } from "../seasons/seasons.service.js";
+import {
+  assertSeasonWritable,
+  resolveSeasonFilter,
+} from "../seasons/seasons.service.js";
 
 export const tasksRouter = Router({ mergeParams: true });
 
 const vineyardIdParam = z.string().uuid();
 const taskIdParam = z.string().uuid();
 const rowFilter = z.union([z.string().uuid(), z.literal("")]).optional();
+const deletedFilter = z.enum(["only"]).optional();
 
 const taskWithRow = {
   row: { select: { id: true, code: true, name: true, deletedAt: true } },
@@ -65,17 +69,29 @@ tasksRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
   const status = req.query.status
     ? taskStatusSchema.parse(req.query.status)
     : undefined;
+  const deleted = req.query.deleted
+    ? deletedFilter.parse(req.query.deleted)
+    : undefined;
+  const seasonId = await resolveSeasonFilter(
+    prisma,
+    vineyardId,
+    req.query.seasonId,
+  );
   const { limit, offset } = listPaginationQuerySchema.parse(req.query);
 
   const tasks = await prisma.task.findMany({
     where: {
       vineyardId,
-      deletedAt: null,
+      deletedAt: deleted === "only" ? { not: null } : null,
       ...(rowId ? { rowId } : {}),
       ...(status ? { status } : {}),
+      ...(seasonId ? { seasonId } : {}),
     },
     include: taskWithRow,
-    orderBy: [{ dueAt: "asc" }, { createdAt: "asc" }],
+    orderBy:
+      deleted === "only"
+        ? [{ deletedAt: "desc" }]
+        : [{ dueAt: "asc" }, { createdAt: "asc" }],
     ...(limit !== undefined ? { take: limit } : {}),
     ...(offset !== undefined ? { skip: offset } : {}),
   });
@@ -187,6 +203,53 @@ tasksRouter.delete(
         include: taskWithRow,
       });
     });
+    res.json({ data: serializeTask(task) });
+  },
+);
+
+tasksRouter.post(
+  "/:taskId/restore",
+  requireOperate,
+  async (req: Request<{ vineyardId: string; taskId: string }>, res) => {
+    const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
+    const taskId = taskIdParam.parse(req.params.taskId);
+    await requireVineyard(vineyardId);
+
+    const task = await prisma.$transaction(async (tx) => {
+      const existing = await tx.task.findFirst({
+        where: { id: taskId, vineyardId, deletedAt: { not: null } },
+        include: { season: { select: { status: true } } },
+      });
+      if (!existing) {
+        throw new HttpError(404, "NOT_FOUND", "Removed task not found");
+      }
+      await assertSeasonWritable(tx, existing);
+
+      // Avoid templateKey conflict if another live task took that key while deleted.
+      let clearTemplateKey = false;
+      if (existing.templateKey && existing.seasonId) {
+        const dup = await tx.task.findFirst({
+          where: {
+            seasonId: existing.seasonId,
+            templateKey: existing.templateKey,
+            deletedAt: null,
+            id: { not: taskId },
+          },
+          select: { id: true },
+        });
+        clearTemplateKey = Boolean(dup);
+      }
+
+      return tx.task.update({
+        where: { id: taskId },
+        data: {
+          deletedAt: null,
+          ...(clearTemplateKey ? { templateKey: null } : {}),
+        },
+        include: taskWithRow,
+      });
+    });
+
     res.json({ data: serializeTask(task) });
   },
 );

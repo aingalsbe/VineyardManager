@@ -14,18 +14,26 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { useVineyardSeasons } from "@/hooks/useVineyardSeasons";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
-import { ApiError, deleteTask, updateTask } from "@/lib/api";
+import { ApiError, deleteTask, restoreTask, updateTask } from "@/lib/api";
 import { buildVarietyLookup, rowLabel } from "@/lib/rowLabel";
 
 export function TasksPage() {
-  const { canOperate } = useRoleAccess();
-  const { state, reload } = useVineyardTasks();
+  const { canOperate, canSetup } = useRoleAccess();
+  const seasons = useVineyardSeasons();
+  const [seasonFilter, setSeasonFilter] = useState("current");
+  const [showRemoved, setShowRemoved] = useState(false);
+  const { state, reload } = useVineyardTasks({
+    deleted: showRemoved ? "only" : undefined,
+    seasonId: showRemoved ? undefined : seasonFilter,
+  });
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<ScheduledTask | null>(null);
   const [rowFilter, setRowFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const openCreate = () => {
     setEditing(null);
@@ -57,6 +65,7 @@ export function TasksPage() {
   ) => {
     if (state.status !== "ready") return;
     setActionError(null);
+    setNotice(null);
     try {
       await updateTask(state.vineyard.id, task.id, { status });
       await reload({ silent: true });
@@ -65,6 +74,23 @@ export function TasksPage() {
         error instanceof ApiError
           ? error.message
           : "Could not update the task status.",
+      );
+    }
+  };
+
+  const handleRestore = async (task: ScheduledTask) => {
+    if (state.status !== "ready") return;
+    setActionError(null);
+    setNotice(null);
+    try {
+      await restoreTask(state.vineyard.id, task.id);
+      setNotice(`Restored “${task.title}”.`);
+      await reload({ silent: true });
+    } catch (error) {
+      setActionError(
+        error instanceof ApiError
+          ? error.message
+          : "Could not restore the task.",
       );
     }
   };
@@ -78,6 +104,7 @@ export function TasksPage() {
 
   const openDelete = (task: ScheduledTask) => {
     setActionError(null);
+    setNotice(null);
     setDeleteError(null);
     deleteFocusRef.current = null;
     setDeleting(task);
@@ -92,6 +119,7 @@ export function TasksPage() {
       setDeleteBusy(false);
       deleteFocusRef.current = headingRef.current;
       setDeleting(null);
+      setNotice("Task removed. You can restore it from Recently removed.");
       await reload({ silent: true });
     } catch (error) {
       setDeleteBusy(false);
@@ -113,9 +141,24 @@ export function TasksPage() {
         }
         actions={
           vineyardReady && canOperate ? (
-            <Button type="button" onClick={openCreate}>
-              New task
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={showRemoved ? "default" : "outline"}
+                onClick={() => {
+                  setActionError(null);
+                  setNotice(null);
+                  setShowRemoved((v) => !v);
+                }}
+              >
+                {showRemoved ? "Viewing recently removed" : "Recently removed"}
+              </Button>
+              {!showRemoved ? (
+                <Button type="button" onClick={openCreate}>
+                  New task
+                </Button>
+              ) : null}
+            </div>
           ) : null
         }
       />
@@ -145,18 +188,40 @@ export function TasksPage() {
         <EmptyState
           title="No vineyard yet"
           action={
-            <Button asChild variant="outline">
-              <Link to="/setup">Go to setup</Link>
-            </Button>
+            canSetup ? (
+              <Button asChild variant="outline">
+                <Link to="/setup">Go to setup</Link>
+              </Button>
+            ) : undefined
           }
         >
-          Create a vineyard and rows first, then add tasks.
+          {canSetup
+            ? "Create a vineyard and rows first, then add tasks."
+            : "Ask a power user to set up the vineyard."}
         </EmptyState>
       ) : null}
 
       {vineyardReady ? (
         <>
-          <div className="mb-5 grid gap-3 sm:grid-cols-2">
+          <div className="mb-5 grid gap-3 sm:grid-cols-3">
+            {!showRemoved ? (
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Season</span>
+                <select
+                  className="h-11 w-full rounded-md border border-border bg-card px-3 text-base"
+                  value={seasonFilter}
+                  onChange={(event) => setSeasonFilter(event.target.value)}
+                >
+                  <option value="current">Current season</option>
+                  <option value="all">All seasons</option>
+                  {seasons.map((season) => (
+                    <option key={season.id} value={season.id}>
+                      {season.year} ({season.status})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
             <label className="block">
               <span className="mb-1 block text-sm font-medium">Row</span>
               <select
@@ -196,18 +261,26 @@ export function TasksPage() {
             </p>
           ) : null}
 
+          {notice ? (
+            <p className="mb-4 text-sm text-muted" role="status">
+              {notice}
+            </p>
+          ) : null}
+
           {state.tasks.length === 0 ? (
             <EmptyState
-              title="No tasks yet"
+              title={showRemoved ? "No recently removed tasks" : "No tasks yet"}
               action={
-                canOperate ? (
+                !showRemoved && canOperate ? (
                   <Button type="button" onClick={openCreate}>
                     New task
                   </Button>
                 ) : undefined
               }
             >
-              Add pruning, watering, harvest, or weather work for a row.
+              {showRemoved
+                ? "Deleted tasks appear here and can be restored."
+                : "Add pruning, watering, harvest, or weather work for a row."}
             </EmptyState>
           ) : visibleTasks.length === 0 ? (
             <EmptyState title="No tasks match these filters">
@@ -220,14 +293,19 @@ export function TasksPage() {
                   <TaskCard
                     varietyLookup={buildVarietyLookup(state.rows)}
                     task={task}
-                    onEdit={canOperate ? openEdit : undefined}
+                    onEdit={canOperate && !showRemoved ? openEdit : undefined}
                     onStatusChange={
-                      canOperate
+                      canOperate && !showRemoved
                         ? (item, status) => void handleStatusChange(item, status)
                         : undefined
                     }
                     onDelete={
-                      canOperate ? openDelete : undefined
+                      canOperate && !showRemoved ? openDelete : undefined
+                    }
+                    onRestore={
+                      canOperate && showRemoved
+                        ? (item) => void handleRestore(item)
+                        : undefined
                     }
                   />
                 </li>
@@ -271,7 +349,8 @@ export function TasksPage() {
                       : ""}
                   </span>
                   <span className="mt-2 block">
-                    This removes the task from the task list.
+                    This removes the task from the task list. It can be restored from
+                    Recently removed.
                   </span>
                 </>
               ) : null

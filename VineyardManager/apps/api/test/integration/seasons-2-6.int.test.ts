@@ -295,6 +295,9 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
 
     // 6. Phase 3 — Lock and Reopen (B1–B5, G1)
     await phase3LockAndReopenCases(prisma, base, owner.id, tokens);
+
+    // 7. Phase 4 — User-guide gaps (F1–F7, G1, G3)
+    await phase4UserGuideGapsCases(prisma, base, owner.id, manager.id, tokens);
   } finally {
     globalThis.fetch = originalFetch;
     try {
@@ -1008,5 +1011,502 @@ async function phase3LockAndReopenCases(
   );
   assert.equal(unlockPatch.status, 200);
 }
+
+async function phase4UserGuideGapsCases(
+  prisma: PrismaClient,
+  base: URL,
+  ownerId: string,
+  managerId: string,
+  tokens: { power_user: string; manager: string; viewer: string },
+): Promise<void> {
+  const v = await createVineyard(prisma, ownerId);
+  const rowWithHistory = await prisma.row.create({
+    data: {
+      vineyardId: v.id,
+      code: "P4A",
+      name: "Phase 4 Row A",
+      variety: "Norton",
+      lengthFeet: 80,
+      lengthInches: 0,
+      vineCount: 16,
+      plantedYear: 2021,
+      status: "fallow",
+    },
+  });
+  const emptyRow = await prisma.row.create({
+    data: {
+      vineyardId: v.id,
+      code: "P4EMPTY",
+      name: "Empty Row",
+      variety: "Chardonel",
+      lengthFeet: 60,
+      lengthInches: 0,
+      vineCount: 12,
+      plantedYear: 2022,
+    },
+  });
+
+  const closed2025 = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2025,
+      status: "closed",
+      startedAt: new Date("2025-03-01T18:00:00.000Z"),
+      closedAt: new Date("2025-11-15T18:00:00.000Z"),
+    },
+  });
+  const active2026 = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T18:00:00.000Z"),
+    },
+  });
+
+  // Active-season records
+  const weatherActivity = await prisma.activity.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      rowId: rowWithHistory.id,
+      scopeType: "row",
+      scopeId: rowWithHistory.id,
+      activityType: "watering",
+      performedAt: new Date("2026-06-10T17:00:00.000Z"),
+      performedBy: ownerId,
+      details: { method: "rain", notes: "Auto rain" },
+      source: "weather",
+    },
+  });
+  const activeHarvest = await prisma.harvest.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      rowId: rowWithHistory.id,
+      harvestedAt: new Date("2026-09-12T17:00:00.000Z"),
+      yieldAmount: 42,
+      yieldUnit: "lb",
+    },
+  });
+  const activeTask = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      rowId: rowWithHistory.id,
+      type: "maintenance",
+      title: "Phase 4 live task",
+      body: "",
+      dueAt: new Date("2026-06-20T17:00:00.000Z"),
+      status: "pending",
+    },
+  });
+
+  // Closed-season records (both live and soft-deleted)
+  const closedActivity = await prisma.activity.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: closed2025.id,
+      rowId: rowWithHistory.id,
+      scopeType: "row",
+      scopeId: rowWithHistory.id,
+      activityType: "pruning",
+      performedAt: new Date("2025-03-10T17:00:00.000Z"),
+      details: {},
+      source: "manual",
+    },
+  });
+  const closedDeletedActivity = await prisma.activity.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: closed2025.id,
+      scopeType: "vineyard",
+      scopeId: v.id,
+      activityType: "health_observation",
+      performedAt: new Date("2025-04-10T17:00:00.000Z"),
+      details: {},
+      source: "manual",
+      deletedAt: new Date("2025-04-11T17:00:00.000Z"),
+    },
+  });
+  const closedDeletedHarvest = await prisma.harvest.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: closed2025.id,
+      rowId: rowWithHistory.id,
+      harvestedAt: new Date("2025-09-01T17:00:00.000Z"),
+      yieldAmount: 15,
+      yieldUnit: "lb",
+      deletedAt: new Date("2025-09-02T17:00:00.000Z"),
+    },
+  });
+  const closedDeletedTask = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: closed2025.id,
+      type: "maintenance",
+      title: "Closed deleted task",
+      body: "",
+      dueAt: new Date("2025-05-01T17:00:00.000Z"),
+      status: "pending",
+      deletedAt: new Date("2025-05-02T17:00:00.000Z"),
+    },
+  });
+
+  // F1 & D-06: Activity PATCH — viewer 403, manager 200 (weather-logged editable, source & performedBy immutable), locked 409
+  const viewerPatchAct = await httpJson(
+    base,
+    "PATCH",
+    `${API_PREFIX}/activities/${weatherActivity.id}`,
+    tokens.viewer,
+    { details: { notes: "Nope" } },
+  );
+  assert.equal(viewerPatchAct.status, 403);
+
+  const mgrPatchAct = await httpJson(
+    base,
+    "PATCH",
+    `${API_PREFIX}/activities/${weatherActivity.id}`,
+    tokens.manager,
+    {
+      activityType: "health_observation",
+      scopeType: "vineyard",
+      scopeId: v.id,
+      performedAt: "2026-06-11",
+      details: { notes: "Edited by manager" },
+      source: "manual",
+    },
+  );
+  assert.equal(mgrPatchAct.status, 200);
+  const patchedActDb = await prisma.activity.findUniqueOrThrow({
+    where: { id: weatherActivity.id },
+  });
+  assert.equal(patchedActDb.activityType, "health_observation");
+  assert.equal(patchedActDb.scopeType, "vineyard");
+  assert.equal(patchedActDb.rowId, null);
+  assert.equal(patchedActDb.source, "weather", "source must remain immutable");
+  assert.equal(
+    patchedActDb.performedBy,
+    ownerId,
+    "performedBy must remain immutable",
+  );
+
+  // Closed-season activity PATCH -> 409 SEASON_LOCKED (G1)
+  const lockedPatchAct = await httpJson(
+    base,
+    "PATCH",
+    `${API_PREFIX}/activities/${closedActivity.id}`,
+    tokens.power_user,
+    { details: { notes: "Locked" } },
+  );
+  assert.equal(lockedPatchAct.status, 409);
+  assert.equal(
+    (lockedPatchAct.body as { error?: { code?: string } })?.error?.code,
+    "SEASON_LOCKED",
+  );
+
+  // G3: Season filter on activities, harvests, tasks, metrics
+  const actCur = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/activities?seasonId=current`,
+    tokens.viewer,
+  );
+  assert.equal(actCur.status, 200);
+  assert.equal((actCur.body as { data: unknown[] }).data.length, 1);
+
+  const actAll = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/activities?seasonId=all`,
+    tokens.viewer,
+  );
+  assert.equal(actAll.status, 200);
+  assert.equal((actAll.body as { data: unknown[] }).data.length, 2);
+
+  const act2025 = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/activities?seasonId=${closed2025.id}`,
+    tokens.viewer,
+  );
+  assert.equal(act2025.status, 200);
+  assert.equal(
+    (act2025.body as { data: Array<{ id: string }> }).data[0]?.id,
+    closedActivity.id,
+  );
+
+  const metrics2026 = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/metrics?period=year&seasonId=${active2026.id}`,
+    tokens.viewer,
+  );
+  assert.equal(metrics2026.status, 200);
+
+  // F2, F3, F4: Delete + ?deleted=only + Restore for activity, harvest, task
+  const delAct = await httpJson(
+    base,
+    "DELETE",
+    `${API_PREFIX}/activities/${weatherActivity.id}`,
+    tokens.manager,
+  );
+  assert.equal(delAct.status, 200);
+  const deletedActs = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/activities?deleted=only`,
+    tokens.manager,
+  );
+  assert.equal(deletedActs.status, 200);
+  assert.ok(
+    (deletedActs.body as { data: Array<{ id: string }> }).data.some(
+      (a) => a.id === weatherActivity.id,
+    ),
+  );
+  const viewerRestoreAct = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/activities/${weatherActivity.id}/restore`,
+    tokens.viewer,
+  );
+  assert.equal(viewerRestoreAct.status, 403);
+  const restoreAct = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/activities/${weatherActivity.id}/restore`,
+    tokens.manager,
+  );
+  assert.equal(restoreAct.status, 200);
+  assert.equal(
+    (await prisma.activity.findUniqueOrThrow({ where: { id: weatherActivity.id } })).deletedAt,
+    null,
+  );
+
+  // Harvest delete + ?deleted=only + restore
+  const delHarv = await httpJson(
+    base,
+    "DELETE",
+    `${API_PREFIX}/harvests/${activeHarvest.id}`,
+    tokens.manager,
+  );
+  assert.equal(delHarv.status, 200);
+  const deletedHarvs = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/harvests?vineyardId=${v.id}&deleted=only`,
+    tokens.manager,
+  );
+  assert.equal(deletedHarvs.status, 200);
+  assert.ok(
+    (deletedHarvs.body as { data: Array<{ id: string }> }).data.some(
+      (h) => h.id === activeHarvest.id,
+    ),
+  );
+  const restoreHarv = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/harvests/${activeHarvest.id}/restore`,
+    tokens.manager,
+  );
+  assert.equal(restoreHarv.status, 200);
+  assert.equal(
+    (await prisma.harvest.findUniqueOrThrow({ where: { id: activeHarvest.id } })).deletedAt,
+    null,
+  );
+
+  // Task delete + ?deleted=only + restore
+  const delTask = await httpJson(
+    base,
+    "DELETE",
+    `${API_PREFIX}/vineyards/${v.id}/tasks/${activeTask.id}`,
+    tokens.manager,
+  );
+  assert.equal(delTask.status, 200);
+  const deletedTasks = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/tasks?deleted=only`,
+    tokens.manager,
+  );
+  assert.equal(deletedTasks.status, 200);
+  assert.ok(
+    (deletedTasks.body as { data: Array<{ id: string }> }).data.some(
+      (t) => t.id === activeTask.id,
+    ),
+  );
+  const restoreTaskRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/tasks/${activeTask.id}/restore`,
+    tokens.manager,
+  );
+  assert.equal(restoreTaskRes.status, 200);
+  assert.equal(
+    (await prisma.task.findUniqueOrThrow({ where: { id: activeTask.id } })).deletedAt,
+    null,
+  );
+
+  // Closed-season restore must return 409 SEASON_LOCKED for all three
+  for (const path of [
+    `${API_PREFIX}/activities/${closedDeletedActivity.id}/restore`,
+    `${API_PREFIX}/harvests/${closedDeletedHarvest.id}/restore`,
+    `${API_PREFIX}/vineyards/${v.id}/tasks/${closedDeletedTask.id}/restore`,
+  ]) {
+    const res = await httpJson(base, "POST", path, tokens.power_user);
+    assert.equal(res.status, 409, `closed-season restore ${path} must be 409`);
+    assert.equal(
+      (res.body as { error?: { code?: string } })?.error?.code,
+      "SEASON_LOCKED",
+    );
+  }
+
+  // F4 & D-03: Row delete (hard vs soft) + preDeleteCode/preDeleteStatus + ROW_CODE_TAKEN + restore
+  const hardDelRow = await httpJson(
+    base,
+    "DELETE",
+    `${API_PREFIX}/vineyards/${v.id}/rows/${emptyRow.id}`,
+    tokens.manager,
+  );
+  assert.equal(hardDelRow.status, 200);
+  assert.equal(
+    (hardDelRow.body as { data: { mode: string } }).data.mode,
+    "hard",
+  );
+  const restoreHardRow = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/rows/${emptyRow.id}/restore`,
+    tokens.manager,
+  );
+  assert.equal(restoreHardRow.status, 404, "hard-deleted row cannot be restored");
+
+  const softDelRow = await httpJson(
+    base,
+    "DELETE",
+    `${API_PREFIX}/vineyards/${v.id}/rows/${rowWithHistory.id}?openTasks=keep`,
+    tokens.manager,
+  );
+  assert.equal(softDelRow.status, 200);
+  assert.equal(
+    (softDelRow.body as { data: { mode: string } }).data.mode,
+    "soft",
+  );
+  const softDelDb = await prisma.row.findUniqueOrThrow({
+    where: { id: rowWithHistory.id },
+  });
+  assert.equal(softDelDb.preDeleteCode, "P4A");
+  assert.equal(softDelDb.preDeleteStatus, "fallow");
+
+  const deletedRows = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/rows?deleted=only`,
+    tokens.manager,
+  );
+  assert.equal(deletedRows.status, 200);
+  assert.ok(
+    (deletedRows.body as { data: Array<{ id: string }> }).data.some(
+      (r) => r.id === rowWithHistory.id,
+    ),
+  );
+
+  // Create conflicting active row with same code "P4A" -> restore gets 409 ROW_CODE_TAKEN
+  await prisma.row.create({
+    data: {
+      vineyardId: v.id,
+      code: "P4A",
+      name: "Replacement Row",
+      variety: "Norton",
+      lengthFeet: 80,
+      lengthInches: 0,
+      vineCount: 16,
+      plantedYear: 2026,
+    },
+  });
+  const conflictRestore = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/rows/${rowWithHistory.id}/restore`,
+    tokens.manager,
+    {},
+  );
+  assert.equal(conflictRestore.status, 409);
+  assert.equal(
+    (conflictRestore.body as { error?: { code?: string } })?.error?.code,
+    "ROW_CODE_TAKEN",
+  );
+
+  // Supplying a free code restores the row with its preDeleteStatus ("fallow")
+  const renamedRestore = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/rows/${rowWithHistory.id}/restore`,
+    tokens.manager,
+    { code: "P4A-OLD" },
+  );
+  assert.equal(renamedRestore.status, 200);
+  const restoredRowDb = await prisma.row.findUniqueOrThrow({
+    where: { id: rowWithHistory.id },
+  });
+  assert.equal(restoredRowDb.deletedAt, null);
+  assert.equal(restoredRowDb.code, "P4A-OLD");
+  assert.equal(restoredRowDb.status, "fallow");
+  assert.equal(restoredRowDb.preDeleteCode, null);
+
+  // F5: Notification prefs GET/PATCH only affect caller and preserve unknown keys
+  await prisma.user.update({
+    where: { id: managerId },
+    data: { notificationPrefs: { customKeep: 42, weeklyDigest: true } },
+  });
+  const mgrPrefsBefore = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/auth/me/notification-prefs`,
+    tokens.manager,
+  );
+  assert.equal(mgrPrefsBefore.status, 200);
+  assert.equal(
+    (mgrPrefsBefore.body as { data: { weeklyDigest: boolean; customKeep: number } })
+      .data.weeklyDigest,
+    true,
+  );
+  assert.equal(
+    (mgrPrefsBefore.body as { data: { customKeep: number } }).data.customKeep,
+    42,
+  );
+
+  const mgrPrefsPatch = await httpJson(
+    base,
+    "PATCH",
+    `${API_PREFIX}/auth/me/notification-prefs`,
+    tokens.manager,
+    { weeklyDigest: false },
+  );
+  assert.equal(mgrPrefsPatch.status, 200);
+  assert.equal(
+    (mgrPrefsPatch.body as { data: { weeklyDigest: boolean; customKeep: number } })
+      .data.weeklyDigest,
+    false,
+  );
+  assert.equal(
+    (mgrPrefsPatch.body as { data: { customKeep: number } }).data.customKeep,
+    42,
+  );
+
+  // Owner's prefs must be unaffected
+  const ownerPrefs = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/auth/me/notification-prefs`,
+    tokens.power_user,
+  );
+  assert.equal(ownerPrefs.status, 200);
+  assert.equal(
+    (ownerPrefs.body as { data: { weeklyDigest: boolean } }).data.weeklyDigest,
+    true,
+  );
+}
+
 
 

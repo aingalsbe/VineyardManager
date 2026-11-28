@@ -317,7 +317,7 @@ export function DashboardPage() {
   const dashboardActions = (
     <div className="flex flex-wrap items-center gap-2">
       {apiBadge}
-      {canOperate ? (
+      {canSetup ? (
         <Button asChild variant="outline" className="min-h-11">
           <Link to="/setup">Set up vineyard</Link>
         </Button>
@@ -375,15 +375,16 @@ export function DashboardPage() {
         <EmptyState
           title="No vineyard yet"
           action={
-            canOperate ? (
+            canSetup ? (
               <Button asChild>
                 <Link to="/setup">Set up vineyard</Link>
               </Button>
             ) : undefined
           }
         >
-          Add the property in Setup, then rows, tasks, and harvests will show
-          up here.
+          {canSetup
+            ? "Add the property in Setup, then rows, tasks, and harvests will show up here."
+            : "Ask a power user to set up the vineyard."}
         </EmptyState>
       </div>
     );

@@ -18,10 +18,14 @@ function formatDate(iso: string): string {
 export function HarvestCard({
   harvest,
   onEdit,
+  onDelete,
+  onRestore,
   varietyLookup,
 }: {
   harvest: Harvest;
   onEdit?: (harvest: Harvest) => void;
+  onDelete?: (harvest: Harvest) => void;
+  onRestore?: (harvest: Harvest) => void;
   varietyLookup?: RowVarietyLookup;
 }) {
   const rowText = harvest.row ? rowLabel(harvest.row, varietyLookup) : "Row";
@@ -29,11 +33,12 @@ export function HarvestCard({
     ? rowFullLabel(harvest.row, varietyLookup)
     : undefined;
   const isClosedSeason = harvest.seasonStatus === "closed";
+  const isDeleted = Boolean(harvest.deletedAt);
 
   return (
     <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+        <div className="min-w-0">
           <p className="text-sm font-medium text-primary" title={rowTitle}>
             {rowText}
           </p>
@@ -47,19 +52,49 @@ export function HarvestCard({
           {harvest.notes ? (
             <p className="mt-2 text-muted">{harvest.notes}</p>
           ) : null}
+          {isDeleted && harvest.deletedAt ? (
+            <p className="mt-1 text-xs text-muted">
+              Removed {formatDate(harvest.deletedAt)}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
           <Badge variant="muted">{harvest.yieldUnit}</Badge>
-          {!isClosedSeason && onEdit ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => onEdit(harvest)}
-            >
-              Edit
-            </Button>
+          {isDeleted ? (
+            !isClosedSeason && onRestore ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onRestore(harvest)}
+              >
+                Restore
+              </Button>
+            ) : null
+          ) : !isClosedSeason ? (
+            <>
+              {onEdit ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEdit(harvest)}
+                >
+                  Edit
+                </Button>
+              ) : null}
+              {onDelete ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDelete(harvest)}
+                >
+                  Delete
+                </Button>
+              ) : null}
+            </>
           ) : null}
         </div>
       </div>

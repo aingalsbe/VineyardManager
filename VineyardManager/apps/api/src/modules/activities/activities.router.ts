@@ -3,6 +3,7 @@ import {
   activityTypeSchema,
   createActivitySchema,
   listPaginationQuerySchema,
+  updateActivitySchema,
 } from "@vineyard/shared";
 import { Prisma } from "@prisma/client";
 import { Router, type Request } from "express";
@@ -12,7 +13,10 @@ import { serializeActivity } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { getAuthUser, requireOperate } from "../auth/auth.middleware.js";
 import { withSeasonWrite } from "../seasons/season-routing.js";
-import { assertSeasonWritable } from "../seasons/seasons.service.js";
+import {
+  assertSeasonWritable,
+  resolveSeasonFilter,
+} from "../seasons/seasons.service.js";
 
 export const vineyardActivitiesRouter = Router({ mergeParams: true });
 export const activitiesRouter = Router();
@@ -20,6 +24,7 @@ export const activitiesRouter = Router();
 const vineyardIdParam = z.string().uuid();
 const idParam = z.string().uuid();
 const rowFilter = z.string().uuid().optional();
+const deletedFilter = z.enum(["only"]).optional();
 
 const activityWithRow = {
   row: { select: { id: true, code: true, name: true, deletedAt: true } },
@@ -76,18 +81,28 @@ vineyardActivitiesRouter.get(
     const scopeType = req.query.scopeType
       ? activityScopeSchema.parse(req.query.scopeType)
       : undefined;
+    const deleted = req.query.deleted
+      ? deletedFilter.parse(req.query.deleted)
+      : undefined;
+    const seasonId = await resolveSeasonFilter(
+      prisma,
+      vineyardId,
+      req.query.seasonId,
+    );
     const { limit, offset } = listPaginationQuerySchema.parse(req.query);
 
     const activities = await prisma.activity.findMany({
       where: {
         vineyardId,
-        deletedAt: null,
+        deletedAt: deleted === "only" ? { not: null } : null,
         ...(rowId ? { rowId } : {}),
         ...(activityType ? { activityType } : {}),
         ...(scopeType ? { scopeType } : {}),
+        ...(seasonId ? { seasonId } : {}),
       },
       include: activityWithRow,
-      orderBy: { performedAt: "desc" },
+      orderBy:
+        deleted === "only" ? { deletedAt: "desc" } : { performedAt: "desc" },
       ...(limit !== undefined ? { take: limit } : {}),
       ...(offset !== undefined ? { skip: offset } : {}),
     });
@@ -194,6 +209,98 @@ activitiesRouter.get("/:id", async (req: Request<{ id: string }>, res) => {
   });
 });
 
+/**
+ * Edit an activity (F1, D-06). Operate roles only.
+ * Editable: activityType, performedAt, scopeType (row|vineyard), scopeId, details.
+ * `source` and `performedBy` are never changed. Refuses closed-season records (B1).
+ */
+activitiesRouter.patch(
+  "/:id",
+  requireOperate,
+  async (req: Request<{ id: string }>, res) => {
+    const id = idParam.parse(req.params.id);
+    const body = updateActivitySchema.parse(req.body);
+
+    const activity = await prisma.$transaction(async (tx) => {
+      const existing = await tx.activity.findFirst({
+        where: { id, deletedAt: null },
+        include: { season: { select: { status: true } } },
+      });
+      if (!existing) {
+        throw new HttpError(404, "NOT_FOUND", "Activity not found");
+      }
+      await assertSeasonWritable(tx, existing);
+
+      const data: Prisma.ActivityUpdateInput = {};
+      if (body.activityType !== undefined) {
+        data.activityType = body.activityType;
+      }
+      if (body.performedAt !== undefined) {
+        data.performedAt = parsePerformedAt(body.performedAt);
+      }
+      if (body.details !== undefined) {
+        data.details = body.details as Prisma.InputJsonValue;
+      }
+
+      if (body.scopeType !== undefined || body.scopeId !== undefined) {
+        const nextScopeType = body.scopeType ?? existing.scopeType;
+        if (nextScopeType === "vineyard") {
+          const targetScopeId = body.scopeId ?? existing.vineyardId;
+          if (targetScopeId !== existing.vineyardId) {
+            throw new HttpError(
+              400,
+              "VALIDATION_ERROR",
+              "Vineyard scope must use this vineyard",
+            );
+          }
+          data.scopeType = "vineyard";
+          data.scopeId = existing.vineyardId;
+          data.row = { disconnect: true };
+        } else if (nextScopeType === "row") {
+          const targetRowId = body.scopeId ?? existing.rowId;
+          if (!targetRowId) {
+            throw new HttpError(400, "VALIDATION_ERROR", "Select a row");
+          }
+          const row = await tx.row.findFirst({
+            where: { id: targetRowId, vineyardId: existing.vineyardId, deletedAt: null },
+            select: { id: true },
+          });
+          if (!row) {
+            throw new HttpError(
+              400,
+              "VALIDATION_ERROR",
+              "Row not found in this vineyard",
+            );
+          }
+          data.scopeType = "row";
+          data.scopeId = row.id;
+          data.row = { connect: { id: row.id } };
+        } else {
+          throw new HttpError(
+            400,
+            "VALIDATION_ERROR",
+            "Row or whole vineyard only for now",
+          );
+        }
+      }
+
+      return tx.activity.update({
+        where: { id },
+        data,
+        include: activityWithRow,
+      });
+    });
+
+    const names = await performerNamesById([activity.performedBy]);
+    res.json({
+      data: serializeActivity(
+        activity,
+        activity.performedBy ? (names.get(activity.performedBy) ?? null) : null,
+      ),
+    });
+  },
+);
+
 activitiesRouter.delete("/:id", requireOperate, async (req: Request<{ id: string }>, res) => {
   const id = idParam.parse(req.params.id);
   const activity = await prisma.$transaction(async (tx) => {
@@ -221,3 +328,35 @@ activitiesRouter.delete("/:id", requireOperate, async (req: Request<{ id: string
     ),
   });
 });
+
+activitiesRouter.post(
+  "/:id/restore",
+  requireOperate,
+  async (req: Request<{ id: string }>, res) => {
+    const id = idParam.parse(req.params.id);
+    const activity = await prisma.$transaction(async (tx) => {
+      const existing = await tx.activity.findFirst({
+        where: { id, deletedAt: { not: null } },
+        include: { season: { select: { status: true } } },
+      });
+      if (!existing) {
+        throw new HttpError(404, "NOT_FOUND", "Removed activity not found");
+      }
+      await assertSeasonWritable(tx, existing);
+
+      return tx.activity.update({
+        where: { id },
+        data: { deletedAt: null },
+        include: activityWithRow,
+      });
+    });
+
+    const names = await performerNamesById([activity.performedBy]);
+    res.json({
+      data: serializeActivity(
+        activity,
+        activity.performedBy ? (names.get(activity.performedBy) ?? null) : null,
+      ),
+    });
+  },
+);

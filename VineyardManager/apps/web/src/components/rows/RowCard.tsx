@@ -20,6 +20,7 @@ export function RowCard({
   onEdit,
   onRecordHarvest,
   onDelete,
+  onRestore,
   health,
   highlighted = false,
 }: {
@@ -28,34 +29,41 @@ export function RowCard({
   onRecordHarvest?: (row: Row) => void;
   /** Caller confirms before deleting. Omit for viewers. */
   onDelete?: (row: Row) => void;
+  onRestore?: (row: Row) => void;
   health?: { color: HealthColor; reason?: string } | null;
   highlighted?: boolean;
 }) {
+  const isDeleted = Boolean(row.deletedAt);
+  const displayCode =
+    row.preDeleteCode || row.code.replace(/__old_[0-9a-f]{8}$/i, "") || row.code;
+
   // Secondary/write actions live in the ⋯ menu so the header never
   // overflows at 390px. Viewers get no handlers, so no menu.
-  const menuItems: OverflowMenuItem[] = [
-    ...(onEdit
-      ? [
-          {
-            key: "edit",
-            label: "Edit row",
-            icon: <Pencil className="size-4" aria-hidden />,
-            onSelect: () => onEdit(row),
-          },
-        ]
-      : []),
-    ...(onDelete
-      ? [
-          {
-            key: "delete",
-            label: "Delete row",
-            icon: <Trash2 className="size-4" aria-hidden />,
-            destructive: true,
-            onSelect: () => onDelete(row),
-          },
-        ]
-      : []),
-  ];
+  const menuItems: OverflowMenuItem[] = isDeleted
+    ? []
+    : [
+        ...(onEdit
+          ? [
+              {
+                key: "edit",
+                label: "Edit row",
+                icon: <Pencil className="size-4" aria-hidden />,
+                onSelect: () => onEdit(row),
+              },
+            ]
+          : []),
+        ...(onDelete
+          ? [
+              {
+                key: "delete",
+                label: "Delete row",
+                icon: <Trash2 className="size-4" aria-hidden />,
+                destructive: true,
+                onSelect: () => onDelete(row),
+              },
+            ]
+          : []),
+      ];
 
   return (
     <Card className={cn("min-w-0", highlighted && "ring-2 ring-primary")}>
@@ -64,7 +72,7 @@ export function RowCard({
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-start sm:gap-3">
         <div className="min-w-0 sm:flex-1">
           <CardTitle className="[overflow-wrap:anywhere]" title={rowFullLabel(row)}>
-            {rowLabel(row)}
+            {isDeleted ? `${displayCode} ${row.variety}`.trim() : rowLabel(row)}
           </CardTitle>
           <CardDescription className="[overflow-wrap:anywhere]">
             {row.name}
@@ -114,7 +122,18 @@ export function RowCard({
       {row.notes ? (
         <p className="mt-4 text-sm [overflow-wrap:anywhere] text-muted">{row.notes}</p>
       ) : null}
-      {onRecordHarvest ? (
+      {isDeleted && onRestore ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full sm:w-auto"
+            onClick={() => onRestore(row)}
+          >
+            Restore row
+          </Button>
+        </div>
+      ) : !isDeleted && onRecordHarvest ? (
         <div className="mt-4 border-t border-border pt-4">
           <Button
             type="button"

@@ -25,6 +25,7 @@ export function TaskCard({
   onEdit,
   onStatusChange,
   onDelete,
+  onRestore,
   varietyLookup,
 }: {
   task: ScheduledTask;
@@ -32,6 +33,7 @@ export function TaskCard({
   onStatusChange?: (task: ScheduledTask, status: TaskStatus) => void;
   /** Caller confirms before deleting. Omit for viewers. */
   onDelete?: (task: ScheduledTask) => void;
+  onRestore?: (task: ScheduledTask) => void;
   varietyLookup?: RowVarietyLookup;
 }) {
   const rowText = task.row ? rowLabel(task.row, varietyLookup) : "Whole vineyard";
@@ -39,6 +41,7 @@ export function TaskCard({
     ? rowFullLabel(task.row, varietyLookup)
     : undefined;
   const isClosedSeason = task.seasonStatus === "closed";
+  const isDeleted = Boolean(task.deletedAt);
 
   return (
     <article className="min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -53,6 +56,11 @@ export function TaskCard({
           {task.body ? (
             <p className="mt-1 [overflow-wrap:anywhere] text-muted">{task.body}</p>
           ) : null}
+          {isDeleted && task.deletedAt ? (
+            <p className="mt-1 text-xs text-muted">
+              Removed {formatDue(task.deletedAt)}
+            </p>
+          ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
@@ -66,7 +74,18 @@ export function TaskCard({
           <span className="text-muted">Due </span>
           <span className="font-medium">{formatDue(task.dueAt)}</span>
         </p>
-        {!isClosedSeason && (onEdit || onStatusChange || onDelete) ? (
+        {isDeleted ? (
+          !isClosedSeason && onRestore ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onRestore(task)}
+            >
+              Restore
+            </Button>
+          ) : null
+        ) : !isClosedSeason && (onEdit || onStatusChange || onDelete) ? (
         <div className="flex flex-wrap gap-2">
           {onStatusChange && task.status !== "acknowledged" ? (
             <Button

@@ -9,10 +9,13 @@ import { RowDeleteDialog } from "@/components/rows/RowDeleteDialog";
 import { RowFormDialog } from "@/components/rows/RowFormDialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
-import type { DeleteRowResult } from "@/lib/api";
+import { ApiError, restoreRow, type DeleteRowResult } from "@/lib/api";
 import { pluralize } from "@/lib/pluralize";
 import { rowLabel } from "@/lib/rowLabel";
 
@@ -21,7 +24,7 @@ function rowDeletedNotice(result: DeleteRowResult, label: string): string {
   const parts = [
     result.mode === "hard"
       ? `Deleted ${label}.`
-      : `Removed ${label}. Its history is kept, and past records show it as “Removed row”.`,
+      : `Removed ${label}. Its history is kept, and you can restore it from Recently removed.`,
   ];
   if (result.dismissedTaskCount > 0) {
     parts.push(`Dismissed ${pluralize(result.dismissedTaskCount, "open task")}.`);
@@ -35,8 +38,11 @@ function rowDeletedNotice(result: DeleteRowResult, label: string): string {
 }
 
 export function RowsPage() {
-  const { canOperate } = useRoleAccess();
-  const { state, reload } = useVineyardRows();
+  const { canOperate, canSetup } = useRoleAccess();
+  const [showRemoved, setShowRemoved] = useState(false);
+  const { state, reload } = useVineyardRows({
+    deleted: showRemoved ? "only" : undefined,
+  });
   const health = useVineyardHealth();
   const [searchParams] = useSearchParams();
   const highlightedCode = searchParams.get("row");
@@ -49,6 +55,10 @@ export function RowsPage() {
   } | null>(null);
 
   const [deleting, setDeleting] = useState<Row | null>(null);
+  const [renamingRow, setRenamingRow] = useState<Row | null>(null);
+  const [newCode, setNewCode] = useState("");
+  const [restoreBusy, setRestoreBusy] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   // Soft vs hard wording comes from the API (delete-preview in the dialog,
@@ -58,6 +68,65 @@ export function RowsPage() {
     setRowNotice({ tone: "ok", text: rowDeletedNotice(result, label) });
     await reload({ silent: true });
     void health.reload({ silent: true });
+  };
+
+  const handleRestore = async (row: Row) => {
+    if (state.status !== "ready") return;
+    setRowNotice(null);
+    try {
+      const restored = await restoreRow(state.vineyard.id, row.id);
+      setRowNotice({
+        tone: "ok",
+        text: `Restored ${rowLabel(restored)}. It is unplaced on the map — place it in Setup if needed.`,
+      });
+      await reload({ silent: true });
+      void health.reload({ silent: true });
+    } catch (error) {
+      if (error instanceof ApiError && error.code === "ROW_CODE_TAKEN") {
+        const base =
+          row.preDeleteCode ||
+          row.code.replace(/__old_[0-9a-f]{8}$/i, "") ||
+          "";
+        setRenamingRow(row);
+        setNewCode(base ? `${base}-2` : "");
+        setRestoreError(error.message);
+        return;
+      }
+      setRowNotice({
+        tone: "error",
+        text:
+          error instanceof ApiError
+            ? error.message
+            : "Could not restore the row.",
+      });
+    }
+  };
+
+  const confirmRestoreWithCode = async () => {
+    if (state.status !== "ready" || !renamingRow) return;
+    const trimmed = newCode.trim();
+    if (!trimmed) {
+      setRestoreError("Enter a new row code.");
+      return;
+    }
+    setRestoreBusy(true);
+    setRestoreError(null);
+    try {
+      const restored = await restoreRow(state.vineyard.id, renamingRow.id, trimmed);
+      setRestoreBusy(false);
+      setRenamingRow(null);
+      setRowNotice({
+        tone: "ok",
+        text: `Restored ${rowLabel(restored)}. It is unplaced on the map — place it in Setup if needed.`,
+      });
+      await reload({ silent: true });
+      void health.reload({ silent: true });
+    } catch (error) {
+      setRestoreBusy(false);
+      setRestoreError(
+        error instanceof ApiError ? error.message : "Could not restore the row.",
+      );
+    }
   };
 
   const openCreate = () => {
@@ -73,11 +142,11 @@ export function RowsPage() {
   const vineyardReady = state.status === "ready";
 
   useEffect(() => {
-    if (!highlightedCode || !vineyardReady) return;
+    if (!highlightedCode || !vineyardReady || showRemoved) return;
     document
       .getElementById(`row-${highlightedCode}`)
       ?.scrollIntoView({ block: "center", behavior: "smooth" });
-  }, [highlightedCode, vineyardReady]);
+  }, [highlightedCode, vineyardReady, showRemoved]);
 
   return (
     <div className="mx-auto max-w-5xl">
@@ -91,9 +160,23 @@ export function RowsPage() {
         }
         actions={
           vineyardReady && canOperate ? (
-            <Button type="button" onClick={openCreate}>
-              New row
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant={showRemoved ? "default" : "outline"}
+                onClick={() => {
+                  setRowNotice(null);
+                  setShowRemoved((v) => !v);
+                }}
+              >
+                {showRemoved ? "Viewing recently removed" : "Recently removed"}
+              </Button>
+              {!showRemoved ? (
+                <Button type="button" onClick={openCreate}>
+                  New row
+                </Button>
+              ) : null}
+            </div>
           ) : null
         }
       />
@@ -125,29 +208,39 @@ export function RowsPage() {
         <EmptyState
           title="No vineyard yet"
           action={
-            <Button asChild variant="outline">
-              <Link to="/setup">Go to setup</Link>
-            </Button>
+            canSetup ? (
+              <Button asChild variant="outline">
+                <Link to="/setup">Go to setup</Link>
+              </Button>
+            ) : undefined
           }
         >
-          Create a vineyard, then run{" "}
-          <code className="text-foreground">pnpm db:seed</code> to load sample
-          rows.
+          {canSetup ? (
+            <>
+              Create a vineyard, then run{" "}
+              <code className="text-foreground">pnpm db:seed</code> to load sample
+              rows.
+            </>
+          ) : (
+            "Ask a power user to set up the vineyard."
+          )}
         </EmptyState>
       ) : null}
 
       {vineyardReady && state.rows.length === 0 ? (
         <EmptyState
-          title="No rows yet"
+          title={showRemoved ? "No recently removed rows" : "No rows yet"}
           action={
-            canOperate ? (
+            !showRemoved && canOperate ? (
               <Button type="button" onClick={openCreate}>
                 New row
               </Button>
             ) : undefined
           }
         >
-          {state.vineyard.name} has no rows yet. Add the first one.
+          {showRemoved
+            ? "Rows removed with history appear here and can be restored."
+            : `${state.vineyard.name} has no rows yet. Add the first one.`}
         </EmptyState>
       ) : null}
 
@@ -168,7 +261,7 @@ export function RowsPage() {
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {state.rows.map((row) => {
             const rowHealth =
-              health.state.status === "ready"
+              !showRemoved && health.state.status === "ready"
                 ? health.state.health.rows.find(
                     (item) => item.rowId === row.id,
                   )
@@ -177,14 +270,21 @@ export function RowsPage() {
               <li key={row.id} id={`row-${row.code}`}>
                 <RowCard
                   row={row}
-                  onEdit={canOperate ? openEdit : undefined}
-                  onRecordHarvest={canOperate ? setHarvestRow : undefined}
+                  onEdit={canOperate && !showRemoved ? openEdit : undefined}
+                  onRecordHarvest={
+                    canOperate && !showRemoved ? setHarvestRow : undefined
+                  }
                   onDelete={
-                    canOperate
+                    canOperate && !showRemoved
                       ? (item) => {
                           setRowNotice(null);
                           setDeleting(item);
                         }
+                      : undefined
+                  }
+                  onRestore={
+                    canOperate && showRemoved
+                      ? (item) => void handleRestore(item)
                       : undefined
                   }
                   health={
@@ -195,7 +295,7 @@ export function RowsPage() {
                         }
                       : null
                   }
-                  highlighted={highlightedCode === row.code}
+                  highlighted={!showRemoved && highlightedCode === row.code}
                 />
               </li>
             );
@@ -237,6 +337,37 @@ export function RowsPage() {
             onClose={() => setHarvestRow(null)}
             onSaved={() => reload({ silent: true })}
           />
+          <ConfirmDialog
+            open={renamingRow !== null}
+            onClose={() => {
+              if (!restoreBusy) setRenamingRow(null);
+            }}
+            title="Choose a new row code"
+            busy={restoreBusy}
+            error={restoreError}
+            description="Another active row is already using that code. Pick a different code to restore this row."
+            actions={
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                disabled={restoreBusy}
+                onClick={() => void confirmRestoreWithCode()}
+              >
+                {restoreBusy ? "Restoring…" : "Restore row"}
+              </Button>
+            }
+          >
+            <div>
+              <Label htmlFor="restore-row-code">New row code</Label>
+              <Input
+                id="restore-row-code"
+                value={newCode}
+                onChange={(event) => setNewCode(event.target.value)}
+                placeholder="e.g. L1-2"
+                disabled={restoreBusy}
+              />
+            </div>
+          </ConfirmDialog>
         </>
       ) : null}
     </div>

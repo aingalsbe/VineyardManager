@@ -305,28 +305,58 @@ export const updateTaskSchema = createTaskSchema.partial();
 
 const MAX_ACTIVITY_DETAILS_BYTES = 8192;
 
+const activityDetailsSchema = z
+  .record(z.unknown())
+  .refine(
+    (value) => {
+      try {
+        return JSON.stringify(value).length <= MAX_ACTIVITY_DETAILS_BYTES;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Activity details are too large" },
+  );
+
 export const createActivitySchema = z.object({
   scopeType: activityScopeSchema,
   scopeId: z.string().uuid(),
   activityType: activityTypeSchema,
   performedAt: z.string().optional(),
-  details: z
-    .record(z.unknown())
-    .default({})
-    .refine(
-      (value) => {
-        try {
-          return JSON.stringify(value).length <= MAX_ACTIVITY_DETAILS_BYTES;
-        } catch {
-          return false;
-        }
-      },
-      { message: "Activity details are too large" },
-    ),
+  details: activityDetailsSchema.default({}),
   source: activitySourceSchema.default("manual"),
 });
 
-export const updateActivitySchema = createActivitySchema.partial();
+/**
+ * Editable work-log fields (F1, D-06). `source` and `performedBy` are not editable.
+ */
+export const updateActivitySchema = z
+  .object({
+    scopeType: z.enum(["vineyard", "row"]).optional(),
+    scopeId: z.string().uuid().optional(),
+    activityType: activityTypeSchema.optional(),
+    performedAt: z.string().min(1, "Enter a valid date").optional(),
+    details: activityDetailsSchema.optional(),
+  })
+  .refine(
+    (value) =>
+      value.scopeType !== undefined ||
+      value.scopeId !== undefined ||
+      value.activityType !== undefined ||
+      value.performedAt !== undefined ||
+      value.details !== undefined,
+    { message: "Enter at least one field" },
+  );
+
+export const restoreRowSchema = z.object({
+  code: z
+    .string()
+    .trim()
+    .min(1, "Enter a row code")
+    .max(32)
+    .transform((value) => value.toUpperCase())
+    .optional(),
+});
 
 export const wateringDetailsSchema = z.object({
   durationMin: z.number().positive().optional(),
@@ -473,6 +503,60 @@ export function wantsWeeklyDigest(prefs: unknown): boolean {
     return raw.emailEnabled !== false && raw.weeklyDigest !== false;
   }
   return parsed.data.emailEnabled && parsed.data.weeklyDigest;
+}
+
+export const updateNotificationPrefsSchema = z
+  .object({
+    emailEnabled: z.boolean().optional(),
+    weeklyDigest: z.boolean().optional(),
+    pushEnabled: z.boolean().optional(),
+    frequency: z.enum(["weekly", "as_needed", "daily"]).optional(),
+  })
+  .refine(
+    (value) =>
+      value.emailEnabled !== undefined ||
+      value.weeklyDigest !== undefined ||
+      value.pushEnabled !== undefined ||
+      value.frequency !== undefined,
+    { message: "Enter at least one notification preference" },
+  );
+
+export type NotificationPrefsPatch = z.infer<typeof updateNotificationPrefsSchema>;
+
+/**
+ * Merge a validated notification-prefs patch into existing JSON while preserving
+ * all unknown keys and applying defaults for missing standard keys (F5).
+ */
+export function mergeNotificationPrefs(
+  existing: unknown,
+  patch: NotificationPrefsPatch,
+): Record<string, unknown> & {
+  emailEnabled: boolean;
+  weeklyDigest: boolean;
+  pushEnabled: boolean;
+  frequency: "weekly" | "as_needed" | "daily";
+} {
+  const baseObj =
+    existing && typeof existing === "object" && !Array.isArray(existing)
+      ? { ...(existing as Record<string, unknown>) }
+      : {};
+  const normalized = notificationPrefsSchema.safeParse(baseObj);
+  const defaults = normalized.success
+    ? normalized.data
+    : {
+        emailEnabled: baseObj.emailEnabled !== false,
+        weeklyDigest: baseObj.weeklyDigest !== false,
+        pushEnabled: baseObj.pushEnabled !== false,
+        frequency: "weekly" as const,
+      };
+  return {
+    ...baseObj,
+    ...defaults,
+    ...(patch.emailEnabled !== undefined ? { emailEnabled: patch.emailEnabled } : {}),
+    ...(patch.weeklyDigest !== undefined ? { weeklyDigest: patch.weeklyDigest } : {}),
+    ...(patch.pushEnabled !== undefined ? { pushEnabled: patch.pushEnabled } : {}),
+    ...(patch.frequency !== undefined ? { frequency: patch.frequency } : {}),
+  };
 }
 
 export const apiErrorSchema = z.object({

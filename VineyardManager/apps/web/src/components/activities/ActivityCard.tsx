@@ -1,5 +1,6 @@
 import { ACTIVITY_TYPE_LABELS, type Activity } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   rowFullLabel,
   rowLabel,
@@ -24,22 +25,28 @@ function notesExcerpt(details: Activity["details"]): string | null {
 export function ActivityCard({
   activity,
   varietyLookup,
+  onEdit,
+  onDelete,
+  onRestore,
 }: {
   activity: Activity;
   varietyLookup?: RowVarietyLookup;
+  onEdit?: (activity: Activity) => void;
+  onDelete?: (activity: Activity) => void;
+  onRestore?: (activity: Activity) => void;
 }) {
   const scopeLabel =
     activity.scopeType === "row" && activity.row
       ? rowLabel(activity.row, varietyLookup)
       : "Whole vineyard";
   const notes = notesExcerpt(activity.details);
-
   const isClosedSeason = activity.seasonStatus === "closed";
+  const isDeleted = Boolean(activity.deletedAt);
 
   return (
     <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <p
             className="text-sm font-medium text-primary"
             title={
@@ -59,12 +66,52 @@ export function ActivityCard({
               Logged by {activity.performedByDisplayName}
             </p>
           ) : null}
+          {isDeleted && activity.deletedAt ? (
+            <p className="mt-1 text-xs text-muted">
+              Removed {formatDate(activity.deletedAt)}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
           <Badge variant="muted">{formatDate(activity.performedAt)}</Badge>
           {activity.activityType === "harvest" ? (
             <Badge variant="yellow">Note only</Badge>
+          ) : null}
+          {isDeleted ? (
+            !isClosedSeason && onRestore ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => onRestore(activity)}
+              >
+                Restore
+              </Button>
+            ) : null
+          ) : !isClosedSeason ? (
+            <>
+              {onEdit ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEdit(activity)}
+                >
+                  Edit
+                </Button>
+              ) : null}
+              {onDelete ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDelete(activity)}
+                >
+                  Delete
+                </Button>
+              ) : null}
+            </>
           ) : null}
         </div>
       </div>

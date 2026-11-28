@@ -11,12 +11,17 @@ import { serializeHarvest } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate } from "../auth/auth.middleware.js";
 import { withSeasonWrite } from "../seasons/season-routing.js";
-import { assertSeasonWritable } from "../seasons/seasons.service.js";
+import {
+  assertSeasonWritable,
+  resolveSeasonFilter,
+} from "../seasons/seasons.service.js";
 
 export const harvestsRouter = Router();
 
 const idParam = z.string().uuid();
 const rowFilter = z.string().uuid().optional();
+const vineyardFilter = z.string().uuid().optional();
+const deletedFilter = z.enum(["only"]).optional();
 
 const harvestWithRow = {
   row: { select: { id: true, code: true, name: true, deletedAt: true } },
@@ -46,15 +51,27 @@ async function requireRow(rowId: string) {
 
 harvestsRouter.get("/", async (req, res) => {
   const rowId = rowFilter.parse(req.query.rowId);
+  const vineyardId = vineyardFilter.parse(req.query.vineyardId);
+  const deleted = req.query.deleted
+    ? deletedFilter.parse(req.query.deleted)
+    : undefined;
+  const seasonId = await resolveSeasonFilter(
+    prisma,
+    vineyardId ?? null,
+    req.query.seasonId,
+  );
   const { limit, offset } = listPaginationQuerySchema.parse(req.query);
 
   const harvests = await prisma.harvest.findMany({
     where: {
-      deletedAt: null,
+      deletedAt: deleted === "only" ? { not: null } : null,
+      ...(vineyardId ? { vineyardId } : {}),
       ...(rowId ? { rowId } : {}),
+      ...(seasonId ? { seasonId } : {}),
     },
     include: harvestWithRow,
-    orderBy: { harvestedAt: "desc" },
+    orderBy:
+      deleted === "only" ? { deletedAt: "desc" } : { harvestedAt: "desc" },
     ...(limit !== undefined ? { take: limit } : {}),
     ...(offset !== undefined ? { skip: offset } : {}),
   });
@@ -170,3 +187,29 @@ harvestsRouter.delete("/:id", requireOperate, async (req: Request<{ id: string }
 
   res.json({ data: serializeHarvest(harvest) });
 });
+
+harvestsRouter.post(
+  "/:id/restore",
+  requireOperate,
+  async (req: Request<{ id: string }>, res) => {
+    const id = idParam.parse(req.params.id);
+    const harvest = await prisma.$transaction(async (tx) => {
+      const existing = await tx.harvest.findFirst({
+        where: { id, deletedAt: { not: null } },
+        include: { season: { select: { status: true } } },
+      });
+      if (!existing) {
+        throw new HttpError(404, "NOT_FOUND", "Removed harvest not found");
+      }
+      await assertSeasonWritable(tx, existing);
+
+      return tx.harvest.update({
+        where: { id },
+        data: { deletedAt: null },
+        include: harvestWithRow,
+      });
+    });
+
+    res.json({ data: serializeHarvest(harvest) });
+  },
+);

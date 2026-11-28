@@ -10,7 +10,8 @@ export type VineyardRowsState =
   | { status: "empty-vineyard" }
   | { status: "ready"; vineyard: Vineyard; rows: Row[] };
 
-export function useVineyardRows() {
+export function useVineyardRows(hookOptions?: { deleted?: "only" }) {
+  const deleted = hookOptions?.deleted;
   const { vineyard, vineyardStatus, vineyardError, reloadVineyard } =
     useOutletContext<AppOutletContext>();
   const [state, setState] = useState<VineyardRowsState>({
@@ -44,7 +45,9 @@ export function useVineyardRows() {
         setState({ status: "loading" });
       }
       try {
-        const rows = await listRows(vineyard.id, controller.signal);
+        const rows = await listRows(vineyard.id, controller.signal, {
+          ...(deleted ? { deleted } : {}),
+        });
         if (controller.signal.aborted) return;
         setState({ status: "ready", vineyard, rows });
       } catch (error) {
@@ -56,7 +59,7 @@ export function useVineyardRows() {
         setState({ status: "error", message });
       }
     },
-    [vineyard, vineyardStatus, vineyardError],
+    [vineyard, vineyardStatus, vineyardError, deleted],
   );
 
   useEffect(() => {

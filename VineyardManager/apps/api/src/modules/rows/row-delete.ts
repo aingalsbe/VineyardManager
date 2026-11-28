@@ -100,3 +100,25 @@ export async function planRowDelete(
     message: rowDeleteMessage(row.code, mode, counts),
   };
 }
+
+/**
+ * Determine the code to restore for a soft-deleted row (F4, D-03):
+ * uses preDeleteCode if recorded, else strips `__old_<id8>` suffix.
+ */
+export function deriveRestoreRowCode(row: {
+  id: string;
+  code: string;
+  preDeleteCode?: string | null;
+}): string {
+  if (row.preDeleteCode && row.preDeleteCode.trim().length > 0) {
+    return row.preDeleteCode.trim().toUpperCase();
+  }
+  const exactSuffix = `__old_${row.id.slice(0, 8)}`;
+  if (row.code.toLowerCase().endsWith(exactSuffix.toLowerCase())) {
+    const stripped = row.code.slice(0, -exactSuffix.length).trim();
+    if (stripped.length > 0) return stripped.toUpperCase();
+  }
+  const generic = row.code.replace(/__old_[0-9a-f]{8}$/i, "").trim();
+  return (generic || row.code).toUpperCase();
+}
+

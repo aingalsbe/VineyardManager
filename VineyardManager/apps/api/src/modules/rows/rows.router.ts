@@ -1,8 +1,10 @@
 import { Prisma } from "@prisma/client";
 import {
   ROW_DELETE_DISMISSED_TASK_STATUS,
+  SEASON_ERROR_CODES,
   createRowSchema,
   deleteRowOptionsSchema,
+  restoreRowSchema,
   rowLayoutSchema,
   updateRowSchema,
   type RowDeleteOpenTasksAction,
@@ -16,12 +18,13 @@ import { serializeRow } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate } from "../auth/auth.middleware.js";
 import { assertSeasonWritable } from "../seasons/seasons.service.js";
-import { openTaskWhere, planRowDelete } from "./row-delete.js";
+import { deriveRestoreRowCode, openTaskWhere, planRowDelete } from "./row-delete.js";
 
 export const rowsRouter = Router({ mergeParams: true });
 
 const vineyardIdParam = z.string().uuid();
 const rowIdParam = z.string().uuid();
+const deletedFilter = z.enum(["only"]).optional();
 
 async function requireVineyard(vineyardId: string) {
   const vineyard = await prisma.vineyard.findFirst({
@@ -51,10 +54,16 @@ function rethrowUnique(error: unknown): never {
 rowsRouter.get("/", async (req: Request<{ vineyardId: string }>, res) => {
   const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
   await requireVineyard(vineyardId);
+  const deleted = req.query.deleted
+    ? deletedFilter.parse(req.query.deleted)
+    : undefined;
 
   const rows = await prisma.row.findMany({
-    where: { vineyardId, deletedAt: null },
-    orderBy: { code: "asc" },
+    where: {
+      vineyardId,
+      deletedAt: deleted === "only" ? { not: null } : null,
+    },
+    orderBy: deleted === "only" ? { deletedAt: "desc" } : { code: "asc" },
   });
 
   res.json({ data: rows.map(serializeRow) });
@@ -278,6 +287,8 @@ rowsRouter.delete(
       const row = await tx.row.update({
         where: { id: rowId },
         data: {
+          preDeleteCode: existing.code,
+          preDeleteStatus: existing.status,
           code: `${existing.code}__old_${existing.id.slice(0, 8)}`,
           status: "retired",
           deletedAt: new Date(),
@@ -287,5 +298,72 @@ rowsRouter.delete(
     });
 
     res.json({ data: result });
+  },
+);
+
+/**
+ * Restore a soft-deleted row (F4, D-03, D-04). Operate roles only.
+ * Restores preDeleteCode (or strips __old_<id8>), or uses body.code if provided.
+ * If the target code is already in use -> 409 ROW_CODE_TAKEN.
+ * Comes back unplaced on the map; tasks dismissed by the delete stay dismissed.
+ */
+rowsRouter.post(
+  "/:rowId/restore",
+  requireOperate,
+  async (req: Request<{ vineyardId: string; rowId: string }>, res) => {
+    const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
+    const rowId = rowIdParam.parse(req.params.rowId);
+    await requireVineyard(vineyardId);
+    const body = restoreRowSchema.parse(req.body ?? {});
+
+    const existing = await prisma.row.findFirst({
+      where: { id: rowId, vineyardId, deletedAt: { not: null } },
+    });
+    if (!existing) {
+      throw new HttpError(404, "NOT_FOUND", "Removed row not found");
+    }
+
+    const targetCode = body.code ?? deriveRestoreRowCode(existing);
+    const conflict = await prisma.row.findFirst({
+      where: {
+        vineyardId,
+        code: targetCode,
+        id: { not: rowId },
+      },
+      select: { id: true },
+    });
+    if (conflict) {
+      throw new HttpError(
+        409,
+        SEASON_ERROR_CODES.ROW_CODE_TAKEN,
+        `Row code ${targetCode} is already in use. Choose a new code to restore this row.`,
+      );
+    }
+
+    try {
+      const restored = await prisma.row.update({
+        where: { id: rowId },
+        data: {
+          code: targetCode,
+          status: existing.preDeleteStatus ?? "active",
+          preDeleteCode: null,
+          preDeleteStatus: null,
+          deletedAt: null,
+        },
+      });
+      res.json({ data: serializeRow(restored) });
+    } catch (error) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === "P2002"
+      ) {
+        throw new HttpError(
+          409,
+          SEASON_ERROR_CODES.ROW_CODE_TAKEN,
+          `Row code ${targetCode} is already in use. Choose a new code to restore this row.`,
+        );
+      }
+      throw error;
+    }
   },
 );

@@ -182,6 +182,44 @@ export async function getSeasonDetail(
   return serializeSeason(season, { includeSummary: true });
 }
 
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Resolve optional `?seasonId=` query param for list/metrics routes (G3).
+ * - omitted / "" / "all" -> undefined (no filter)
+ * - "current" -> active season, else planned season, else latest closed season, else undefined
+ * - "<uuid>" -> that season id
+ */
+export async function resolveSeasonFilter(
+  db: DbClient,
+  vineyardId: string | null,
+  rawSeasonId: unknown,
+): Promise<string | undefined> {
+  if (typeof rawSeasonId !== "string") return undefined;
+  const trimmed = rawSeasonId.trim();
+  if (!trimmed || trimmed === "all") return undefined;
+  if (trimmed === "current") {
+    const where = vineyardId ? { vineyardId } : {};
+    const seasons = await db.season.findMany({
+      where,
+      select: { id: true, status: true, year: true },
+      orderBy: [{ year: "desc" }],
+    });
+    const active = seasons.find((s) => s.status === "active");
+    if (active) return active.id;
+    const planned = seasons.find((s) => s.status === "planned");
+    if (planned) return planned.id;
+    const closed = seasons.find((s) => s.status === "closed");
+    if (closed) return closed.id;
+    return undefined;
+  }
+  if (!uuidRegex.test(trimmed)) {
+    throw new HttpError(400, "VALIDATION_ERROR", "Invalid seasonId filter");
+  }
+  return trimmed;
+}
+
 function parseVarietyCatalog(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter(

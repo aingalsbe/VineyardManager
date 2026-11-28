@@ -17,6 +17,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardMetrics } from "@/hooks/useVineyardMetrics";
 import { healthSwatch } from "@/lib/health";
 import {
@@ -69,6 +70,7 @@ function harvestDelta(current: number, prior: number): string | null {
 }
 
 export function MetricsPage() {
+  const { canSetup } = useRoleAccess();
   const [period, setPeriod] = useState<MetricsPeriod>("year");
   const [scope, setScope] = useState<MetricsScope>("vineyard");
   const [rowId, setRowId] = useState<string>("");
@@ -147,12 +149,16 @@ export function MetricsPage() {
         <EmptyState
           title="No vineyard yet"
           action={
-            <Button asChild>
-              <Link to="/setup">Set up vineyard</Link>
-            </Button>
+            canSetup ? (
+              <Button asChild>
+                <Link to="/setup">Set up vineyard</Link>
+              </Button>
+            ) : undefined
           }
         >
-          Add the property in Setup, then harvests and work will show up here.
+          {canSetup
+            ? "Add the property in Setup, then harvests and work will show up here."
+            : "Ask a power user to set up the vineyard."}
         </EmptyState>
       ) : null}
 

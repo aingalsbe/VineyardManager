@@ -162,8 +162,8 @@ export function RowDeleteDialog({
       {preview ? (
         preview.mode === "soft" ? (
           <p className="mt-1">
-            Its history is kept, and past records show this row as
-            “Removed row”.
+            Its history is kept, and past records show this row as “Removed
+            row”. You can restore it later from “Recently removed”.
           </p>
         ) : (
           <p className="mt-1">

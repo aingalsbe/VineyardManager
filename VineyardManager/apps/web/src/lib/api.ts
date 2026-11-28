@@ -362,10 +362,29 @@ export async function getVineyardMetrics(
 export async function listRows(
   vineyardId: string,
   signal?: AbortSignal,
+  options?: { deleted?: "only" },
 ): Promise<Row[]> {
+  const params = new URLSearchParams();
+  if (options?.deleted) params.set("deleted", options.deleted);
+  const query = params.toString();
   const body = await apiJson<ListResponse<Row>>(
-    `/vineyards/${vineyardId}/rows`,
+    `/vineyards/${vineyardId}/rows${query ? `?${query}` : ""}`,
     { signal },
+  );
+  return body.data;
+}
+
+export async function restoreRow(
+  vineyardId: string,
+  rowId: string,
+  code?: string,
+): Promise<Row> {
+  const body = await apiJson<{ data: Row }>(
+    `/vineyards/${vineyardId}/rows/${rowId}/restore`,
+    {
+      method: "POST",
+      body: JSON.stringify(code ? { code } : {}),
+    },
   );
   return body.data;
 }
@@ -467,9 +486,14 @@ export type TaskWritePayload = {
 export async function listTasks(
   vineyardId: string,
   signal?: AbortSignal,
+  options?: { deleted?: "only"; seasonId?: string },
 ): Promise<ScheduledTask[]> {
+  const params = new URLSearchParams();
+  if (options?.deleted) params.set("deleted", options.deleted);
+  if (options?.seasonId) params.set("seasonId", options.seasonId);
+  const query = params.toString();
   const body = await apiJson<ListResponse<ScheduledTask>>(
-    `/vineyards/${vineyardId}/tasks`,
+    `/vineyards/${vineyardId}/tasks${query ? `?${query}` : ""}`,
     { signal },
   );
   return body.data;
@@ -514,6 +538,17 @@ export async function deleteTask(
   );
 }
 
+export async function restoreTask(
+  vineyardId: string,
+  taskId: string,
+): Promise<ScheduledTask> {
+  const body = await apiJson<{ data: ScheduledTask }>(
+    `/vineyards/${vineyardId}/tasks/${taskId}/restore`,
+    { method: "POST" },
+  );
+  return body.data;
+}
+
 export type HarvestWritePayload = {
   rowId: string;
   harvestedAt: string;
@@ -526,11 +561,18 @@ export type HarvestWritePayload = {
 export async function listHarvests(
   rowId?: string,
   signal?: AbortSignal,
+  options?: { deleted?: "only"; seasonId?: string; vineyardId?: string },
 ): Promise<Harvest[]> {
-  const query = rowId ? `?rowId=${encodeURIComponent(rowId)}` : "";
-  const body = await apiJson<ListResponse<Harvest>>(`/harvests${query}`, {
-    signal,
-  });
+  const params = new URLSearchParams();
+  if (rowId) params.set("rowId", rowId);
+  if (options?.deleted) params.set("deleted", options.deleted);
+  if (options?.seasonId) params.set("seasonId", options.seasonId);
+  if (options?.vineyardId) params.set("vineyardId", options.vineyardId);
+  const query = params.toString();
+  const body = await apiJson<ListResponse<Harvest>>(
+    `/harvests${query ? `?${query}` : ""}`,
+    { signal },
+  );
   return body.data;
 }
 
@@ -561,6 +603,14 @@ export async function deleteHarvest(harvestId: string): Promise<void> {
   });
 }
 
+export async function restoreHarvest(harvestId: string): Promise<Harvest> {
+  const body = await apiJson<{ data: Harvest }>(
+    `/harvests/${harvestId}/restore`,
+    { method: "POST" },
+  );
+  return body.data;
+}
+
 export type ActivityWritePayload = {
   scopeType: ActivityScope;
   scopeId: string;
@@ -570,15 +620,31 @@ export type ActivityWritePayload = {
   source?: ActivitySource;
 };
 
+export type ActivityUpdatePayload = {
+  scopeType?: "vineyard" | "row";
+  scopeId?: string;
+  activityType?: ActivityType;
+  performedAt?: string;
+  details?: Record<string, unknown>;
+};
+
 export async function listActivities(
   vineyardId: string,
-  filters?: { rowId?: string; activityType?: ActivityType; scopeType?: ActivityScope },
+  filters?: {
+    rowId?: string;
+    activityType?: ActivityType;
+    scopeType?: ActivityScope;
+    deleted?: "only";
+    seasonId?: string;
+  },
   signal?: AbortSignal,
 ): Promise<Activity[]> {
   const params = new URLSearchParams();
   if (filters?.rowId) params.set("rowId", filters.rowId);
   if (filters?.activityType) params.set("activityType", filters.activityType);
   if (filters?.scopeType) params.set("scopeType", filters.scopeType);
+  if (filters?.deleted) params.set("deleted", filters.deleted);
+  if (filters?.seasonId) params.set("seasonId", filters.seasonId);
   const query = params.toString();
   const body = await apiJson<ListResponse<Activity>>(
     `/vineyards/${vineyardId}/activities${query ? `?${query}` : ""}`,
@@ -601,10 +667,59 @@ export async function createActivity(
   return body.data;
 }
 
+export async function updateActivity(
+  id: string,
+  payload: ActivityUpdatePayload,
+): Promise<Activity> {
+  const body = await apiJson<{ data: Activity }>(`/activities/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+  return body.data;
+}
+
 export async function deleteActivity(id: string): Promise<void> {
   await apiJson<{ data: Activity }>(`/activities/${id}`, {
     method: "DELETE",
   });
+}
+
+export async function restoreActivity(id: string): Promise<Activity> {
+  const body = await apiJson<{ data: Activity }>(`/activities/${id}/restore`, {
+    method: "POST",
+  });
+  return body.data;
+}
+
+export type NotificationPrefsResponse = {
+  emailEnabled: boolean;
+  weeklyDigest: boolean;
+  pushEnabled: boolean;
+  frequency: "weekly" | "as_needed" | "daily";
+  [key: string]: unknown;
+};
+
+export async function getNotificationPrefs(
+  signal?: AbortSignal,
+): Promise<NotificationPrefsResponse> {
+  const body = await apiJson<{ data: NotificationPrefsResponse }>(
+    "/auth/me/notification-prefs",
+    { signal },
+  );
+  return body.data;
+}
+
+export async function updateNotificationPrefs(
+  patch: Partial<Pick<NotificationPrefsResponse, "emailEnabled" | "weeklyDigest" | "pushEnabled" | "frequency">>,
+): Promise<NotificationPrefsResponse> {
+  const body = await apiJson<{ data: NotificationPrefsResponse }>(
+    "/auth/me/notification-prefs",
+    {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    },
+  );
+  return body.data;
 }
 
 export async function listSeasons(
