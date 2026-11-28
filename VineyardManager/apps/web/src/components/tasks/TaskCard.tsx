@@ -38,6 +38,7 @@ export function TaskCard({
   const rowTitle = task.row
     ? rowFullLabel(task.row, varietyLookup)
     : undefined;
+  const isClosedSeason = task.seasonStatus === "closed";
 
   return (
     <article className="min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -54,6 +55,7 @@ export function TaskCard({
           ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
           <Badge variant="muted">{TASK_TYPE_LABELS[task.type]}</Badge>
           <TaskStatusBadge status={task.status} />
         </div>
@@ -64,7 +66,7 @@ export function TaskCard({
           <span className="text-muted">Due </span>
           <span className="font-medium">{formatDue(task.dueAt)}</span>
         </p>
-        {onEdit || onStatusChange || onDelete ? (
+        {!isClosedSeason && (onEdit || onStatusChange || onDelete) ? (
         <div className="flex flex-wrap gap-2">
           {onStatusChange && task.status !== "acknowledged" ? (
             <Button

@@ -3,6 +3,7 @@ import {
   OPEN_TASK_STATUSES,
   SEASON_ERROR_CODES,
   SEASON_LOCKED_MESSAGE,
+  SEASON_REOPEN_WINDOW_MS,
   calendarDateInZone,
   healthThresholdsSchema,
   scoreVineyardHealth,
@@ -13,6 +14,7 @@ import {
   type HealthScoreActivityInput,
   type HealthScoreRowInput,
   type HealthScoreTaskInput,
+  type ReopenSeasonResult,
   type SeasonDto,
   type SeasonStatus,
   type YieldUnit,
@@ -671,3 +673,97 @@ export async function closeSeason(
     };
   });
 }
+
+/**
+ * Reopen a closed season within 30 days of closedAt while dormant (B3, B4, B5, D-14).
+ * - Idempotent: if the target season is already active, returns 200 { season, alreadyActive: true }.
+ * - Moves current summary into summaryHistory, clears snapshot & summary & closedAt.
+ * - Dismissed tasks remain dismissed; planned-season records stay in the planned season.
+ */
+export async function reopenSeason(
+  vineyardId: string,
+  seasonId: string,
+  options: { now?: Date } = {},
+): Promise<ReopenSeasonResult> {
+  const now = options.now ?? new Date();
+  await requireLiveVineyard(prisma, vineyardId);
+
+  return prisma.$transaction(async (tx) => {
+    // Lock all seasons for this vineyard to prevent racing with New Season or concurrent reopen.
+    await tx.$queryRaw`
+      SELECT "id" FROM "seasons"
+      WHERE "vineyard_id" = CAST(${vineyardId} AS uuid)
+      FOR UPDATE
+    `;
+
+    const allSeasons = await tx.season.findMany({
+      where: { vineyardId },
+    });
+    const target = allSeasons.find((s) => s.id === seasonId);
+    if (!target) {
+      throw new HttpError(404, "NOT_FOUND", "Season not found");
+    }
+
+    if (target.status === "active") {
+      return {
+        season: serializeSeason(target, { includeSummary: true }),
+        alreadyActive: true,
+      };
+    }
+
+    if (target.status !== "closed") {
+      throw new HttpError(
+        409,
+        SEASON_ERROR_CODES.SEASON_NOT_ACTIVE,
+        "Only a closed season can be reopened.",
+      );
+    }
+
+    const otherActive = allSeasons.find(
+      (s) => s.status === "active" && s.id !== seasonId,
+    );
+    if (otherActive) {
+      throw new HttpError(
+        409,
+        SEASON_ERROR_CODES.NOT_DORMANT,
+        `Cannot reopen ${target.year} while the ${otherActive.year} season is active.`,
+      );
+    }
+
+    if (
+      !target.closedAt ||
+      now.getTime() > target.closedAt.getTime() + SEASON_REOPEN_WINDOW_MS
+    ) {
+      throw new HttpError(
+        409,
+        SEASON_ERROR_CODES.REOPEN_WINDOW_PASSED,
+        "This season can no longer be reopened because the 30-day window has passed.",
+      );
+    }
+
+    const existingHistory = Array.isArray(target.summaryHistory)
+      ? [...target.summaryHistory]
+      : [];
+    if (target.summary && typeof target.summary === "object") {
+      existingHistory.push(target.summary);
+    }
+
+    const updated = await tx.season.update({
+      where: { id: seasonId },
+      data: {
+        status: "active",
+        closedAt: null,
+        reopenedAt: now,
+        snapshot: Prisma.DbNull,
+        summary: Prisma.DbNull,
+        summaryHistory: existingHistory as Prisma.InputJsonValue,
+      },
+    });
+
+    return {
+      season: serializeSeason(updated, { includeSummary: true }),
+      alreadyActive: false,
+    };
+  });
+}
+

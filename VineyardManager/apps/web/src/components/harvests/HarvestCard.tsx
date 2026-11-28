@@ -28,6 +28,7 @@ export function HarvestCard({
   const rowTitle = harvest.row
     ? rowFullLabel(harvest.row, varietyLookup)
     : undefined;
+  const isClosedSeason = harvest.seasonStatus === "closed";
 
   return (
     <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -47,9 +48,10 @@ export function HarvestCard({
             <p className="mt-2 text-muted">{harvest.notes}</p>
           ) : null}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
           <Badge variant="muted">{harvest.yieldUnit}</Badge>
-          {onEdit ? (
+          {!isClosedSeason && onEdit ? (
             <Button
               type="button"
               variant="outline"

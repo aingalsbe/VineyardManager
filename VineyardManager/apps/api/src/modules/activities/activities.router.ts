@@ -12,6 +12,7 @@ import { serializeActivity } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { getAuthUser, requireOperate } from "../auth/auth.middleware.js";
 import { withSeasonWrite } from "../seasons/season-routing.js";
+import { assertSeasonWritable } from "../seasons/seasons.service.js";
 
 export const vineyardActivitiesRouter = Router({ mergeParams: true });
 export const activitiesRouter = Router();
@@ -22,6 +23,7 @@ const rowFilter = z.string().uuid().optional();
 
 const activityWithRow = {
   row: { select: { id: true, code: true, name: true, deletedAt: true } },
+  season: { select: { status: true } },
 } as const;
 
 function parsePerformedAt(value: string | undefined): Date {
@@ -194,17 +196,21 @@ activitiesRouter.get("/:id", async (req: Request<{ id: string }>, res) => {
 
 activitiesRouter.delete("/:id", requireOperate, async (req: Request<{ id: string }>, res) => {
   const id = idParam.parse(req.params.id);
-  const existing = await prisma.activity.findFirst({
-    where: { id, deletedAt: null },
-  });
-  if (!existing) {
-    throw new HttpError(404, "NOT_FOUND", "Activity not found");
-  }
+  const activity = await prisma.$transaction(async (tx) => {
+    const existing = await tx.activity.findFirst({
+      where: { id, deletedAt: null },
+      include: { season: { select: { status: true } } },
+    });
+    if (!existing) {
+      throw new HttpError(404, "NOT_FOUND", "Activity not found");
+    }
+    await assertSeasonWritable(tx, existing);
 
-  const activity = await prisma.activity.update({
-    where: { id },
-    data: { deletedAt: new Date() },
-    include: activityWithRow,
+    return tx.activity.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+      include: activityWithRow,
+    });
   });
 
   const names = await performerNamesById([activity.performedBy]);

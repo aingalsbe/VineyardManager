@@ -9,6 +9,7 @@ import {
   getCurrentSeasonState,
   getSeasonDetail,
   listSeasons,
+  reopenSeason,
 } from "./seasons.service.js";
 
 export const vineyardSeasonsRouter = Router({ mergeParams: true });
@@ -69,6 +70,17 @@ vineyardSeasonsRouter.post(
       }
       throw error;
     }
+  },
+);
+
+vineyardSeasonsRouter.post(
+  "/:seasonId/reopen",
+  requireSetup,
+  async (req: Request<{ vineyardId: string; seasonId: string }>, res) => {
+    const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
+    const seasonId = seasonIdParam.parse(req.params.seasonId);
+    const data = await reopenSeason(vineyardId, seasonId);
+    res.json({ data });
   },
 );
 

@@ -34,6 +34,8 @@ export function ActivityCard({
       : "Whole vineyard";
   const notes = notesExcerpt(activity.details);
 
+  const isClosedSeason = activity.seasonStatus === "closed";
+
   return (
     <article className="rounded-xl border border-border bg-card p-5 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -59,6 +61,7 @@ export function ActivityCard({
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
           <Badge variant="muted">{formatDate(activity.performedAt)}</Badge>
           {activity.activityType === "harvest" ? (
             <Badge variant="yellow">Note only</Badge>

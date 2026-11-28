@@ -15,6 +15,7 @@ import { prisma } from "../../db/prisma.js";
 import { serializeRow } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import { requireOperate } from "../auth/auth.middleware.js";
+import { assertSeasonWritable } from "../seasons/seasons.service.js";
 import { openTaskWhere, planRowDelete } from "./row-delete.js";
 
 export const rowsRouter = Router({ mergeParams: true });
@@ -238,8 +239,21 @@ rowsRouter.delete(
 
       let dismissedTaskCount = 0;
       if (openTasksAction === "dismiss" && plan.counts.openTasks > 0) {
+        const closedTask = await tx.task.findFirst({
+          where: {
+            ...openTaskWhere(rowId),
+            season: { status: "closed" },
+          },
+          select: { seasonId: true, season: { select: { status: true } } },
+        });
+        if (closedTask) {
+          await assertSeasonWritable(tx, closedTask);
+        }
         const updated = await tx.task.updateMany({
-          where: openTaskWhere(rowId),
+          where: {
+            ...openTaskWhere(rowId),
+            OR: [{ seasonId: null }, { season: { status: { not: "closed" } } }],
+          },
           data: { status: ROW_DELETE_DISMISSED_TASK_STATUS },
         });
         dismissedTaskCount = updated.count;

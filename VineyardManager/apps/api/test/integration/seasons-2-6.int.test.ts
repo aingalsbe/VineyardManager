@@ -292,6 +292,9 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
 
     // 5. Phase 2 — Close Season (A2–A9)
     await phase2CloseSeasonCases(prisma, base, owner.id, tokens);
+
+    // 6. Phase 3 — Lock and Reopen (B1–B5, G1)
+    await phase3LockAndReopenCases(prisma, base, owner.id, tokens);
   } finally {
     globalThis.fetch = originalFetch;
     try {
@@ -689,4 +692,321 @@ async function phase2CloseSeasonCases(
     planned2027.id,
   );
 }
+
+async function phase3LockAndReopenCases(
+  prisma: PrismaClient,
+  base: URL,
+  ownerId: string,
+  tokens: { power_user: string; manager: string; viewer: string },
+): Promise<void> {
+  const { reopenSeason } = await import(
+    "../../src/modules/seasons/seasons.service.js"
+  );
+
+  const v = await createVineyard(prisma, ownerId);
+  const row = await prisma.row.create({
+    data: {
+      vineyardId: v.id,
+      code: "R1",
+      name: "Row 1",
+      variety: "Norton",
+      lengthFeet: 80,
+      lengthInches: 0,
+      vineCount: 16,
+      plantedYear: 2021,
+    },
+  });
+  const active2026 = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T18:00:00.000Z"),
+    },
+  });
+
+  const closedTask = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      rowId: row.id,
+      type: "maintenance",
+      title: "Season 2026 task",
+      body: "",
+      dueAt: new Date("2026-06-01T17:00:00.000Z"),
+      status: "pending",
+    },
+  });
+  const untaggedTask = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: null,
+      type: "maintenance",
+      title: "Untagged task",
+      body: "",
+      dueAt: new Date("2026-06-01T17:00:00.000Z"),
+      status: "pending",
+    },
+  });
+  const closedHarvest = await prisma.harvest.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      rowId: row.id,
+      harvestedAt: new Date("2026-09-10T17:00:00.000Z"),
+      yieldAmount: 50,
+      yieldUnit: "lb",
+    },
+  });
+  const closedActivity = await prisma.activity.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      rowId: row.id,
+      scopeType: "row",
+      scopeId: row.id,
+      activityType: "watering",
+      performedAt: new Date("2026-07-01T17:00:00.000Z"),
+      details: { method: "drip" },
+      source: "manual",
+    },
+  });
+
+  // Close 2026 cleanly
+  const prevRes = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/${active2026.id}/close-preview`,
+    tokens.power_user,
+  );
+  assert.equal(prevRes.status, 200);
+  const previewToken = (prevRes.body as { data: { previewToken: string } }).data
+    .previewToken;
+  const closeRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/${active2026.id}/close`,
+    tokens.power_user,
+    { previewToken },
+  );
+  assert.equal(closeRes.status, 200);
+
+  // Create a planned-season task after close (to verify B5: stays in planned after reopen)
+  const plannedTaskRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/tasks`,
+    tokens.manager,
+    {
+      title: "Planned 2027 task",
+      body: "",
+      dueAt: "2027-03-08",
+      type: "maintenance",
+      status: "pending",
+    },
+  );
+  assert.equal(plannedTaskRes.status, 201);
+  const plannedTaskId = (plannedTaskRes.body as { data: { id: string } }).data.id;
+  const planned2027 = await prisma.season.findFirstOrThrow({
+    where: { vineyardId: v.id, year: 2027, status: "planned" },
+  });
+
+  // B1 & G1: Every write path on a closed-season record returns 409 SEASON_LOCKED for BOTH power_user and manager
+  for (const role of ["power_user", "manager"] as const) {
+    const patchTask = await httpJson(
+      base,
+      "PATCH",
+      `${API_PREFIX}/vineyards/${v.id}/tasks/${closedTask.id}`,
+      tokens[role],
+      { status: "acknowledged" },
+    );
+    assert.equal(patchTask.status, 409, `${role} task PATCH must be 409`);
+    assert.equal(
+      (patchTask.body as { error?: { code?: string } })?.error?.code,
+      "SEASON_LOCKED",
+    );
+
+    const delTask = await httpJson(
+      base,
+      "DELETE",
+      `${API_PREFIX}/vineyards/${v.id}/tasks/${closedTask.id}`,
+      tokens[role],
+    );
+    assert.equal(delTask.status, 409, `${role} task DELETE must be 409`);
+    assert.equal(
+      (delTask.body as { error?: { code?: string } })?.error?.code,
+      "SEASON_LOCKED",
+    );
+
+    const patchHarvest = await httpJson(
+      base,
+      "PATCH",
+      `${API_PREFIX}/harvests/${closedHarvest.id}`,
+      tokens[role],
+      { yieldAmount: 99 },
+    );
+    assert.equal(patchHarvest.status, 409, `${role} harvest PATCH must be 409`);
+    assert.equal(
+      (patchHarvest.body as { error?: { code?: string } })?.error?.code,
+      "SEASON_LOCKED",
+    );
+
+    const delHarvest = await httpJson(
+      base,
+      "DELETE",
+      `${API_PREFIX}/harvests/${closedHarvest.id}`,
+      tokens[role],
+    );
+    assert.equal(delHarvest.status, 409, `${role} harvest DELETE must be 409`);
+    assert.equal(
+      (delHarvest.body as { error?: { code?: string } })?.error?.code,
+      "SEASON_LOCKED",
+    );
+
+    const delActivity = await httpJson(
+      base,
+      "DELETE",
+      `${API_PREFIX}/activities/${closedActivity.id}`,
+      tokens[role],
+    );
+    assert.equal(delActivity.status, 409, `${role} activity DELETE must be 409`);
+    assert.equal(
+      (delActivity.body as { error?: { code?: string } })?.error?.code,
+      "SEASON_LOCKED",
+    );
+  }
+
+  // Row delete openTasks=dismiss refuses if an open task exists in a closed season
+  const manualClosedOpenTask = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      rowId: row.id,
+      type: "maintenance",
+      title: "Closed-season open task edge fixture",
+      body: "",
+      dueAt: new Date("2026-07-01T17:00:00.000Z"),
+      status: "pending",
+    },
+  });
+  const rowDelLocked = await httpJson(
+    base,
+    "DELETE",
+    `${API_PREFIX}/vineyards/${v.id}/rows/${row.id}?openTasks=dismiss`,
+    tokens.power_user,
+  );
+  assert.equal(rowDelLocked.status, 409);
+  assert.equal(
+    (rowDelLocked.body as { error?: { code?: string } })?.error?.code,
+    "SEASON_LOCKED",
+  );
+  // Clean up edge fixture task so row remains clean
+  await prisma.task.delete({ where: { id: manualClosedOpenTask.id } });
+
+  // B1: Untagged record (seasonId = null) is NOT locked
+  const untaggedPatch = await httpJson(
+    base,
+    "PATCH",
+    `${API_PREFIX}/vineyards/${v.id}/tasks/${untaggedTask.id}`,
+    tokens.manager,
+    { title: "Updated untagged task" },
+  );
+  assert.equal(untaggedPatch.status, 200);
+
+  // B4: Manager & viewer get 403 FORBIDDEN on reopen
+  for (const role of ["manager", "viewer"] as const) {
+    const res = await httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${active2026.id}/reopen`,
+      tokens[role],
+    );
+    assert.equal(res.status, 403);
+    assert.equal(
+      (res.body as { error?: { code?: string } })?.error?.code,
+      "FORBIDDEN",
+    );
+  }
+
+  // B4: Reopen after 30 days -> 409 REOPEN_WINDOW_PASSED (tested with mocked clock, no data deleted)
+  const closedSeasonBefore = await prisma.season.findUniqueOrThrow({
+    where: { id: active2026.id },
+  });
+  assert.ok(closedSeasonBefore.closedAt);
+  const day31 = new Date(
+    closedSeasonBefore.closedAt.getTime() + 31 * 24 * 60 * 60 * 1000,
+  );
+  await assert.rejects(
+    () => reopenSeason(v.id, active2026.id, { now: day31 }),
+    (err: unknown) =>
+      err instanceof Error &&
+      "status" in err &&
+      (err as { status: number }).status === 409 &&
+      (err as { code: string }).code === "REOPEN_WINDOW_PASSED",
+  );
+  // Verify season is still closed with snapshot intact
+  const stillClosed = await prisma.season.findUniqueOrThrow({
+    where: { id: active2026.id },
+  });
+  assert.equal(stillClosed.status, "closed");
+  assert.ok(stillClosed.snapshot);
+
+  // B3: Reopen within 30 days succeeds
+  const reopenRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/${active2026.id}/reopen`,
+    tokens.power_user,
+  );
+  assert.equal(reopenRes.status, 200);
+  const reopenedDb = await prisma.season.findUniqueOrThrow({
+    where: { id: active2026.id },
+  });
+  assert.equal(reopenedDb.status, "active");
+  assert.equal(reopenedDb.closedAt, null);
+  assert.ok(reopenedDb.reopenedAt);
+  assert.equal(reopenedDb.snapshot, null);
+  assert.equal(reopenedDb.summary, null);
+  assert.ok(
+    Array.isArray(reopenedDb.summaryHistory) &&
+      reopenedDb.summaryHistory.length === 1,
+    "summary must move to summaryHistory on reopen",
+  );
+
+  // B3: Dismissed tasks STAY dismissed
+  const taskAfterReopen = await prisma.task.findUniqueOrThrow({
+    where: { id: closedTask.id },
+  });
+  assert.equal(taskAfterReopen.status, "dismissed");
+
+  // B5: Planned-season record stays in planned season (not moved)
+  const plannedTaskAfterReopen = await prisma.task.findUniqueOrThrow({
+    where: { id: plannedTaskId },
+  });
+  assert.equal(plannedTaskAfterReopen.seasonId, planned2027.id);
+
+  // B3: Second reopen call is an idempotent 200 no-op
+  const reopenTwice = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/${active2026.id}/reopen`,
+    tokens.power_user,
+  );
+  assert.equal(reopenTwice.status, 200);
+  assert.equal(
+    (reopenTwice.body as { data: { alreadyActive?: boolean } }).data.alreadyActive,
+    true,
+  );
+
+  // Records are now writable again after reopen
+  const unlockPatch = await httpJson(
+    base,
+    "PATCH",
+    `${API_PREFIX}/harvests/${closedHarvest.id}`,
+    tokens.manager,
+    { yieldAmount: 55 },
+  );
+  assert.equal(unlockPatch.status, 200);
+}
+
 

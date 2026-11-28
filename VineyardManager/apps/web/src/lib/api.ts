@@ -10,6 +10,7 @@ import {
   type CurrentSeasonState,
   type Harvest,
   type PublicUser,
+  type ReopenSeasonResult,
   type Row,
   type ScheduledTask,
   type SeasonDto,
@@ -663,6 +664,17 @@ export async function closeSeason(
       method: "POST",
       body: JSON.stringify({ previewToken }),
     },
+  );
+  return body.data;
+}
+
+export async function reopenSeason(
+  vineyardId: string,
+  seasonId: string,
+): Promise<ReopenSeasonResult> {
+  const body = await apiJson<{ data: ReopenSeasonResult }>(
+    `/vineyards/${vineyardId}/seasons/${seasonId}/reopen`,
+    { method: "POST" },
   );
   return body.data;
 }
