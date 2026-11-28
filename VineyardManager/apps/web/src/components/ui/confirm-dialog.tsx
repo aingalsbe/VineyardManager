@@ -20,6 +20,7 @@ export function ConfirmDialog({
   busy = false,
   cancelLabel = "Cancel",
   returnFocusRef,
+  stackActions = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -39,6 +40,8 @@ export function ConfirmDialog({
    * returns to the element that opened the dialog.
    */
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** Stack full-width footer buttons at every size (long labels, e.g. row delete). */
+  stackActions?: boolean;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -96,12 +99,18 @@ export function ConfirmDialog({
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background/60 px-5 py-4 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div
+          className={
+            stackActions
+              ? "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background/60 px-5 py-4 [&>button]:w-full"
+              : "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background/60 px-5 py-4 sm:flex-row sm:flex-wrap sm:justify-end"
+          }
+        >
           <Button
             ref={cancelRef}
             type="button"
             variant="outline"
-            className="w-full sm:w-auto"
+            className={stackActions ? "w-full" : "w-full sm:w-auto"}
             disabled={busy}
             onClick={onClose}
           >

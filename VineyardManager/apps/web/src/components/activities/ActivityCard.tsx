@@ -1,5 +1,6 @@
 import { ACTIVITY_TYPE_LABELS, type Activity } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
+import { RemovedFooter } from "@/components/ListChrome";
 import { Button } from "@/components/ui/button";
 import {
   rowFullLabel,
@@ -66,11 +67,6 @@ export function ActivityCard({
               Logged by {activity.performedByDisplayName}
             </p>
           ) : null}
-          {isDeleted && activity.deletedAt ? (
-            <p className="mt-1 text-xs text-muted">
-              Removed {formatDate(activity.deletedAt)}
-            </p>
-          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
@@ -78,18 +74,7 @@ export function ActivityCard({
           {activity.activityType === "harvest" ? (
             <Badge variant="yellow">Note only</Badge>
           ) : null}
-          {isDeleted ? (
-            !isClosedSeason && onRestore ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="smTouch"
-                onClick={() => onRestore(activity)}
-              >
-                Restore
-              </Button>
-            ) : null
-          ) : !isClosedSeason ? (
+          {isDeleted ? null : !isClosedSeason ? (
             <>
               {onEdit ? (
                 <Button
@@ -115,6 +100,13 @@ export function ActivityCard({
           ) : null}
         </div>
       </div>
+      {isDeleted ? (
+        <RemovedFooter
+          deletedAt={activity.deletedAt}
+          onRestore={onRestore ? () => onRestore(activity) : undefined}
+          lockedReason={isClosedSeason ? "Closed season, so it can't be restored." : undefined}
+        />
+      ) : null}
     </article>
   );
 }

@@ -4,6 +4,7 @@ import {
   type Row,
 } from "@vineyard/shared";
 import { Pencil, Trash2 } from "lucide-react";
+import { RemovedFooter } from "@/components/ListChrome";
 import { RowStatusBadge } from "@/components/rows/RowStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -96,7 +97,7 @@ export function RowCard({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-start">
-          <RowStatusBadge status={row.status} />
+          {isDeleted ? <span /> : <RowStatusBadge status={row.status} />}
           <OverflowMenu
             label={`More actions for ${rowLabel(row)}`}
             items={menuItems}
@@ -122,18 +123,12 @@ export function RowCard({
       {row.notes ? (
         <p className="mt-4 text-sm [overflow-wrap:anywhere] text-muted">{row.notes}</p>
       ) : null}
-      {isDeleted && onRestore ? (
-        <div className="mt-4 border-t border-border pt-4">
-          <Button
-            type="button"
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onRestore(row)}
-          >
-            Restore row
-          </Button>
-        </div>
-      ) : !isDeleted && onRecordHarvest ? (
+      {isDeleted ? (
+        <RemovedFooter
+          deletedAt={row.deletedAt}
+          onRestore={onRestore ? () => onRestore(row) : undefined}
+        />
+      ) : onRecordHarvest && onRecordHarvest ? (
         <div className="mt-4 border-t border-border pt-4">
           <Button
             type="button"

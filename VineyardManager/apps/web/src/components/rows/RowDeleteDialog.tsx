@@ -12,7 +12,8 @@ import {
   type RowDeletePreviewOpenTask,
 } from "@/lib/api";
 import { pluralize } from "@/lib/pluralize";
-import { rowFullLabel, rowLabel } from "@/lib/rowLabel";
+import { rowFullLabel } from "@/lib/rowLabel";
+import { RESTORE_HINT, deleteDialogTitle } from "@/lib/seasonCopy";
 
 type PreviewState =
   | { status: "loading" }
@@ -125,7 +126,6 @@ export function RowDeleteDialog({
 
   if (!row) return null;
 
-  const short = rowLabel(row);
   const full = rowFullLabel(row);
   const busy = pending !== null;
   const preview = state.status === "ready" ? state.preview : null;
@@ -157,17 +157,14 @@ export function RowDeleteDialog({
   const description = (
     <>
       <p>
-        <span className="font-medium [overflow-wrap:anywhere] text-foreground">{full}</span>
+        <span className="font-semibold [overflow-wrap:anywhere] text-foreground">{full}</span>
       </p>
       {preview ? (
         preview.mode === "soft" ? (
-          <p className="mt-1">
-            Its history is kept, and past records show this row as “Removed
-            row”. You can restore it later from “Recently removed”.
-          </p>
+          <p className="mt-2">{RESTORE_HINT}</p>
         ) : (
-          <p className="mt-1">
-            Deleting removes this row permanently. This can’t be undone.
+          <p className="mt-2">
+            This row has no history, so deleting it is permanent.
           </p>
         )
       ) : null}
@@ -183,20 +180,20 @@ export function RowDeleteDialog({
         <Button
           type="button"
           variant="outline"
-          className="w-full sm:w-auto"
+          className="w-full"
           disabled={busy}
           onClick={() => void confirm("keep")}
         >
-          {pending === "keep" ? "Deleting…" : "Keep tasks and delete"}
+          {pending === "keep" ? "Deleting…" : "Delete row, keep tasks"}
         </Button>
         <Button
           type="button"
           variant="destructive"
-          className="w-full sm:w-auto"
+          className="w-full"
           disabled={busy}
           onClick={() => void confirm("dismiss")}
         >
-          {pending === "dismiss" ? "Deleting…" : "Dismiss open tasks and delete"}
+          {pending === "dismiss" ? "Deleting…" : "Delete row, dismiss tasks"}
         </Button>
       </>
     ) : (
@@ -216,7 +213,8 @@ export function RowDeleteDialog({
     <ConfirmDialog
       open
       onClose={onClose}
-      title={`Delete ${short}?`}
+      title={deleteDialogTitle("row")}
+      stackActions={hasOpenTasks}
       description={description}
       busy={busy}
       error={error}
@@ -267,7 +265,7 @@ export function RowDeleteDialog({
               <dl className="mt-3 space-y-2 text-sm">
                 <div>
                   <dt className="font-medium text-foreground">
-                    Dismiss open tasks and delete
+                    Delete row, dismiss tasks
                   </dt>
                   <dd className="text-muted">
                     {openTasks.length === 1
@@ -277,12 +275,12 @@ export function RowDeleteDialog({
                 </div>
                 <div>
                   <dt className="font-medium text-foreground">
-                    Keep tasks and delete
+                    Delete row, keep tasks
                   </dt>
                   <dd className="text-muted">
                     {openTasks.length === 1
-                      ? "It stays open (still overdue if late) and shows “Removed row”."
-                      : "They stay open (still overdue if late) and show “Removed row”."}
+                      ? "It stays open (still overdue if late) and shows Removed row."
+                      : "They stay open (still overdue if late) and show Removed row."}
                   </dd>
                 </div>
               </dl>

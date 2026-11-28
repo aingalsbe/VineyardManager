@@ -9,6 +9,14 @@ import {
 import { ActivityCard } from "@/components/activities/ActivityCard";
 import { ActivityFormDialog } from "@/components/activities/ActivityFormDialog";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  ActionNotice,
+  ClosedSeasonNotice,
+  DeleteItemDescription,
+  RecentlyRemovedSubtitle,
+  RecentlyRemovedToggle,
+  type ListNotice,
+} from "@/components/ListChrome";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,15 +25,15 @@ import { useActivities } from "@/hooks/useActivities";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardSeasons } from "@/hooks/useVineyardSeasons";
 import { ApiError, deleteActivity, restoreActivity } from "@/lib/api";
+import { formatShortDate } from "@/lib/format";
 import { buildVarietyLookup, rowLabel } from "@/lib/rowLabel";
-
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+import {
+  closedSeasonNotice,
+  deleteDialogTitle,
+  deletedNotice,
+  resolveSeasonFilter,
+  seasonEmptyState,
+} from "@/lib/seasonCopy";
 
 export function ActivitiesPage() {
   const { canOperate, canSetup } = useRoleAccess();
@@ -41,7 +49,8 @@ export function ActivitiesPage() {
   const [presetType, setPresetType] = useState<ActivityType | undefined>();
   const [rowFilter, setRowFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
-  const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useState<ListNotice | null>(null);
+  const selectedSeason = resolveSeasonFilter(seasons, seasonFilter);
   const [deleting, setDeleting] = useState<Activity | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -72,13 +81,26 @@ export function ActivitiesPage() {
     setDeleteBusy(true);
     setDeleteError(null);
     try {
-      await deleteActivity(deleting.id);
+      const removedId = deleting.id;
+      await deleteActivity(removedId);
       setDeleteBusy(false);
       deleteFocusRef.current = headingRef.current;
       setDeleting(null);
       setNotice({
         tone: "ok",
-        text: "Work entry removed. You can restore it from Recently removed.",
+        text: deletedNotice("work entry"),
+        undo: async () => {
+          try {
+            await restoreActivity(removedId);
+            setNotice({ tone: "ok", text: "Work entry restored." });
+            await reload({ silent: true });
+          } catch (error) {
+            setNotice({
+              tone: "error",
+              text: error instanceof ApiError ? error.message : "Could not restore the work entry.",
+            });
+          }
+        },
       });
       await reload({ silent: true });
     } catch (error) {
@@ -131,16 +153,14 @@ export function ActivitiesPage() {
         actions={
           ready && canOperate ? (
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={showRemoved ? "default" : "outline"}
-                onClick={() => {
+              <RecentlyRemovedToggle
+                showingRemoved={showRemoved}
+                listName="work log"
+                onToggle={() => {
                   setNotice(null);
                   setShowRemoved((v) => !v);
                 }}
-              >
-                {showRemoved ? "Viewing recently removed" : "Recently removed"}
-              </Button>
+              />
               {!showRemoved ? (
                 <Button type="button" onClick={() => openCreate()}>
                   Log work
@@ -257,34 +277,53 @@ export function ActivitiesPage() {
             </label>
           </div>
 
-          {notice ? (
-            <p
-              className={
-                notice.tone === "error"
-                  ? "mb-4 text-sm text-health-red"
-                  : "mb-4 text-sm text-muted"
-              }
-              role={notice.tone === "error" ? "alert" : "status"}
-            >
-              {notice.text}
-            </p>
+          {showRemoved ? <RecentlyRemovedSubtitle /> : null}
+
+          <ActionNotice notice={notice} onDismiss={() => setNotice(null)} />
+
+          {!showRemoved && selectedSeason ? (
+            <ClosedSeasonNotice text={closedSeasonNotice(selectedSeason)} />
           ) : null}
 
           {state.activities.length === 0 ? (
-            <EmptyState
-              title={showRemoved ? "No recently removed work" : "No work logged yet"}
-              action={
-                !showRemoved && canOperate ? (
-                  <Button type="button" onClick={() => openCreate()}>
-                    Log work
-                  </Button>
-                ) : undefined
-              }
-            >
-              {showRemoved
-                ? "Deleted work log entries appear here and can be restored."
-                : "Record pruning, watering, or an observation to start the log."}
-            </EmptyState>
+            showRemoved ? (
+              <EmptyState title="No recently removed work">
+                Deleted work log entries appear here and can be restored.
+              </EmptyState>
+            ) : (
+              (() => {
+                const empty = seasonEmptyState("work log entries", seasonFilter, selectedSeason);
+                return (
+                  <EmptyState
+                    title={empty.title}
+                    action={
+                      empty.showAllSeasons || canOperate ? (
+                        <div className="flex flex-wrap gap-2">
+                          {empty.showAllSeasons ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setSeasonFilter("all")}
+                            >
+                              Show all seasons
+                            </Button>
+                          ) : null}
+                          {canOperate && selectedSeason?.status !== "closed" ? (
+                            <Button type="button" onClick={() => openCreate()}>
+                              Log work
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : undefined
+                    }
+                  >
+                    {empty.showAllSeasons
+                      ? "Work from other seasons is under All seasons."
+                      : "Record pruning, watering, or an observation to start the log."}
+                  </EmptyState>
+                );
+              })()
+            )
           ) : visible.length === 0 ? (
             <EmptyState title="No work matches these filters">
               Clear the row or type filter to see the full log.
@@ -327,27 +366,20 @@ export function ActivitiesPage() {
             onClose={() => {
               if (!deleteBusy) setDeleting(null);
             }}
-            title="Delete work entry?"
+            title={deleteDialogTitle("work entry")}
             returnFocusRef={deleteFocusRef}
             busy={deleteBusy}
             error={deleteError}
             description={
               deleting ? (
-                <>
-                  <span className="block min-w-0 font-medium [overflow-wrap:anywhere] text-foreground">
-                    {ACTIVITY_TYPE_LABELS[deleting.activityType]}
-                  </span>
-                  <span className="block min-w-0 [overflow-wrap:anywhere]">
-                    {formatShortDate(deleting.performedAt)}
-                    {deleting.scopeType === "row" && deleting.row
+                <DeleteItemDescription
+                  name={ACTIVITY_TYPE_LABELS[deleting.activityType]}
+                  detail={`${formatShortDate(deleting.performedAt)}${
+                    deleting.scopeType === "row" && deleting.row
                       ? ` · ${rowLabel(deleting.row, varietyLookup)}`
-                      : " · Whole vineyard"}
-                  </span>
-                  <span className="mt-2 block">
-                    This removes the entry from the work log. It can be restored from
-                    Recently removed.
-                  </span>
-                </>
+                      : " · Whole vineyard"
+                  }`}
+                />
               ) : null
             }
             actions={
@@ -358,7 +390,7 @@ export function ActivitiesPage() {
                 disabled={deleteBusy}
                 onClick={() => void confirmDelete()}
               >
-                {deleteBusy ? "Deleting…" : "Delete entry"}
+                {deleteBusy ? "Deleting…" : "Delete work entry"}
               </Button>
             }
           />

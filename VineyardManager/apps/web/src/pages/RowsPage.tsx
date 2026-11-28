@@ -2,6 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type { Row } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  ActionNotice,
+  RecentlyRemovedSubtitle,
+  RecentlyRemovedToggle,
+  type ListNotice,
+} from "@/components/ListChrome";
 import { PageHeader } from "@/components/PageHeader";
 import { HarvestFormDialog } from "@/components/harvests/HarvestFormDialog";
 import { RowCard } from "@/components/rows/RowCard";
@@ -18,13 +24,14 @@ import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { ApiError, restoreRow, type DeleteRowResult } from "@/lib/api";
 import { pluralize } from "@/lib/pluralize";
 import { rowLabel } from "@/lib/rowLabel";
+import { RESTORE_HINT } from "@/lib/seasonCopy";
 
 /** Past-tense notice built from the DELETE result (not the server message). */
 function rowDeletedNotice(result: DeleteRowResult, label: string): string {
   const parts = [
     result.mode === "hard"
       ? `Deleted ${label}.`
-      : `Removed ${label}. Its history is kept, and you can restore it from Recently removed.`,
+      : `Deleted ${label}. Its history is kept. ${RESTORE_HINT}`,
   ];
   if (result.dismissedTaskCount > 0) {
     parts.push(`Dismissed ${pluralize(result.dismissedTaskCount, "open task")}.`);
@@ -49,10 +56,7 @@ export function RowsPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Row | null>(null);
   const [harvestRow, setHarvestRow] = useState<Row | null>(null);
-  const [rowNotice, setRowNotice] = useState<{
-    tone: "ok" | "error";
-    text: string;
-  } | null>(null);
+  const [rowNotice, setRowNotice] = useState<ListNotice | null>(null);
 
   const [deleting, setDeleting] = useState<Row | null>(null);
   const [renamingRow, setRenamingRow] = useState<Row | null>(null);
@@ -65,7 +69,30 @@ export function RowsPage() {
   // then the DELETE response message here), never guessed client-side.
   const handleDeleted = async (result: DeleteRowResult, label: string) => {
     setDeleting(null);
-    setRowNotice({ tone: "ok", text: rowDeletedNotice(result, label) });
+    const vineyardId = state.status === "ready" ? state.vineyard.id : null;
+    setRowNotice({
+      tone: "ok",
+      text: rowDeletedNotice(result, label),
+      undo:
+        result.mode === "hard" || !vineyardId
+          ? undefined
+          : async () => {
+              try {
+                const restored = await restoreRow(vineyardId, result.id);
+                setRowNotice({
+                  tone: "ok",
+                  text: `Restored ${rowLabel(restored)}. It is unplaced on the map, so place it in Setup if needed.`,
+                });
+                await reload({ silent: true });
+                void health.reload({ silent: true });
+              } catch (error) {
+                setRowNotice({
+                  tone: "error",
+                  text: error instanceof ApiError ? error.message : "Could not restore the row.",
+                });
+              }
+            },
+    });
     await reload({ silent: true });
     void health.reload({ silent: true });
   };
@@ -77,7 +104,7 @@ export function RowsPage() {
       const restored = await restoreRow(state.vineyard.id, row.id);
       setRowNotice({
         tone: "ok",
-        text: `Restored ${rowLabel(restored)}. It is unplaced on the map — place it in Setup if needed.`,
+        text: `Restored ${rowLabel(restored)}. It is unplaced on the map, so place it in Setup if needed.`,
       });
       await reload({ silent: true });
       void health.reload({ silent: true });
@@ -117,7 +144,7 @@ export function RowsPage() {
       setRenamingRow(null);
       setRowNotice({
         tone: "ok",
-        text: `Restored ${rowLabel(restored)}. It is unplaced on the map — place it in Setup if needed.`,
+        text: `Restored ${rowLabel(restored)}. It is unplaced on the map, so place it in Setup if needed.`,
       });
       await reload({ silent: true });
       void health.reload({ silent: true });
@@ -161,16 +188,14 @@ export function RowsPage() {
         actions={
           vineyardReady && canOperate ? (
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={showRemoved ? "default" : "outline"}
-                onClick={() => {
+              <RecentlyRemovedToggle
+                showingRemoved={showRemoved}
+                listName="rows"
+                onToggle={() => {
                   setRowNotice(null);
                   setShowRemoved((v) => !v);
                 }}
-              >
-                {showRemoved ? "Viewing recently removed" : "Recently removed"}
-              </Button>
+              />
               {!showRemoved ? (
                 <Button type="button" onClick={openCreate}>
                   New row
@@ -227,6 +252,8 @@ export function RowsPage() {
         </EmptyState>
       ) : null}
 
+      {vineyardReady && showRemoved ? <RecentlyRemovedSubtitle /> : null}
+
       {vineyardReady && state.rows.length === 0 ? (
         <EmptyState
           title={showRemoved ? "No recently removed rows" : "No rows yet"}
@@ -244,18 +271,7 @@ export function RowsPage() {
         </EmptyState>
       ) : null}
 
-      {rowNotice ? (
-        <p
-          className={
-            rowNotice.tone === "error"
-              ? "mb-4 min-w-0 text-sm [overflow-wrap:anywhere] text-red-700"
-              : "mb-4 min-w-0 text-sm [overflow-wrap:anywhere] text-muted"
-          }
-          role={rowNotice.tone === "error" ? "alert" : "status"}
-        >
-          {rowNotice.text}
-        </p>
-      ) : null}
+      <ActionNotice notice={rowNotice} onDismiss={() => setRowNotice(null)} />
 
       {vineyardReady && state.rows.length > 0 ? (
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">

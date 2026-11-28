@@ -1,5 +1,6 @@
 import { formatYield, type Harvest } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
+import { RemovedFooter } from "@/components/ListChrome";
 import { Button } from "@/components/ui/button";
 import {
   rowFullLabel,
@@ -52,27 +53,11 @@ export function HarvestCard({
           {harvest.notes ? (
             <p className="mt-2 text-muted">{harvest.notes}</p>
           ) : null}
-          {isDeleted && harvest.deletedAt ? (
-            <p className="mt-1 text-xs text-muted">
-              Removed {formatDate(harvest.deletedAt)}
-            </p>
-          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
           <Badge variant="muted">{harvest.yieldUnit}</Badge>
-          {isDeleted ? (
-            !isClosedSeason && onRestore ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="smTouch"
-                onClick={() => onRestore(harvest)}
-              >
-                Restore
-              </Button>
-            ) : null
-          ) : !isClosedSeason ? (
+          {isDeleted ? null : !isClosedSeason ? (
             <>
               {onEdit ? (
                 <Button
@@ -98,6 +83,13 @@ export function HarvestCard({
           ) : null}
         </div>
       </div>
+      {isDeleted ? (
+        <RemovedFooter
+          deletedAt={harvest.deletedAt}
+          onRestore={onRestore ? () => onRestore(harvest) : undefined}
+          lockedReason={isClosedSeason ? "Closed season, so it can't be restored." : undefined}
+        />
+      ) : null}
     </article>
   );
 }

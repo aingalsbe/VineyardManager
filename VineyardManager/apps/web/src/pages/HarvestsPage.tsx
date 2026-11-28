@@ -2,6 +2,14 @@ import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { formatYield, type Harvest } from "@vineyard/shared";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  ActionNotice,
+  ClosedSeasonNotice,
+  DeleteItemDescription,
+  RecentlyRemovedSubtitle,
+  RecentlyRemovedToggle,
+  type ListNotice,
+} from "@/components/ListChrome";
 import { HarvestCard } from "@/components/harvests/HarvestCard";
 import { HarvestFormDialog } from "@/components/harvests/HarvestFormDialog";
 import { PageHeader } from "@/components/PageHeader";
@@ -12,15 +20,15 @@ import { useHarvests } from "@/hooks/useHarvests";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardSeasons } from "@/hooks/useVineyardSeasons";
 import { ApiError, deleteHarvest, restoreHarvest } from "@/lib/api";
+import { formatShortDate } from "@/lib/format";
 import { buildVarietyLookup, rowLabel } from "@/lib/rowLabel";
-
-function formatShortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+import {
+  closedSeasonNotice,
+  deleteDialogTitle,
+  deletedNotice,
+  resolveSeasonFilter,
+  seasonEmptyState,
+} from "@/lib/seasonCopy";
 
 export function HarvestsPage() {
   const { canOperate, canSetup } = useRoleAccess();
@@ -35,7 +43,8 @@ export function HarvestsPage() {
   const [editing, setEditing] = useState<Harvest | null>(null);
   const [presetRowId, setPresetRowId] = useState<string | undefined>();
   const [rowFilter, setRowFilter] = useState("");
-  const [notice, setNotice] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const [notice, setNotice] = useState<ListNotice | null>(null);
+  const selectedSeason = resolveSeasonFilter(seasons, seasonFilter);
   const [deleting, setDeleting] = useState<Harvest | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -66,13 +75,26 @@ export function HarvestsPage() {
     setDeleteBusy(true);
     setDeleteError(null);
     try {
-      await deleteHarvest(deleting.id);
+      const removedId = deleting.id;
+      await deleteHarvest(removedId);
       setDeleteBusy(false);
       deleteFocusRef.current = headingRef.current;
       setDeleting(null);
       setNotice({
         tone: "ok",
-        text: "Harvest removed. You can restore it from Recently removed.",
+        text: deletedNotice("harvest"),
+        undo: async () => {
+          try {
+            await restoreHarvest(removedId);
+            setNotice({ tone: "ok", text: "Harvest restored." });
+            await reload({ silent: true });
+          } catch (error) {
+            setNotice({
+              tone: "error",
+              text: error instanceof ApiError ? error.message : "Could not restore the harvest.",
+            });
+          }
+        },
       });
       await reload({ silent: true });
     } catch (error) {
@@ -122,16 +144,14 @@ export function HarvestsPage() {
         actions={
           ready && canOperate ? (
             <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={showRemoved ? "default" : "outline"}
-                onClick={() => {
+              <RecentlyRemovedToggle
+                showingRemoved={showRemoved}
+                listName="harvests"
+                onToggle={() => {
                   setNotice(null);
                   setShowRemoved((v) => !v);
                 }}
-              >
-                {showRemoved ? "Viewing recently removed" : "Recently removed"}
-              </Button>
+              />
               {!showRemoved ? (
                 <Button type="button" onClick={() => openCreate()}>
                   Record harvest
@@ -218,34 +238,53 @@ export function HarvestsPage() {
             </label>
           </div>
 
-          {notice ? (
-            <p
-              className={
-                notice.tone === "error"
-                  ? "mb-4 text-sm text-health-red"
-                  : "mb-4 text-sm text-muted"
-              }
-              role={notice.tone === "error" ? "alert" : "status"}
-            >
-              {notice.text}
-            </p>
+          {showRemoved ? <RecentlyRemovedSubtitle /> : null}
+
+          <ActionNotice notice={notice} onDismiss={() => setNotice(null)} />
+
+          {!showRemoved && selectedSeason ? (
+            <ClosedSeasonNotice text={closedSeasonNotice(selectedSeason)} />
           ) : null}
 
           {state.harvests.length === 0 ? (
-            <EmptyState
-              title={showRemoved ? "No recently removed harvests" : "No harvests yet"}
-              action={
-                !showRemoved && canOperate ? (
-                  <Button type="button" onClick={() => openCreate()}>
-                    Record harvest
-                  </Button>
-                ) : undefined
-              }
-            >
-              {showRemoved
-                ? "Deleted harvests appear here and can be restored."
-                : "Log yield against a row after picking."}
-            </EmptyState>
+            showRemoved ? (
+              <EmptyState title="No recently removed harvests">
+                Deleted harvests appear here and can be restored.
+              </EmptyState>
+            ) : (
+              (() => {
+                const empty = seasonEmptyState("harvests", seasonFilter, selectedSeason);
+                return (
+                  <EmptyState
+                    title={empty.title}
+                    action={
+                      empty.showAllSeasons || canOperate ? (
+                        <div className="flex flex-wrap gap-2">
+                          {empty.showAllSeasons ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => setSeasonFilter("all")}
+                            >
+                              Show all seasons
+                            </Button>
+                          ) : null}
+                          {canOperate && selectedSeason?.status !== "closed" ? (
+                            <Button type="button" onClick={() => openCreate()}>
+                              Record harvest
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : undefined
+                    }
+                  >
+                    {empty.showAllSeasons
+                      ? "Harvests from other seasons are under All seasons."
+                      : "Log yield against a row after picking."}
+                  </EmptyState>
+                );
+              })()
+            )
           ) : visible.length === 0 ? (
             <EmptyState title="No harvests for this row">
               Clear the filter or record a pick on this row.
@@ -284,27 +323,23 @@ export function HarvestsPage() {
             onClose={() => {
               if (!deleteBusy) setDeleting(null);
             }}
-            title="Delete harvest?"
+            title={deleteDialogTitle("harvest")}
             returnFocusRef={deleteFocusRef}
             busy={deleteBusy}
             error={deleteError}
             description={
               deleting ? (
-                <>
-                  <span className="block min-w-0 font-medium [overflow-wrap:anywhere] text-foreground">
-                    {formatYield(deleting.yieldAmount, deleting.yieldUnit)}
-                  </span>
-                  <span className="block min-w-0 [overflow-wrap:anywhere]">
-                    {formatShortDate(deleting.harvestedAt)}
-                    {deleting.row
-                      ? ` · ${rowLabel(deleting.row, varietyLookup)}`
-                      : ""}
-                  </span>
-                  <span className="mt-2 block">
-                    This removes the harvest from the list and yield totals. It can be
-                    restored from Recently removed.
-                  </span>
-                </>
+                <DeleteItemDescription
+                  name={formatYield(deleting.yieldAmount, deleting.yieldUnit)}
+                  detail={`${formatShortDate(deleting.harvestedAt)}${
+                    deleting.row ? ` · ${rowLabel(deleting.row, varietyLookup)}` : ""
+                  }`}
+                  extra={
+                    <span className="mt-2 block">
+                      It leaves the harvest list and yield totals.
+                    </span>
+                  }
+                />
               ) : null
             }
             actions={

@@ -4,6 +4,7 @@ import {
   type TaskStatus,
 } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
+import { RemovedFooter } from "@/components/ListChrome";
 import { Button } from "@/components/ui/button";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import {
@@ -56,11 +57,6 @@ export function TaskCard({
           {task.body ? (
             <p className="mt-1 [overflow-wrap:anywhere] text-muted">{task.body}</p>
           ) : null}
-          {isDeleted && task.deletedAt ? (
-            <p className="mt-1 text-xs text-muted">
-              Removed {formatDue(task.deletedAt)}
-            </p>
-          ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
           {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
@@ -74,18 +70,7 @@ export function TaskCard({
           <span className="text-muted">Due </span>
           <span className="font-medium">{formatDue(task.dueAt)}</span>
         </p>
-        {isDeleted ? (
-          !isClosedSeason && onRestore ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="smTouch"
-              onClick={() => onRestore(task)}
-            >
-              Restore
-            </Button>
-          ) : null
-        ) : !isClosedSeason && (onEdit || onStatusChange || onDelete) ? (
+        {isDeleted ? null : !isClosedSeason && (onEdit || onStatusChange || onDelete) ? (
         <div className="flex flex-wrap gap-2">
           {onStatusChange && task.status !== "acknowledged" ? (
             <Button
@@ -129,6 +114,13 @@ export function TaskCard({
         </div>
         ) : null}
       </div>
+      {isDeleted ? (
+        <RemovedFooter
+          deletedAt={task.deletedAt}
+          onRestore={onRestore ? () => onRestore(task) : undefined}
+          lockedReason={isClosedSeason ? "Closed season, so it can't be restored." : undefined}
+        />
+      ) : null}
     </article>
   );
 }
