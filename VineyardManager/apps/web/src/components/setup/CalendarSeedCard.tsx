@@ -9,11 +9,13 @@ export function CalendarSeedCard({
   address,
   timezone,
   readOnly = false,
+  dormant = false,
 }: {
   vineyardId: string;
   address: string;
   timezone: string;
   readOnly?: boolean;
+  dormant?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +31,7 @@ export function CalendarSeedCard({
       setResult(next);
     } catch (err) {
       setError(
-        err instanceof ApiError ? err.message : "Could not seed the calendar",
+        err instanceof ApiError ? err.message : "Could not add calendar tasks",
       );
     } finally {
       setBusy(false);
@@ -39,22 +41,27 @@ export function CalendarSeedCard({
   return (
     <Card>
       <p className="text-sm font-medium text-primary">Calendar</p>
-      <CardTitle className="mt-1">This year’s work calendar</CardTitle>
+      <CardTitle className="mt-1">Add missing calendar tasks to this season</CardTitle>
       <CardDescription>
-        Seeds a typical Midwest grape year (prune, feed, pest, weed, water,
-        harvest, winterize). Weather lookup comes later. Address is already on
-        the vineyard form.
+        Adds any standard vineyard work tasks (prune, feed, pest, weed, water,
+        harvest, winterize) not already present in the active season, dated in
+        the vineyard’s time zone.
       </CardDescription>
       <p className="mt-3 text-sm text-muted">
         {address} · {timezone}
       </p>
+      {dormant ? (
+        <p className="mt-2 text-sm text-muted">
+          Start a new season first before adding calendar tasks.
+        </p>
+      ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           type="button"
-          disabled={busy || readOnly}
+          disabled={busy || readOnly || dormant}
           onClick={() => void onSeed()}
         >
-          {busy ? "Seeding…" : "Seed this year’s calendar"}
+          {busy ? "Adding…" : "Add missing calendar tasks"}
         </Button>
         <Button asChild variant="outline">
           <Link to="/tasks">Open tasks</Link>

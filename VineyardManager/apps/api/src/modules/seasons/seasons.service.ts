@@ -1,11 +1,14 @@
 import { Prisma, type PrismaClient, type Season } from "@prisma/client";
 import {
+  ANNUAL_CALENDAR_TEMPLATES,
   OPEN_TASK_STATUSES,
   SEASON_ERROR_CODES,
   SEASON_LOCKED_MESSAGE,
   SEASON_REOPEN_WINDOW_MS,
+  annualCalendarDueDate,
   calendarDateInZone,
   healthThresholdsSchema,
+  localNoonInZone,
   scoreVineyardHealth,
   type ActivityScope,
   type CloseSeasonPreview,
@@ -14,9 +17,13 @@ import {
   type HealthScoreActivityInput,
   type HealthScoreRowInput,
   type HealthScoreTaskInput,
+  type NewSeasonPreview,
+  type NewSeasonResult,
+  type NewSeasonSuggestedTask,
   type ReopenSeasonResult,
   type SeasonDto,
   type SeasonStatus,
+  type VarietyHarvestTags,
   type YieldUnit,
 } from "@vineyard/shared";
 import { config } from "../../config.js";
@@ -822,4 +829,230 @@ export async function reopenSeason(
     };
   });
 }
+
+function parseVarietyHarvestTags(value: unknown): VarietyHarvestTags {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const result: VarietyHarvestTags = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (v === "early" || v === "mid" || v === "late") {
+      result[k] = v;
+    }
+  }
+  return result;
+}
+
+/**
+ * Fixed-calendar suggested task list for a given season year (D1, D-15).
+ * Dormant Pruning is always first; dates are YYYY-MM-DD in the season year.
+ */
+export function buildFixedCalendarTasks(year: number): NewSeasonSuggestedTask[] {
+  return ANNUAL_CALENDAR_TEMPLATES.map((template) => ({
+    templateKey: template.templateKey,
+    title: template.title,
+    body: template.body,
+    stage: template.stage,
+    dueDate: annualCalendarDueDate(year, template.month, template.day),
+    checked: true,
+    relatedActivityType: template.relatedActivityType,
+    source: "Fixed calendar fallback",
+    isEstimate: false,
+    variety: null,
+  }));
+}
+
+/**
+ * Preview for starting a New Season (D1, D-15).
+ * Allowed only while the vineyard is dormant (has closed season and no active season).
+ */
+export async function getNewSeasonPreview(
+  vineyardId: string,
+): Promise<NewSeasonPreview> {
+  const vineyard = await requireLiveVineyard(prisma, vineyardId);
+  const seasons = await prisma.season.findMany({
+    where: { vineyardId },
+    orderBy: [{ year: "desc" }],
+  });
+  const state = deriveDormantState(seasons);
+  if (!state.dormant) {
+    throw new HttpError(
+      409,
+      SEASON_ERROR_CODES.NOT_DORMANT,
+      "Close the active season before starting a new season.",
+    );
+  }
+
+  const year = state.plannedSeason
+    ? state.plannedSeason.year
+    : state.lastClosedSeason.year + 1;
+  const catalog = parseVarietyCatalog(vineyard.varietyCatalog);
+  const currentTags = parseVarietyHarvestTags(vineyard.varietyHarvestTags);
+
+  return {
+    year,
+    plannedSeasonId: state.plannedSeason?.id ?? null,
+    calendarSource: "fixed_fallback",
+    calendarNote:
+      "Using the standard fixed calendar dates for this season year. Review and adjust dates before starting.",
+    climateSummary: null,
+    varieties: catalog.map((name) => ({
+      name,
+      currentTag: currentTags[name] ?? null,
+      suggestedTag: null,
+      suggestionSource: null,
+    })),
+    tasks: buildFixedCalendarTasks(year),
+  };
+}
+
+const TEMPLATE_BY_KEY = new Map(
+  ANNUAL_CALENDAR_TEMPLATES.map((t) => [t.templateKey, t]),
+);
+
+/**
+ * Start a New Season while dormant (D2, D3, D-15):
+ * - Promotes existing planned season if present (keeping its records) or creates a new active season.
+ * - Creates ONLY checked tasks with edited dates in Vineyard.timezone via localNoonInZone.
+ * - Serializes concurrent submissions via FOR UPDATE lock + partial unique (season_id, template_key).
+ */
+export async function createNewSeason(
+  vineyardId: string,
+  input: {
+    year: number;
+    tasks: Array<{
+      templateKey: string;
+      dueDate: string;
+      checked: boolean;
+      title?: string;
+      body?: string;
+      relatedActivityType?: NewSeasonSuggestedTask["relatedActivityType"];
+    }>;
+    varietyHarvestTags?: VarietyHarvestTags;
+    actorId: string;
+    now?: Date;
+  },
+): Promise<NewSeasonResult> {
+  const now = input.now ?? new Date();
+  const vineyard = await requireLiveVineyard(prisma, vineyardId);
+  const timeZone = vineyard.timezone || "America/Chicago";
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`
+      SELECT "id" FROM "seasons"
+      WHERE "vineyard_id" = CAST(${vineyardId} AS uuid)
+      FOR UPDATE
+    `;
+
+    const allSeasons = await tx.season.findMany({
+      where: { vineyardId },
+      orderBy: [{ year: "desc" }],
+    });
+    const state = deriveDormantState(allSeasons);
+    if (!state.dormant) {
+      throw new HttpError(
+        409,
+        SEASON_ERROR_CODES.NOT_DORMANT,
+        "Close the active season before starting a new season.",
+      );
+    }
+
+    const plannedForYear = allSeasons.find(
+      (s) => s.status === "planned" && s.year === input.year,
+    );
+    const anyExistingForYear = allSeasons.find((s) => s.year === input.year);
+    if (anyExistingForYear && anyExistingForYear.status !== "planned") {
+      throw new HttpError(
+        409,
+        SEASON_ERROR_CODES.NOT_DORMANT,
+        `A ${input.year} season already exists with status ${anyExistingForYear.status}.`,
+      );
+    }
+
+    let activeSeason: Season;
+    let promotedFromPlanned = false;
+
+    if (plannedForYear) {
+      activeSeason = await tx.season.update({
+        where: { id: plannedForYear.id },
+        data: {
+          status: "active",
+          startedAt: now,
+          startedBy: input.actorId,
+        },
+      });
+      promotedFromPlanned = true;
+    } else {
+      activeSeason = await tx.season.create({
+        data: {
+          vineyardId,
+          year: input.year,
+          status: "active",
+          startedAt: now,
+          startedBy: input.actorId,
+        },
+      });
+    }
+
+    if (input.varietyHarvestTags) {
+      const mergedTags: VarietyHarvestTags = {
+        ...parseVarietyHarvestTags(vineyard.varietyHarvestTags),
+        ...input.varietyHarvestTags,
+      };
+      await tx.vineyard.update({
+        where: { id: vineyardId },
+        data: {
+          varietyHarvestTags: mergedTags as unknown as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    const existingTasks = await tx.task.findMany({
+      where: { vineyardId, seasonId: activeSeason.id, deletedAt: null },
+      select: { templateKey: true },
+    });
+    const seenKeys = new Set(
+      existingTasks
+        .map((t) => t.templateKey)
+        .filter((k): k is string => typeof k === "string" && k.length > 0),
+    );
+
+    let createdTaskCount = 0;
+    for (const item of input.tasks) {
+      if (!item.checked) continue;
+      const key = item.templateKey.trim();
+      if (!key || seenKeys.has(key)) continue;
+
+      const fallback = TEMPLATE_BY_KEY.get(key);
+      const title = item.title?.trim() || fallback?.title || key;
+      const body = item.body ?? fallback?.body ?? "";
+      const relatedActivityType =
+        item.relatedActivityType !== undefined
+          ? item.relatedActivityType
+          : (fallback?.relatedActivityType ?? null);
+
+      await tx.task.create({
+        data: {
+          vineyardId,
+          seasonId: activeSeason.id,
+          rowId: null,
+          type: "maintenance",
+          title,
+          body,
+          dueAt: localNoonInZone(item.dueDate, timeZone),
+          status: "pending",
+          relatedActivityType,
+          templateKey: key,
+        },
+      });
+      seenKeys.add(key);
+      createdTaskCount += 1;
+    }
+
+    return {
+      season: serializeSeason(activeSeason),
+      promotedFromPlanned,
+      createdTaskCount,
+    };
+  });
+}
+
 

@@ -9,12 +9,15 @@ import {
   type CloseSeasonResult,
   type CurrentSeasonState,
   type Harvest,
+  type NewSeasonPreview,
+  type NewSeasonResult,
   type PublicUser,
   type ReopenSeasonResult,
   type Row,
   type ScheduledTask,
   type SeasonDto,
   type TaskStatus,
+  type VarietyHarvestTags,
   type RowLayout,
   type HealthThresholds,
   type Vineyard,
@@ -793,4 +796,43 @@ export async function reopenSeason(
   );
   return body.data;
 }
+
+export async function getNewSeasonPreview(
+  vineyardId: string,
+  signal?: AbortSignal,
+): Promise<NewSeasonPreview> {
+  const body = await apiJson<{ data: NewSeasonPreview }>(
+    `/vineyards/${vineyardId}/seasons/new-preview`,
+    { signal },
+  );
+  return body.data;
+}
+
+export type CreateNewSeasonPayload = {
+  year: number;
+  tasks: Array<{
+    templateKey: string;
+    dueDate: string;
+    checked: boolean;
+    title?: string;
+    body?: string;
+    relatedActivityType?: ActivityType | null;
+  }>;
+  varietyHarvestTags?: VarietyHarvestTags;
+};
+
+export async function createNewSeason(
+  vineyardId: string,
+  payload: CreateNewSeasonPayload,
+): Promise<NewSeasonResult> {
+  const body = await apiJson<{ data: NewSeasonResult }>(
+    `/vineyards/${vineyardId}/seasons/new`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+  return body.data;
+}
+
 

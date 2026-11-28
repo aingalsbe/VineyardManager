@@ -15,6 +15,7 @@ import { HttpError } from "../../middleware/error-handler.js";
 export async function resolveSeasonForWrite(
   tx: Prisma.TransactionClient,
   vineyardId: string,
+  now: Date = new Date(),
 ): Promise<string> {
   const seasons = await tx.season.findMany({
     where: { vineyardId },
@@ -35,7 +36,7 @@ export async function resolveSeasonForWrite(
     if (!vineyard) {
       throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
     }
-    const year = localYear(new Date(), vineyard.timezone);
+    const year = localYear(now, vineyard.timezone);
     await tx.season.createMany({
       data: [{ vineyardId, year, status: "active" }],
       skipDuplicates: true,
@@ -150,10 +151,11 @@ export async function runSeasonTransaction<T>(
   client: PrismaClient,
   vineyardId: string,
   write: (tx: Prisma.TransactionClient, seasonId: string) => Promise<T>,
+  now?: Date,
 ): Promise<T> {
   const attempt = (): Promise<T> =>
     client.$transaction(async (tx) => {
-      const seasonId = await resolveSeasonForWrite(tx, vineyardId);
+      const seasonId = await resolveSeasonForWrite(tx, vineyardId, now);
       return write(tx, seasonId);
     });
 
@@ -168,7 +170,8 @@ export async function runSeasonTransaction<T>(
 export async function withSeasonWrite<T>(
   vineyardId: string,
   write: (tx: Prisma.TransactionClient, seasonId: string) => Promise<T>,
+  now?: Date,
 ): Promise<T> {
   const { prisma } = await import("../../db/prisma.js");
-  return runSeasonTransaction(prisma, vineyardId, write);
+  return runSeasonTransaction(prisma, vineyardId, write, now);
 }

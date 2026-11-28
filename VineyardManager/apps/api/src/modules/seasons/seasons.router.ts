@@ -1,12 +1,14 @@
-import { closeSeasonSchema } from "@vineyard/shared";
+import { closeSeasonSchema, createNewSeasonSchema } from "@vineyard/shared";
 import { Router, type Request } from "express";
 import { z } from "zod";
 import { getAuthUser, requireSetup } from "../auth/auth.middleware.js";
 import {
   PreviewStaleError,
   closeSeason,
+  createNewSeason,
   getCloseSeasonPreview,
   getCurrentSeasonState,
+  getNewSeasonPreview,
   getSeasonDetail,
   listSeasons,
   reopenSeason,
@@ -32,6 +34,35 @@ vineyardSeasonsRouter.get(
     const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
     const data = await getCurrentSeasonState(vineyardId);
     res.json({ data });
+  },
+);
+
+vineyardSeasonsRouter.get(
+  "/new-preview",
+  requireSetup,
+  async (req: Request<{ vineyardId: string }>, res) => {
+    const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
+    const data = await getNewSeasonPreview(vineyardId);
+    res.json({ data });
+  },
+);
+
+vineyardSeasonsRouter.post(
+  "/new",
+  requireSetup,
+  async (req: Request<{ vineyardId: string }>, res) => {
+    const vineyardId = vineyardIdParam.parse(req.params.vineyardId);
+    const actor = getAuthUser(req);
+    const body = createNewSeasonSchema.parse(req.body);
+    const data = await createNewSeason(vineyardId, {
+      year: body.year,
+      tasks: body.tasks,
+      ...(body.varietyHarvestTags
+        ? { varietyHarvestTags: body.varietyHarvestTags }
+        : {}),
+      actorId: actor.id,
+    });
+    res.status(201).json({ data });
   },
 );
 

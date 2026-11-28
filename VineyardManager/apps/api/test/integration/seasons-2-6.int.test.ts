@@ -301,6 +301,9 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
 
     // 8. Phase 5 — Season Summary, Past Seasons, mail intents & retries (C1–C6)
     await phase5SummaryAndMailCases(prisma, base, owner.id, tokens);
+
+    // 9. Phase 6 — New Season & per-season seeding fix (D1–D5, G2)
+    await phase6NewSeasonAndSeedCases(prisma, base, owner.id, tokens);
   } finally {
     globalThis.fetch = originalFetch;
     try {
@@ -1720,6 +1723,237 @@ async function phase5SummaryAndMailCases(
     });
   }
 }
+
+async function phase6NewSeasonAndSeedCases(
+  prisma: PrismaClient,
+  base: URL,
+  ownerId: string,
+  tokens: { power_user: string; manager: string; viewer: string },
+): Promise<void> {
+  const { calendarDateInZone } = await import("@vineyard/shared");
+  const { seedMissingCalendarTasksForVineyard } = await import(
+    "../../src/modules/schedule/schedule.router.js"
+  );
+
+  // Use Pacific/Auckland to prove vineyard-tz dates near New Year (G2)
+  const v = await createVineyard(prisma, ownerId, "Pacific/Auckland");
+  const s2026 = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T00:00:00.000Z"),
+    },
+  });
+
+  // Seed year 1 (2026) -> creates all 8 templates with templateKey & 2026 dates
+  const seed1 = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/schedule/seed`,
+    tokens.power_user,
+  );
+  assert.equal(seed1.status, 201);
+  assert.equal((seed1.body as { data: { created: number } }).data.created, 8);
+
+  // D5: manager and viewer get 403 on new-preview, new, and seed
+  for (const role of ["manager", "viewer"] as const) {
+    assert.equal(
+      (
+        await httpJson(
+          base,
+          "GET",
+          `${API_PREFIX}/vineyards/${v.id}/seasons/new-preview`,
+          tokens[role],
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await httpJson(
+          base,
+          "POST",
+          `${API_PREFIX}/vineyards/${v.id}/seasons/new`,
+          tokens[role],
+          { year: 2027, tasks: [] },
+        )
+      ).status,
+      403,
+    );
+    assert.equal(
+      (
+        await httpJson(
+          base,
+          "POST",
+          `${API_PREFIX}/vineyards/${v.id}/schedule/seed`,
+          tokens[role],
+        )
+      ).status,
+      403,
+    );
+  }
+
+  // D1: new-preview and new refuse while active (409 NOT_DORMANT)
+  const activePreview = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/new-preview`,
+    tokens.power_user,
+  );
+  assert.equal(activePreview.status, 409);
+  assert.equal(
+    (activePreview.body as { error?: { code?: string } })?.error?.code,
+    "NOT_DORMANT",
+  );
+
+  // Close 2026 (dismisses all 8 open tasks)
+  const cp = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/${s2026.id}/close-preview`,
+    tokens.power_user,
+  );
+  assert.equal(cp.status, 200);
+  const closeRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/${s2026.id}/close`,
+    tokens.power_user,
+    {
+      previewToken: (cp.body as { data: { previewToken: string } }).data
+        .previewToken,
+    },
+  );
+  assert.equal(closeRes.status, 200);
+
+  // D4: seeding while dormant refuses with 409 VINEYARD_DORMANT
+  const dormantSeed = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/schedule/seed`,
+    tokens.power_user,
+  );
+  assert.equal(dormantSeed.status, 409);
+  assert.equal(
+    (dormantSeed.body as { error?: { code?: string } })?.error?.code,
+    "VINEYARD_DORMANT",
+  );
+
+  // Create a planned-season task after close -> creates planned 2027 season
+  const plannedTaskRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/tasks`,
+    tokens.manager,
+    {
+      title: "Pre-planned trellis repair",
+      body: "Fix end post",
+      dueAt: "2027-02-15",
+      type: "maintenance",
+      status: "pending",
+    },
+  );
+  assert.equal(plannedTaskRes.status, 201);
+  const plannedTaskId = (plannedTaskRes.body as { data: { id: string } }).data.id;
+  const planned2027 = await prisma.season.findFirstOrThrow({
+    where: { vineyardId: v.id, year: 2027, status: "planned" },
+  });
+
+  // D1: new-preview while dormant returns year 2027, plannedSeasonId, Dormant Pruning first
+  const newPrev = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/new-preview`,
+    tokens.power_user,
+  );
+  assert.equal(newPrev.status, 200);
+  const prevData = (newPrev.body as {
+    data: {
+      year: number;
+      plannedSeasonId: string | null;
+      tasks: Array<{
+        templateKey: string;
+        dueDate: string;
+        checked: boolean;
+        stage: string;
+        title: string;
+        body: string;
+        relatedActivityType: string | null;
+      }>;
+    };
+  }).data;
+  assert.equal(prevData.year, 2027);
+  assert.equal(prevData.plannedSeasonId, planned2027.id);
+  assert.equal(prevData.tasks[0]?.templateKey, "dormant_prune");
+  assert.equal(prevData.tasks[0]?.stage, "dormant");
+
+  // Uncheck the last 2 tasks and edit Dormant Pruning date to 2027-03-01
+  const payloadTasks = prevData.tasks.map((t, idx) => ({
+    templateKey: t.templateKey,
+    dueDate: idx === 0 ? "2027-03-01" : t.dueDate,
+    checked: idx < prevData.tasks.length - 2,
+    title: t.title,
+    body: t.body,
+    relatedActivityType: t.relatedActivityType,
+  }));
+
+  // D2 & D3: Concurrent double-submit -> exactly ONE 201 and ONE 409 NOT_DORMANT
+  const [newA, newB] = await Promise.all([
+    httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/new`,
+      tokens.power_user,
+      { year: 2027, tasks: payloadTasks },
+    ),
+    httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/new`,
+      tokens.power_user,
+      { year: 2027, tasks: payloadTasks },
+    ),
+  ]);
+  assert.deepEqual([newA.status, newB.status].sort((a, b) => a - b), [201, 409]);
+  const createdResp = newA.status === 201 ? newA : newB;
+  const createdData = (createdResp.body as {
+    data: { season: { id: string; status: string }; promotedFromPlanned: boolean; createdTaskCount: number };
+  }).data;
+  assert.equal(createdData.season.id, planned2027.id);
+  assert.equal(createdData.season.status, "active");
+  assert.equal(createdData.promotedFromPlanned, true);
+  assert.equal(createdData.createdTaskCount, prevData.tasks.length - 2);
+
+  // Planned task still exists in promoted 2027; unchecked tasks were NOT created; 2026 dismissed tasks NOT copied
+  const tasks2027 = await prisma.task.findMany({
+    where: { vineyardId: v.id, seasonId: planned2027.id, deletedAt: null },
+  });
+  assert.equal(tasks2027.length, prevData.tasks.length - 2 + 1);
+  assert.ok(tasks2027.some((t) => t.id === plannedTaskId));
+  const dormantPrune2027 = tasks2027.find((t) => t.templateKey === "dormant_prune");
+  assert.ok(dormantPrune2027);
+  assert.equal(
+    calendarDateInZone(dormantPrune2027.dueAt, "Pacific/Auckland"),
+    "2027-03-01",
+  );
+
+  // D4 & G2: Year-two seeding adds ONLY the 2 missing templates for 2027 (even with mocked clock at 2026-12-31T23:00Z, which is 2027-01-01 in Auckland!)
+  const seed2 = await seedMissingCalendarTasksForVineyard(
+    v.id,
+    new Date("2026-12-31T23:00:00.000Z"),
+  );
+  assert.equal(seed2.created, 2);
+  assert.equal(seed2.skipped, 6);
+  for (const t of seed2.createdTasks) {
+    assert.equal(t.seasonId, planned2027.id);
+    assert.ok(
+      calendarDateInZone(t.dueAt, "Pacific/Auckland").startsWith("2027-"),
+      "seeded task due date must use season year in vineyard timezone",
+    );
+  }
+}
+
 
 
 

@@ -21,6 +21,7 @@ import { HealthLegend } from "@/components/HealthLegend";
 import { RowActionPanel } from "@/components/health/RowActionPanel";
 import { VineyardHealthMap } from "@/components/health/VineyardHealthMap";
 import { VineyardMapDialog } from "@/components/health/VineyardMapDialog";
+import { NewSeasonDialog } from "@/components/seasons/NewSeasonDialog";
 import { WeatherHealthControl } from "@/components/weather/WeatherHealthControl";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -237,6 +238,7 @@ export function DashboardPage() {
   const [highlightRowId, setHighlightRowId] = useState<string | null>(null);
   const weatherOverlayRef = useRef<HTMLDivElement>(null);
   const [activityOpen, setActivityOpen] = useState(false);
+  const [newSeasonOpen, setNewSeasonOpen] = useState(false);
   const [presetType, setPresetType] = useState<ActivityType | undefined>();
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState(false);
@@ -570,12 +572,32 @@ export function DashboardPage() {
                 : "Daily rain checks and weekly digests are paused. A power user can start a new season in Setup."}
             </p>
           </div>
-          {canSetup ? (
-            <Button asChild className="min-h-11 shrink-0">
-              <Link to="/setup">New Season</Link>
+          {canSetup && vineyardId ? (
+            <Button
+              type="button"
+              className="min-h-11 shrink-0"
+              onClick={() => setNewSeasonOpen(true)}
+            >
+              New Season
             </Button>
           ) : null}
         </section>
+      ) : null}
+
+      {vineyardId ? (
+        <NewSeasonDialog
+          vineyardId={vineyardId}
+          open={newSeasonOpen}
+          onClose={() => setNewSeasonOpen(false)}
+          onCreated={async () => {
+            setNewSeasonOpen(false);
+            await Promise.all([
+              season.reload({ silent: true }),
+              tasks.reload({ silent: true }),
+              health.reload({ silent: true }),
+            ]);
+          }}
+        />
       ) : null}
 
       {/* Weather pop-down portals into this container (covers the decision area). */}

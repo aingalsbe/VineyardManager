@@ -179,6 +179,9 @@ export function SetupPage() {
             address={current.address}
             timezone={current.timezone}
             readOnly={!canSetup}
+            dormant={
+              season.state.status === "ready" && season.state.current.dormant
+            }
           />
           <div className="md:col-span-2">
             <HealthThresholdsCard

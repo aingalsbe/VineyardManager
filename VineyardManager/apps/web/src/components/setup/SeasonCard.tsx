@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { CloseSeasonResult, CurrentSeasonState } from "@vineyard/shared";
+import type {
+  CloseSeasonResult,
+  CurrentSeasonState,
+  NewSeasonResult,
+} from "@vineyard/shared";
 import { CloseSeasonDialog } from "@/components/seasons/CloseSeasonDialog";
+import { NewSeasonDialog } from "@/components/seasons/NewSeasonDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -40,6 +45,7 @@ export function SeasonCard({
   onChanged: () => Promise<void> | void;
 }) {
   const [closeOpen, setCloseOpen] = useState(false);
+  const [newSeasonOpen, setNewSeasonOpen] = useState(false);
   const [reopenOpen, setReopenOpen] = useState(false);
   const [reopenBusy, setReopenBusy] = useState(false);
   const [reopenError, setReopenError] = useState<string | null>(null);
@@ -53,6 +59,14 @@ export function SeasonCard({
     setCloseOpen(false);
     setNotice(
       `Closed the ${result.season.year} season. Dismissed ${result.dismissedTaskCount} open ${result.dismissedTaskCount === 1 ? "task" : "tasks"}. Vineyard is now dormant.`,
+    );
+    await onChanged();
+  }
+
+  async function handleNewSeasonCreated(result: NewSeasonResult) {
+    setNewSeasonOpen(false);
+    setNotice(
+      `Started the ${result.season.year} season with ${result.createdTaskCount} scheduled ${result.createdTaskCount === 1 ? "task" : "tasks"}.`,
     );
     await onChanged();
   }
@@ -157,6 +171,17 @@ export function SeasonCard({
                 Close {current.season.year} season
               </Button>
             ) : null}
+            {current.dormant && canSetup ? (
+              <Button
+                type="button"
+                onClick={() => {
+                  setNotice(null);
+                  setNewSeasonOpen(true);
+                }}
+              >
+                Start new season
+              </Button>
+            ) : null}
             {canReopen && lastClosed ? (
               <Button
                 type="button"
@@ -195,6 +220,13 @@ export function SeasonCard({
         open={closeOpen}
         onClose={() => setCloseOpen(false)}
         onClosed={handleClosed}
+      />
+
+      <NewSeasonDialog
+        vineyardId={vineyardId}
+        open={newSeasonOpen}
+        onClose={() => setNewSeasonOpen(false)}
+        onCreated={handleNewSeasonCreated}
       />
 
       <ConfirmDialog
