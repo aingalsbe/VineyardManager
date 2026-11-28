@@ -165,6 +165,11 @@ export const varietyCatalogSchema = z
   .array(z.string().trim().min(1, "Enter a variety").max(80))
   .max(200, "At most 200 varieties");
 
+const vineyardVarietyHarvestTagsSchema = z.record(
+  z.string().trim().min(1).max(80),
+  z.enum(["early", "mid", "late"]),
+);
+
 export const rowLayoutSchema = z.object({
   version: z.literal(1),
   rows: z
@@ -204,6 +209,7 @@ export const updateVineyardSchema = z
     rowLayout: rowLayoutSchema.nullable().optional(),
     healthThresholds: healthThresholdsSchema.optional(),
     varietyCatalog: varietyCatalogSchema.optional(),
+    varietyHarvestTags: vineyardVarietyHarvestTagsSchema.optional(),
   })
   .refine(
     (value) =>
@@ -214,7 +220,8 @@ export const updateVineyardSchema = z
       value.lng !== undefined ||
       value.rowLayout !== undefined ||
       value.healthThresholds !== undefined ||
-      value.varietyCatalog !== undefined,
+      value.varietyCatalog !== undefined ||
+      value.varietyHarvestTags !== undefined,
     { message: "Enter at least one field" },
   );
 

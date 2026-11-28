@@ -309,6 +309,7 @@ function postJson(
   requestPath: string,
   json: unknown,
   authorization: string | null,
+  timeoutMs = 15_000,
 ): Promise<HttpResult> {
   const payload = Buffer.from(JSON.stringify(json));
   return new Promise((resolve, reject) => {
@@ -343,6 +344,9 @@ function postJson(
         });
       },
     );
+    req.setTimeout(timeoutMs, () => {
+      req.destroy(new Error(`HTTP POST ${requestPath} timed out after ${timeoutMs}ms`));
+    });
     req.on("error", reject);
     req.end(payload);
   });

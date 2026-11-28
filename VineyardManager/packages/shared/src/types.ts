@@ -88,6 +88,7 @@ export interface Vineyard extends Audited {
   timezone: string;
   healthThresholds: HealthThresholds;
   varietyCatalog: string[];
+  varietyHarvestTags?: Record<string, "early" | "mid" | "late">;
   hasLogo: boolean;
   rowLayout: RowLayout | null;
 }
@@ -139,12 +140,16 @@ export interface Row extends Audited {
   plantedYear: number;
   status: RowStatus;
   notes?: string | null;
+  preDeleteCode?: string | null;
+  preDeleteStatus?: RowStatus | null;
 }
 
 export interface Harvest extends Audited {
   id: string;
   rowId: string;
   vineyardId: string;
+  seasonId?: string | null;
+  seasonStatus?: "legacy" | "active" | "planned" | "closed" | null;
   harvestedAt: string;
   yieldAmount: number;
   yieldUnit: YieldUnit;
@@ -166,6 +171,8 @@ export interface Vine extends Audited {
 export interface Activity extends Audited {
   id: string;
   vineyardId: string;
+  seasonId?: string | null;
+  seasonStatus?: "legacy" | "active" | "planned" | "closed" | null;
   rowId?: string | null;
   scopeType: ActivityScope;
   scopeId: string;
@@ -283,6 +290,8 @@ export interface RowHealth {
 export interface VineyardHealth {
   vineyardId: string;
   asOf: string;
+  dormant?: boolean;
+  dormantSince?: string | null;
   overall: {
     score: number;
     color: HealthColor;
@@ -458,6 +467,9 @@ export interface RowDeleteResult {
 export interface ScheduledTask extends Audited {
   id: string;
   vineyardId: string;
+  seasonId?: string | null;
+  seasonStatus?: "legacy" | "active" | "planned" | "closed" | null;
+  templateKey?: string | null;
   rowId?: string | null;
   userId?: string | null;
   type: TaskType;
