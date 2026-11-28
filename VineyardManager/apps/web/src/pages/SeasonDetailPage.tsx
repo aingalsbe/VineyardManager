@@ -347,6 +347,14 @@ export function SeasonDetailPage() {
                   {summary.tasks.dismissedBeforeClose}
                 </dd>
               </div>
+              {summary.tasks.dismissedByEarlierClose ? (
+                <div>
+                  <dt className="text-muted">Dismissed by an earlier close</dt>
+                  <dd className="text-lg font-semibold">
+                    {summary.tasks.dismissedByEarlierClose}
+                  </dd>
+                </div>
+              ) : null}
               <div>
                 <dt className="text-muted">Dismissed at close</dt>
                 <dd className="text-lg font-semibold">
@@ -354,6 +362,12 @@ export function SeasonDetailPage() {
                 </dd>
               </div>
             </dl>
+            {summary.tasks.dismissedByEarlierClose ? (
+              <p className="mt-3 text-sm text-muted">
+                This season was reopened. Tasks an earlier close dismissed stay
+                dismissed, so they no longer count as overdue in this summary.
+              </p>
+            ) : null}
             {summary.tasks.dismissedByCloseList.length > 0 ? (
               <div className="mt-4">
                 <h3 className="text-sm font-semibold text-foreground">

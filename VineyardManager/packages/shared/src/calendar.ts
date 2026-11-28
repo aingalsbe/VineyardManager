@@ -87,6 +87,22 @@ export const ANNUAL_CALENDAR_TEMPLATES: AnnualCalendarTemplate[] = [
   },
 ];
 
+/**
+ * Task-key family for equivalence between the fixed annual calendar and the
+ * location-based New Season calendar. The two use different keys for the same
+ * kind of work (for example fixed `strip_weed_pass` vs location
+ * `strip_weed_pass_1` / `strip_weed_pass_2`; fixed `harvest_window` vs
+ * location `harvest_<variety>`), so de-duplication compares families.
+ * Keys with no known alias are their own family.
+ */
+export function calendarTemplateFamily(templateKey: string): string {
+  const key = templateKey.trim();
+  if (/^strip_weed_pass(_\d+)?$/.test(key)) return "strip_weed_pass";
+  if (/^pest_scouting(_\d+)?$/.test(key)) return "pest_scouting";
+  if (key === "harvest_window" || key.startsWith("harvest_")) return "harvest";
+  return key;
+}
+
 export const CALENDAR_TEMPLATES: AnnualCalendarTemplate[] =
   ANNUAL_CALENDAR_TEMPLATES;
 

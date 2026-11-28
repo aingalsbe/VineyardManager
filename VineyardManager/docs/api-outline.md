@@ -76,7 +76,7 @@ Shipped:
 | POST | `/vineyards/{vid}/seasons/{seasonId}/close` | Power user only. Body `{ previewToken }`. Transactional `FOR UPDATE`: dismisses live open tasks in that season, writes frozen `snapshot` + rule-based `summary`, bumps `closeVersion`, writes `season_summary_mails` intents, sets `status=closed`. Returns `409 PREVIEW_STALE` (with fresh `data`) if state changed, `409 SEASON_NOT_ACTIVE` if not active |
 | POST | `/vineyards/{vid}/seasons/{seasonId}/reopen` | Power user only. Allowed within 30 days of `closedAt` and only while dormant. Moves `summary` to `summaryHistory`, clears `snapshot`/`closedAt`, sets `status=active` (dismissed tasks stay dismissed; planned-season records stay in planned season). Idempotent `200`. `409 REOPEN_WINDOW_PASSED` after 30 days; `409 NOT_DORMANT` if another season is active |
 | GET | `/vineyards/{vid}/seasons/new-preview` | Power user only; dormant only (`409 NOT_DORMANT`). Returns target `year` (planned season year else last closed + 1), `plannedSeasonId`, `calendarSource` (`location` \| `fixed_fallback`), `climateSummary`, `varieties` (with non-auto-applied suggestions), and stage-grouped `tasks` with Dormant Pruning first |
-| POST | `/vineyards/{vid}/seasons/new` | Power user only; dormant only (`409 NOT_DORMANT`). Body `{ year, tasks: [{ templateKey, dueDate, checked, title?, body?, relatedActivityType? }], varietyHarvestTags? }`. Promotes planned season (keeping its records) or creates active season, creates checked tasks dated at local noon in `Vineyard.timezone` |
+| POST | `/vineyards/{vid}/seasons/new` | Power user only; dormant only (`409 NOT_DORMANT`). Body `{ year, tasks: [{ templateKey, dueDate, checked, title?, body?, relatedActivityType? }], varietyHarvestTags? }`. Promotes planned season (keeping its records) or creates active season, creates checked tasks dated at local noon in `Vineyard.timezone`. `title`/`body`/`relatedActivityType` are optional: when omitted they are resolved server-side from the fixed calendar, then from the location calendar definition (never the raw key). Unchecked keys are recorded on `Season.declinedTemplateKeys` |
 
 ## Varieties
 
@@ -179,7 +179,7 @@ Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/vineyards/{vid}/schedule/seed` | Power user only. Adds missing annual calendar tasks to the active season (deduped by `(seasonId, templateKey)` inside the transaction, dates in `Vineyard.timezone` for `season.year`). Refuses while dormant with `409 VINEYARD_DORMANT`. `{ created, skipped, tasks }` |
+| POST | `/vineyards/{vid}/schedule/seed` | Power user only. Adds missing annual calendar tasks to the active season (deduped inside the transaction by `(seasonId, templateKey)`, by task-key family so fixed `strip_weed_pass` / `pest_scouting` / `harvest_window` match the location calendar's `strip_weed_pass_N` / `pest_scouting_N` / `harvest_<variety>`, and never re-adds keys in `Season.declinedTemplateKeys`; dates in `Vineyard.timezone` for `season.year`). Refuses while dormant with `409 VINEYARD_DORMANT`. `{ created, skipped, tasks }` |
 
 Out of this slice:
 

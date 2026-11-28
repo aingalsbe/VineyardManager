@@ -394,6 +394,8 @@ export function buildSeasonSnapshot(input: {
   activities: SnapshotActivityInput[];
   currentHealth: { score: number; color: HealthColor; reasons: HealthReason[] };
   weather: SeasonWeatherSnapshot;
+  /** Task ids dismissed by an earlier close of this season (before it was reopened). */
+  earlierCloseDismissedTaskIds?: ReadonlySet<string>;
 }): SeasonSnapshot {
   const asOfDate = calendarDateInZone(input.closedAt, input.timeZone);
   const rowsById = new Map(input.rows.map((r) => [r.id, r]));
@@ -422,6 +424,7 @@ export function buildSeasonSnapshot(input: {
   let doneOnTime = 0;
   let doneLate = 0;
   let dismissedBeforeClose = 0;
+  let dismissedByEarlierClose = 0;
   const dismissedByCloseList: SeasonDismissedTaskItem[] = [];
 
   for (const task of input.tasks) {
@@ -431,7 +434,11 @@ export function buildSeasonSnapshot(input: {
       if (doneDate <= dueDate) doneOnTime += 1;
       else doneLate += 1;
     } else if (task.status === "dismissed") {
-      dismissedBeforeClose += 1;
+      if (input.earlierCloseDismissedTaskIds?.has(task.id)) {
+        dismissedByEarlierClose += 1;
+      } else {
+        dismissedBeforeClose += 1;
+      }
     } else if (OPEN_TASK_SET.has(task.status)) {
       dismissedByCloseList.push({
         id: task.id,
@@ -514,6 +521,7 @@ export function buildSeasonSnapshot(input: {
       doneOnTime,
       doneLate,
       dismissedBeforeClose,
+      ...(dismissedByEarlierClose > 0 ? { dismissedByEarlierClose } : {}),
       dismissedByClose: dismissedByCloseList.length,
       dismissedByCloseList,
     },

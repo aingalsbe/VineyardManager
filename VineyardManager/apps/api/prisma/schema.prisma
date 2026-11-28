@@ -308,6 +308,8 @@ model Season {
   snapshot       Json?
   summary        Json?
   summaryHistory Json                @default("[]") @map("summary_history")
+  /// Calendar template keys the user unchecked when starting this season; "Add missing calendar tasks" never re-adds them.
+  declinedTemplateKeys String[]      @default([]) @map("declined_template_keys")
   createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
   vineyard       Vineyard            @relation(fields: [vineyardId], references: [id], onDelete: Restrict)

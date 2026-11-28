@@ -52,6 +52,7 @@ import {
   buildLocationBasedSeasonCalendar,
   buildVarietySuggestions,
   fetchTenYearClimateHistory,
+  resolveLocationTaskDefaults,
 } from "./season-calendar.js";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
@@ -706,6 +707,9 @@ export async function closeSeason(
       activities: ctx.activities,
       currentHealth: ctx.currentHealth,
       weather,
+      earlierCloseDismissedTaskIds: earlierCloseDismissedTaskIds(
+        ctx.season.summaryHistory,
+      ),
     });
 
     const summary = buildSeasonSummaryFromSnapshot(snapshot, nextCloseVersion);
@@ -833,6 +837,26 @@ export async function reopenSeason(
       alreadyActive: false,
     };
   });
+}
+
+/**
+ * Task ids that earlier closes of a reopened season dismissed (from summaryHistory).
+ * Reopening keeps them dismissed, so a later summary reports them separately
+ * instead of as tasks the user dismissed by hand.
+ */
+export function earlierCloseDismissedTaskIds(summaryHistory: unknown): Set<string> {
+  const ids = new Set<string>();
+  if (!Array.isArray(summaryHistory)) return ids;
+  for (const entry of summaryHistory) {
+    const list = (entry as { tasks?: { dismissedByCloseList?: unknown } } | null)
+      ?.tasks?.dismissedByCloseList;
+    if (!Array.isArray(list)) continue;
+    for (const item of list) {
+      const id = (item as { id?: unknown } | null)?.id;
+      if (typeof id === "string") ids.add(id);
+    }
+  }
+  return ids;
 }
 
 function parseVarietyHarvestTags(value: unknown): VarietyHarvestTags {
@@ -1047,13 +1071,37 @@ export async function createNewSeason(
         .filter((k): k is string => typeof k === "string" && k.length > 0),
     );
 
+    // D-A: remember what the user unchecked so "Add missing calendar tasks"
+    // never re-adds it. Keys already present on the season are not declined.
+    const checkedKeys = new Set(
+      input.tasks.filter((t) => t.checked).map((t) => t.templateKey.trim()),
+    );
+    const declinedKeys = new Set<string>(activeSeason.declinedTemplateKeys);
+    for (const item of input.tasks) {
+      if (item.checked) continue;
+      const key = item.templateKey.trim();
+      if (key && !seenKeys.has(key) && !checkedKeys.has(key)) {
+        declinedKeys.add(key);
+      }
+    }
+    if (declinedKeys.size !== activeSeason.declinedTemplateKeys.length) {
+      activeSeason = await tx.season.update({
+        where: { id: activeSeason.id },
+        data: { declinedTemplateKeys: [...declinedKeys].sort() },
+      });
+    }
+
+    const catalog = parseVarietyCatalog(vineyard.varietyCatalog);
     let createdTaskCount = 0;
     for (const item of input.tasks) {
       if (!item.checked) continue;
       const key = item.templateKey.trim();
       if (!key || seenKeys.has(key)) continue;
 
-      const fallback = TEMPLATE_BY_KEY.get(key);
+      // D-B: when a client omits title/body, resolve them server-side from the
+      // fixed calendar, then from the location calendar definition.
+      const fallback =
+        TEMPLATE_BY_KEY.get(key) ?? resolveLocationTaskDefaults(key, catalog);
       const title = item.title?.trim() || fallback?.title || key;
       const body = item.body ?? fallback?.body ?? "";
       const relatedActivityType =

@@ -156,6 +156,8 @@ export interface SeasonSnapshot {
     doneOnTime: number;
     doneLate: number;
     dismissedBeforeClose: number;
+    /** Tasks an earlier close of this (reopened) season dismissed; they stay dismissed after reopening. */
+    dismissedByEarlierClose?: number;
     dismissedByClose: number;
     dismissedByCloseList: SeasonDismissedTaskItem[];
   };
@@ -222,6 +224,8 @@ export interface SeasonSummary {
     doneLate: number;
     onTimePct: number | null;
     dismissedBeforeClose: number;
+    /** Tasks an earlier close of this (reopened) season dismissed; they stay dismissed after reopening. */
+    dismissedByEarlierClose?: number;
     dismissedByClose: number;
     dismissedByCloseList: SeasonDismissedTaskItem[];
   };

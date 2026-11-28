@@ -70,6 +70,91 @@ function slugifyVariety(name: string): string {
   return slug || "variety";
 }
 
+/** Unique per-variety slugs, in order, exactly as the location calendar assigns them. */
+export function harvestSlugsForVarieties(
+  varieties: readonly string[],
+): Array<{ slug: string; name: string }> {
+  const uniqueVarieties = [
+    ...new Set(varieties.map((v) => v.trim()).filter(Boolean)),
+  ];
+  const usedSlugs = new Set<string>();
+  const result: Array<{ slug: string; name: string }> = [];
+  for (const name of uniqueVarieties) {
+    let slug = slugifyVariety(name);
+    if (usedSlugs.has(slug)) {
+      let n = 2;
+      while (usedSlugs.has(`${slug}_${n}`)) n += 1;
+      slug = `${slug}_${n}`;
+    }
+    usedSlugs.add(slug);
+    result.push({ slug, name });
+  }
+  return result;
+}
+
+const STRIP_WEED_PASS_1_TEXT = {
+  title: "Strip / weed pass (pre-bloom)",
+  body: "Keep a weed-free strip under the trellis before bloom. Avoid drift onto new shoots.",
+};
+const STRIP_WEED_PASS_2_TEXT = {
+  title: "Strip / weed pass (midsummer)",
+  body: "Second under-trellis weed pass between bloom and veraison to keep airflow open.",
+};
+const PEST_SCOUTING_BODY =
+  "Scout canopy and clusters for insect or disease pressure; treat if pressure is up (e.g., Japanese beetles).";
+
+function harvestWindowText(varietyName: string): { title: string; body: string } {
+  return {
+    title: `Harvest window — ${varietyName}`,
+    body: `Start checking sugar levels (Brix) and flavor for ${varietyName}. Pick when ready; record yield on Harvests.`,
+  };
+}
+
+function humanizeSlug(slug: string): string {
+  return slug
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
+/**
+ * Title, body and activity type for a location-calendar template key (D-B).
+ * Used by POST /seasons/new when a client omits title/body. Returns null for
+ * keys the location calendar does not produce with its own text.
+ */
+export function resolveLocationTaskDefaults(
+  templateKey: string,
+  varieties: readonly string[],
+): {
+  title: string;
+  body: string;
+  relatedActivityType: NewSeasonSuggestedTask["relatedActivityType"];
+} | null {
+  const key = templateKey.trim();
+  if (key === "strip_weed_pass_1") {
+    return { ...STRIP_WEED_PASS_1_TEXT, relatedActivityType: "weed_prevention" };
+  }
+  if (key === "strip_weed_pass_2") {
+    return { ...STRIP_WEED_PASS_2_TEXT, relatedActivityType: "weed_prevention" };
+  }
+  const pest = /^pest_scouting_(\d+)$/.exec(key);
+  if (pest) {
+    return {
+      title: `Pest scouting #${pest[1]}`,
+      body: PEST_SCOUTING_BODY,
+      relatedActivityType: "pest_prevention",
+    };
+  }
+  if (key.startsWith("harvest_") && key !== "harvest_window") {
+    const slug = key.slice("harvest_".length);
+    const match = harvestSlugsForVarieties(varieties).find((v) => v.slug === slug);
+    const name = match?.name ?? humanizeSlug(slug);
+    return { ...harvestWindowText(name), relatedActivityType: "harvest" };
+  }
+  return null;
+}
+
 /**
  * Pure climate computation from multi-year daily weather history (E1).
  * Computes average last spring frost, first fall frost, and GDD base 50°F
@@ -342,8 +427,7 @@ export function buildLocationBasedSeasonCalendar(input: {
     },
     {
       templateKey: "strip_weed_pass_1",
-      title: "Strip / weed pass (pre-bloom)",
-      body: "Keep a weed-free strip under the trellis before bloom. Avoid drift onto new shoots.",
+      ...STRIP_WEED_PASS_1_TEXT,
       stage: "bloom",
       dueDate: weedPass1Date,
       checked: true,
@@ -354,8 +438,7 @@ export function buildLocationBasedSeasonCalendar(input: {
     },
     {
       templateKey: "strip_weed_pass_2",
-      title: "Strip / weed pass (midsummer)",
-      body: "Second under-trellis weed pass between bloom and veraison to keep airflow open.",
+      ...STRIP_WEED_PASS_2_TEXT,
       stage: "bloom_to_veraison",
       dueDate: weedPass2Date,
       checked: true,
@@ -373,7 +456,7 @@ export function buildLocationBasedSeasonCalendar(input: {
     tasks.push({
       templateKey: `pest_scouting_${scoutIndex}`,
       title: `Pest scouting #${scoutIndex}`,
-      body: "Scout canopy and clusters for insect or disease pressure; treat if pressure is up (e.g., Japanese beetles).",
+      body: PEST_SCOUTING_BODY,
       stage: "bloom_to_veraison",
       dueDate: doyToIsoDate(y, scoutDoy),
       checked: true,
@@ -419,22 +502,15 @@ export function buildLocationBasedSeasonCalendar(input: {
       variety: null,
     });
   } else {
-    const usedSlugs = new Set<string>();
-    for (const varietyName of uniqueVarieties) {
+    for (const { slug, name: varietyName } of harvestSlugsForVarieties(
+      uniqueVarieties,
+    )) {
       const confirmed = input.confirmedTags[varietyName] ?? null;
       const effectiveTiming: VarietyHarvestTiming = confirmed ?? "mid";
       const band = harvestDoyForTiming(milestones, effectiveTiming);
-      let slug = slugifyVariety(varietyName);
-      if (usedSlugs.has(slug)) {
-        let n = 2;
-        while (usedSlugs.has(`${slug}_${n}`)) n += 1;
-        slug = `${slug}_${n}`;
-      }
-      usedSlugs.add(slug);
       tasks.push({
         templateKey: `harvest_${slug}`,
-        title: `Harvest window — ${varietyName}`,
-        body: `Start checking sugar levels (Brix) and flavor for ${varietyName}. Pick when ready; record yield on Harvests.`,
+        ...harvestWindowText(varietyName),
         stage: "harvest",
         dueDate: doyToIsoDate(y, band.doy),
         checked: true,

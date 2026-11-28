@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from "@prisma/client";
 import type { SeasonSummary } from "@vineyard/shared";
 import { config } from "../../config.js";
 import { prisma } from "../../db/prisma.js";
+import { formatLb } from "../../lib/format-number.js";
 import {
   isLocalAddress,
   sendMail,
@@ -242,7 +243,7 @@ export function renderSeasonSummaryEmail(
 
   const deltaLabel =
     summary.harvests.deltaPct !== null && summary.harvests.previousSeasonYear !== null
-      ? `${summary.harvests.deltaPct > 0 ? "+" : ""}${summary.harvests.deltaPct}% vs ${summary.harvests.previousSeasonYear} (${summary.harvests.previousTotalLb} lb)`
+      ? `${summary.harvests.deltaPct > 0 ? "+" : ""}${summary.harvests.deltaPct}% vs ${summary.harvests.previousSeasonYear} (${formatLb(summary.harvests.previousTotalLb)})`
       : null;
 
   const positivesHtml =
@@ -271,9 +272,9 @@ export function renderSeasonSummaryEmail(
           .map((v) => {
             const cmp =
               v.previousTotalLb !== null
-                ? ` (prev: ${v.previousTotalLb} lb${v.deltaPct !== null ? `, ${v.deltaPct > 0 ? "+" : ""}${v.deltaPct}%` : ""})`
+                ? ` (prev: ${formatLb(v.previousTotalLb)}${v.deltaPct !== null ? `, ${v.deltaPct > 0 ? "+" : ""}${v.deltaPct}%` : ""})`
                 : "";
-            return `<tr><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};${WRAP}">${escapeHtml(v.variety)}</td><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};text-align:right;font-weight:600;">${v.totalLb} lb${escapeHtml(cmp)}</td></tr>`;
+            return `<tr><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};${WRAP}">${escapeHtml(v.variety)}</td><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};text-align:right;font-weight:600;">${formatLb(v.totalLb)}${escapeHtml(cmp)}</td></tr>`;
           })
           .join("")
       : `<tr><td colspan="2" style="padding:8px;color:${COLOR.muted};">No pound harvests recorded.</td></tr>`;
@@ -283,8 +284,8 @@ export function renderSeasonSummaryEmail(
       ? summary.harvests.byRow
           .map((r) => {
             const cmp =
-              r.previousTotalLb !== null ? ` (prev: ${r.previousTotalLb} lb)` : "";
-            return `<tr><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};${WRAP}">${escapeHtml(r.code)} · ${escapeHtml(r.variety)}</td><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};text-align:right;font-weight:600;">${r.totalLb} lb${escapeHtml(cmp)}</td></tr>`;
+              r.previousTotalLb !== null ? ` (prev: ${formatLb(r.previousTotalLb)})` : "";
+            return `<tr><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};${WRAP}">${escapeHtml(r.code)} · ${escapeHtml(r.variety)}</td><td style="padding:6px 8px;border-bottom:1px solid ${COLOR.border};text-align:right;font-weight:600;">${formatLb(r.totalLb)}${escapeHtml(cmp)}</td></tr>`;
           })
           .join("")
       : "";
@@ -339,7 +340,7 @@ export function renderSeasonSummaryEmail(
 
 <tr><td class="vm-px" style="padding:20px 24px;border-bottom:1px solid ${COLOR.border};">
   <h2 style="margin:0 0 8px 0;font-size:16px;font-weight:700;color:${COLOR.ink};">Harvest</h2>
-  <p style="margin:0 0 10px 0;font-size:18px;font-weight:700;color:${COLOR.ink};">${summary.harvests.totalLb} lb total${deltaLabel ? ` <span style="font-size:14px;font-weight:400;color:${COLOR.muted};">(${escapeHtml(deltaLabel)})</span>` : ""}</p>
+  <p style="margin:0 0 10px 0;font-size:18px;font-weight:700;color:${COLOR.ink};">${formatLb(summary.harvests.totalLb)} total${deltaLabel ? ` <span style="font-size:14px;font-weight:400;color:${COLOR.muted};">(${escapeHtml(deltaLabel)})</span>` : ""}</p>
   <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="font-size:14px;border-collapse:collapse;">
     ${varietyRowsHtml}
     ${rowRowsHtml}
@@ -353,7 +354,7 @@ export function renderSeasonSummaryEmail(
 
 <tr><td class="vm-px" style="padding:20px 24px;border-bottom:1px solid ${COLOR.border};">
   <h2 style="margin:0 0 8px 0;font-size:16px;font-weight:700;color:${COLOR.ink};">Tasks</h2>
-  <p style="margin:0;font-size:14px;color:${COLOR.ink};">Done on time: <strong>${summary.tasks.doneOnTime}</strong> · Done late: <strong>${summary.tasks.doneLate}</strong>${summary.tasks.onTimePct !== null ? ` (${summary.tasks.onTimePct}% on time)` : ""} · Dismissed earlier: <strong>${summary.tasks.dismissedBeforeClose}</strong> · Dismissed at close: <strong>${summary.tasks.dismissedByClose}</strong></p>
+  <p style="margin:0;font-size:14px;color:${COLOR.ink};">Done on time: <strong>${summary.tasks.doneOnTime}</strong> · Done late: <strong>${summary.tasks.doneLate}</strong>${summary.tasks.onTimePct !== null ? ` (${summary.tasks.onTimePct}% on time)` : ""} · Dismissed earlier: <strong>${summary.tasks.dismissedBeforeClose}</strong>${summary.tasks.dismissedByEarlierClose ? ` · Dismissed by an earlier close: <strong>${summary.tasks.dismissedByEarlierClose}</strong>` : ""} · Dismissed at close: <strong>${summary.tasks.dismissedByClose}</strong></p>
   ${dismissedListHtml}
 </td></tr>
 
@@ -397,18 +398,18 @@ export function renderSeasonSummaryEmail(
       ? summary.negatives.map((n) => `- ${n.text}`)
       : ["- No issues flagged this season."]),
     "",
-    `Harvest: ${summary.harvests.totalLb} lb total${deltaLabel ? ` (${deltaLabel})` : ""}`,
+    `Harvest: ${formatLb(summary.harvests.totalLb)} total${deltaLabel ? ` (${deltaLabel})` : ""}`,
     ...summary.harvests.byVariety.map(
       (v) =>
-        `  ${v.variety}: ${v.totalLb} lb${v.previousTotalLb !== null ? ` (prev ${v.previousTotalLb} lb)` : ""}`,
+        `  ${v.variety}: ${formatLb(v.totalLb)}${v.previousTotalLb !== null ? ` (prev ${formatLb(v.previousTotalLb)})` : ""}`,
     ),
     ...summary.harvests.byRow.map(
       (r) =>
-        `  ${r.code} (${r.variety}): ${r.totalLb} lb${r.previousTotalLb !== null ? ` (prev ${r.previousTotalLb} lb)` : ""}`,
+        `  ${r.code} (${r.variety}): ${formatLb(r.totalLb)}${r.previousTotalLb !== null ? ` (prev ${formatLb(r.previousTotalLb)})` : ""}`,
     ),
     "",
     `Work logged: ${summary.work.waterings} waterings, ${summary.work.fertilizing} fertilizing, ${summary.work.pestTreatments} pest treatments, ${summary.work.weedTreatments} weed treatments`,
-    `Tasks: ${summary.tasks.doneOnTime} on time, ${summary.tasks.doneLate} late${summary.tasks.onTimePct !== null ? ` (${summary.tasks.onTimePct}%)` : ""}, ${summary.tasks.dismissedBeforeClose} dismissed earlier, ${summary.tasks.dismissedByClose} dismissed at close`,
+    `Tasks: ${summary.tasks.doneOnTime} on time, ${summary.tasks.doneLate} late${summary.tasks.onTimePct !== null ? ` (${summary.tasks.onTimePct}%)` : ""}, ${summary.tasks.dismissedBeforeClose} dismissed earlier, ${summary.tasks.dismissedByEarlierClose ? `${summary.tasks.dismissedByEarlierClose} dismissed by an earlier close, ` : ""}${summary.tasks.dismissedByClose} dismissed at close`,
     ...summary.tasks.dismissedByCloseList.map(
       (t) =>
         `  - Dismissed at close: ${t.title} (due ${t.dueDate}${t.rowCode ? `, ${t.rowCode}` : ""})`,

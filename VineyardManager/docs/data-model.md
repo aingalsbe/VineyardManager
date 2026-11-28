@@ -97,6 +97,7 @@ Persisted in `seasons`. Unique `(vineyardId, year)` plus partial unique indexes 
 | snapshot | JSONB? | frozen `SeasonSnapshot` (`schemaVersion: 1`), cleared on reopen |
 | summary | JSONB? | rule-based `SeasonSummary` built from snapshot, moved to `summaryHistory` on reopen |
 | summaryHistory | JSONB | array of prior `SeasonSummary` objects, default `[]` |
+| declinedTemplateKeys | TEXT[] | calendar template keys the user unchecked when starting the season (default `{}`); "Add missing calendar tasks" never re-adds them |
 | createdAt / updatedAt | timestamptz | |
 
 ## SeasonSummaryMail

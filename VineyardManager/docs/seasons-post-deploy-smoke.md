@@ -4,7 +4,7 @@ Run this checklist **after** Aaron approves the production backup, migrations, b
 
 ## 0. Preflight & backup (before deploy)
 
-1. Read-only migration history check on prod: confirm whether migration `20261125160000_security_and_perf_indexes` (v1.1.0) is already applied, or if the Seasons 2–6 deploy will apply both migration 13 and migration 14 (`20261128162346_seasons_close_new_restore`).
+1. Read-only migration history check on prod: confirm whether migration `20261125160000_security_and_perf_indexes` (v1.1.0) is already applied, or if the Seasons 2–6 deploy will apply migration 13, migration 14 (`20261128162346_seasons_close_new_restore`) and migration 15 (`20261128190000_season_declined_template_keys`, one additive `seasons.declined_template_keys` column).
 2. Take a full `pg_dump -Fc` + uploads archive, record SHA-256 hashes, copy off-droplet, and rehearse restore into an isolated local DB.
 3. Verify `SEASON_SUMMARY_MAIL_MODE=test` (default) and `DIGEST_TEST_RECIPIENTS` are set in production env until Aaron explicitly approves `SEASON_SUMMARY_MAIL_MODE=live`.
 4. After `prisma migrate deploy`, confirm all 6 hand-written partial indexes exist in `pg_indexes`:

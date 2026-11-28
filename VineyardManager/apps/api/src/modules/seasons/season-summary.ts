@@ -3,6 +3,7 @@ import type {
   SeasonSummary,
   SeasonSummaryPoint,
 } from "@vineyard/shared";
+import { formatLb } from "../../lib/format-number.js";
 
 function pctChange(current: number, previous: number | null): number | null {
   if (previous === null || previous <= 0) return null;
@@ -70,12 +71,12 @@ export function buildSeasonSummaryFromSnapshot(
     if (deltaPct > 10) {
       positives.push({
         code: "harvest_up",
-        text: `Harvest up ${deltaPct}% vs ${snapshot.harvests.previousSeasonYear} (${snapshot.harvests.totalLb} lb vs ${snapshot.harvests.previousTotalLb} lb).`,
+        text: `Harvest up ${deltaPct}% vs ${snapshot.harvests.previousSeasonYear} (${formatLb(snapshot.harvests.totalLb)} vs ${formatLb(snapshot.harvests.previousTotalLb)}).`,
       });
     } else if (deltaPct < -10) {
       negatives.push({
         code: "harvest_down",
-        text: `Harvest down ${Math.abs(deltaPct)}% vs ${snapshot.harvests.previousSeasonYear} (${snapshot.harvests.totalLb} lb vs ${snapshot.harvests.previousTotalLb} lb).`,
+        text: `Harvest down ${Math.abs(deltaPct)}% vs ${snapshot.harvests.previousSeasonYear} (${formatLb(snapshot.harvests.totalLb)} vs ${formatLb(snapshot.harvests.previousTotalLb)}).`,
       });
     }
   }
@@ -175,6 +176,9 @@ export function buildSeasonSummaryFromSnapshot(
       doneLate: snapshot.tasks.doneLate,
       onTimePct,
       dismissedBeforeClose: snapshot.tasks.dismissedBeforeClose,
+      ...(snapshot.tasks.dismissedByEarlierClose
+        ? { dismissedByEarlierClose: snapshot.tasks.dismissedByEarlierClose }
+        : {}),
       dismissedByClose: snapshot.tasks.dismissedByClose,
       dismissedByCloseList: snapshot.tasks.dismissedByCloseList,
     },

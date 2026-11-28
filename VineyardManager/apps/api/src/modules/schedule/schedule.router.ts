@@ -2,6 +2,7 @@ import {
   ANNUAL_CALENDAR_TEMPLATES,
   SEASON_ERROR_CODES,
   annualCalendarDueDate,
+  calendarTemplateFamily,
   localNoonInZone,
 } from "@vineyard/shared";
 import { Router, type Request } from "express";
@@ -20,7 +21,11 @@ const vineyardIdParam = z.string().uuid();
 /**
  * Add missing annual calendar tasks to the vineyard's current active season (D4, G2).
  * - Refuses while dormant with 409 VINEYARD_DORMANT ("Start a new season first").
- * - Deduplicates by (seasonId, templateKey) and fallback title match INSIDE the transaction.
+ * - Deduplicates by (seasonId, templateKey), by task-key family (the fixed and
+ *   location calendars use different keys for the same work, e.g. `strip_weed_pass`
+ *   vs `strip_weed_pass_1`), and by fallback title match INSIDE the transaction.
+ * - Never re-adds calendar tasks the user unchecked when starting the season
+ *   (Season.declinedTemplateKeys).
  * - Computes due dates from the season's year in Vineyard.timezone (never server-local clock).
  */
 export async function seedMissingCalendarTasksForVineyard(
@@ -51,7 +56,12 @@ export async function seedMissingCalendarTasksForVineyard(
     async (tx, seasonId) => {
       const season = await tx.season.findUnique({
         where: { id: seasonId },
-        select: { id: true, year: true, status: true },
+        select: {
+          id: true,
+          year: true,
+          status: true,
+          declinedTemplateKeys: true,
+        },
       });
       if (!season || season.status !== "active") {
         throw new HttpError(
@@ -71,6 +81,11 @@ export async function seedMissingCalendarTasksForVineyard(
           .filter((k): k is string => typeof k === "string" && k.length > 0),
       );
       const existingTitles = new Set(existing.map((t) => t.title));
+      const handledFamilies = new Set<string>(
+        [...existingKeys, ...season.declinedTemplateKeys].map(
+          calendarTemplateFamily,
+        ),
+      );
 
       let created = 0;
       let skipped = 0;
@@ -79,7 +94,8 @@ export async function seedMissingCalendarTasksForVineyard(
       for (const template of ANNUAL_CALENDAR_TEMPLATES) {
         if (
           existingKeys.has(template.templateKey) ||
-          existingTitles.has(template.title)
+          existingTitles.has(template.title) ||
+          handledFamilies.has(calendarTemplateFamily(template.templateKey))
         ) {
           skipped += 1;
           continue;
@@ -110,6 +126,7 @@ export async function seedMissingCalendarTasksForVineyard(
         createdTasks.push(task);
         existingKeys.add(template.templateKey);
         existingTitles.add(template.title);
+        handledFamilies.add(calendarTemplateFamily(template.templateKey));
         created += 1;
       }
 

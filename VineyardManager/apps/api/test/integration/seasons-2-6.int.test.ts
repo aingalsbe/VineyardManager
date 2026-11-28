@@ -305,6 +305,9 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
     // 9. Phase 6 — New Season & per-season seeding fix (D1–D5, G2)
     await phase6NewSeasonAndSeedCases(prisma, base, owner.id, tokens);
 
+    // 9b. QA defects D-A, D-B and the reopen/second-close summary copy
+    await phaseQaDefectCases(prisma, base, owner.id, tokens);
+
     // 10. Phase 8 — backfill-seasons-2-6.ts dry-run, apply, and idempotent re-run (§5.2)
     await phase8Backfill26Cases(prisma, owner.id);
   } finally {
@@ -1941,20 +1944,206 @@ async function phase6NewSeasonAndSeedCases(
     "2027-03-01",
   );
 
-  // D4 & G2: Year-two seeding adds ONLY the 2 missing templates for 2027 (even with mocked clock at 2026-12-31T23:00Z, which is 2027-01-01 in Auckland!)
+  // D-A: the 2 templates unchecked at season start were recorded as declined, so
+  // "Add missing calendar tasks" must NOT re-add them.
+  const declinedKeys = prevData.tasks.slice(-2).map((t) => t.templateKey).sort();
+  const planned2027Row = await prisma.season.findUniqueOrThrow({
+    where: { id: planned2027.id },
+  });
+  assert.deepEqual([...planned2027Row.declinedTemplateKeys].sort(), declinedKeys);
   const seed2 = await seedMissingCalendarTasksForVineyard(
     v.id,
     new Date("2026-12-31T23:00:00.000Z"),
   );
-  assert.equal(seed2.created, 2);
-  assert.equal(seed2.skipped, 6);
-  for (const t of seed2.createdTasks) {
+  assert.equal(seed2.created, 0, "unchecked tasks must not be re-added");
+  assert.equal(seed2.skipped, 8);
+  const afterSeed2 = await prisma.task.count({
+    where: { vineyardId: v.id, seasonId: planned2027.id, deletedAt: null },
+  });
+  assert.equal(afterSeed2, tasks2027.length);
+
+  // D4 & G2: a template that is genuinely missing (not declined) is still added,
+  // using the season year in the vineyard timezone (even with a mocked clock at
+  // 2026-12-31T23:00Z, which is 2027-01-01 in Auckland!)
+  await prisma.task.delete({
+    where: { id: tasks2027.find((t) => t.templateKey === "spring_feed")!.id },
+  });
+  const seed3 = await seedMissingCalendarTasksForVineyard(
+    v.id,
+    new Date("2026-12-31T23:00:00.000Z"),
+  );
+  assert.equal(seed3.created, 1);
+  assert.equal(seed3.skipped, 7);
+  assert.equal(seed3.createdTasks[0]?.templateKey, "spring_feed");
+  for (const t of seed3.createdTasks) {
     assert.equal(t.seasonId, planned2027.id);
     assert.ok(
       calendarDateInZone(t.dueAt, "Pacific/Auckland").startsWith("2027-"),
       "seeded task due date must use season year in vineyard timezone",
     );
   }
+}
+
+/**
+ * QA defects D-A (location-calendar start + "Add missing calendar tasks"),
+ * D-B (server-resolved titles) and the reopen/second-close summary wording.
+ */
+async function phaseQaDefectCases(
+  prisma: PrismaClient,
+  base: URL,
+  ownerId: string,
+  tokens: { power_user: string; manager: string; viewer: string },
+): Promise<void> {
+  const v = await createVineyard(prisma, ownerId);
+  await prisma.vineyard.update({
+    where: { id: v.id },
+    data: { varietyCatalog: ["Chambourcin", "Norton"] },
+  });
+  const s2026 = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T00:00:00.000Z"),
+    },
+  });
+
+  const closeSeason = async (seasonId: string) => {
+    const cp = await httpJson(
+      base,
+      "GET",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${seasonId}/close-preview`,
+      tokens.power_user,
+    );
+    assert.equal(cp.status, 200);
+    const res = await httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${seasonId}/close`,
+      tokens.power_user,
+      {
+        previewToken: (cp.body as { data: { previewToken: string } }).data
+          .previewToken,
+      },
+    );
+    assert.equal(res.status, 200);
+  };
+  await closeSeason(s2026.id);
+
+  // Documented body: location keys, NO titles/bodies; "vine_replacement_check" unchecked.
+  const locationKeys = [
+    ["dormant_prune", "2027-03-01"],
+    ["spring_feed", "2027-04-10"],
+    ["vine_replacement_check", "2027-04-20"],
+    ["strip_weed_pass_1", "2027-05-10"],
+    ["strip_weed_pass_2", "2027-06-20"],
+    ["pest_scouting_1", "2027-06-01"],
+    ["pest_scouting_2", "2027-06-15"],
+    ["pest_scouting_3", "2027-06-29"],
+    ["pest_scouting_4", "2027-07-13"],
+    ["midsummer_watering", "2027-07-15"],
+    ["harvest_chambourcin", "2027-09-05"],
+    ["harvest_norton", "2027-09-25"],
+    ["winterize_hill_up", "2027-11-10"],
+  ] as const;
+  const startRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/new`,
+    tokens.power_user,
+    {
+      year: 2027,
+      tasks: locationKeys.map(([templateKey, dueDate]) => ({
+        templateKey,
+        dueDate,
+        checked: templateKey !== "vine_replacement_check",
+      })),
+    },
+  );
+  assert.equal(startRes.status, 201);
+  const startData = (startRes.body as {
+    data: { season: { id: string }; createdTaskCount: number };
+  }).data;
+  assert.equal(startData.createdTaskCount, locationKeys.length - 1);
+
+  // D-B: titles/bodies/activity types were resolved server-side, never raw keys.
+  const tasks = await prisma.task.findMany({
+    where: { vineyardId: v.id, seasonId: startData.season.id, deletedAt: null },
+  });
+  const byKey = new Map(tasks.map((t) => [t.templateKey, t]));
+  for (const t of tasks) {
+    assert.notEqual(t.title, t.templateKey, `raw key used as title: ${t.templateKey}`);
+    assert.ok(t.body.trim().length > 0, `empty body: ${t.templateKey}`);
+    assert.ok(t.relatedActivityType, `no activity type: ${t.templateKey}`);
+  }
+  assert.equal(byKey.get("strip_weed_pass_1")?.title, "Strip / weed pass (pre-bloom)");
+  assert.equal(byKey.get("strip_weed_pass_2")?.title, "Strip / weed pass (midsummer)");
+  assert.equal(byKey.get("pest_scouting_3")?.title, "Pest scouting #3");
+  assert.equal(byKey.get("harvest_chambourcin")?.title, "Harvest window — Chambourcin");
+  assert.equal(byKey.get("harvest_norton")?.title, "Harvest window — Norton");
+  assert.equal(byKey.get("harvest_norton")?.relatedActivityType, "harvest");
+  assert.equal(byKey.get("strip_weed_pass_1")?.relatedActivityType, "weed_prevention");
+  assert.equal(byKey.get("pest_scouting_1")?.relatedActivityType, "pest_prevention");
+  assert.equal(byKey.has("vine_replacement_check"), false);
+
+  // D-A: the unchecked task was recorded; "Add missing calendar tasks" adds nothing:
+  // not the unchecked task and none of the fixed-calendar duplicates.
+  const seasonRow = await prisma.season.findUniqueOrThrow({
+    where: { id: startData.season.id },
+  });
+  assert.deepEqual(seasonRow.declinedTemplateKeys, ["vine_replacement_check"]);
+  const seedRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/schedule/seed`,
+    tokens.power_user,
+  );
+  assert.equal(seedRes.status, 200);
+  const seedData = (seedRes.body as {
+    data: { created: number; skipped: number; tasks: unknown[] };
+  }).data;
+  assert.equal(seedData.created, 0);
+  assert.equal(seedData.skipped, 8);
+  assert.equal(seedData.tasks.length, 0);
+  assert.equal(
+    await prisma.task.count({
+      where: { vineyardId: v.id, seasonId: startData.season.id, deletedAt: null },
+    }),
+    locationKeys.length - 1,
+  );
+  assert.equal(
+    await prisma.task.count({
+      where: { vineyardId: v.id, title: { in: ["Strip / weed pass", "Pest scouting", "Harvest window", "Vine replacement check"] } },
+    }),
+    0,
+  );
+
+  // Copy-2: close 2027, reopen, close again. The first close dismissed every
+  // open task; the second summary reports them as "dismissed by an earlier close".
+  await closeSeason(startData.season.id);
+  const reopen = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v.id}/seasons/${startData.season.id}/reopen`,
+    tokens.power_user,
+  );
+  assert.equal(reopen.status, 200);
+  await closeSeason(startData.season.id);
+  const closedTwice = await prisma.season.findUniqueOrThrow({
+    where: { id: startData.season.id },
+  });
+  const summary2 = closedTwice.summary as {
+    closeVersion: number;
+    tasks: {
+      dismissedBeforeClose: number;
+      dismissedByEarlierClose?: number;
+      dismissedByClose: number;
+    };
+  };
+  assert.equal(summary2.closeVersion, 2);
+  assert.equal(summary2.tasks.dismissedByEarlierClose, locationKeys.length - 1);
+  assert.equal(summary2.tasks.dismissedBeforeClose, 0);
+  assert.equal(summary2.tasks.dismissedByClose, 0);
 }
 
 async function phase8Backfill26Cases(
