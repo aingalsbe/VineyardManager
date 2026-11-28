@@ -83,7 +83,7 @@ export function ActivityCard({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="smTouch"
                 onClick={() => onRestore(activity)}
               >
                 Restore
@@ -95,7 +95,7 @@ export function ActivityCard({
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="smTouch"
                   onClick={() => onEdit(activity)}
                 >
                   Edit
@@ -105,7 +105,7 @@ export function ActivityCard({
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="smTouch"
                   onClick={() => onDelete(activity)}
                 >
                   Delete

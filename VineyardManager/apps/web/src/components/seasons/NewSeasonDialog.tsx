@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CALENDAR_STAGES,
@@ -15,11 +15,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import {
   ApiError,
   createNewSeason,
   getNewSeasonPreview,
 } from "@/lib/api";
+import { formatShortDate } from "@/lib/format";
+import { startSeasonLabel } from "@/lib/seasonCopy";
 
 export function NewSeasonDialog({
   vineyardId,
@@ -71,14 +74,8 @@ export function NewSeasonDialog({
     return () => controller.abort();
   }, [open, vineyardId]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !submitting) onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, submitting, onClose]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocus(panelRef, open, { onEscape: onClose, busy: submitting });
 
   const grouped = useMemo(() => {
     const byStage = new Map<CalendarStage, NewSeasonSuggestedTask[]>();
@@ -169,14 +166,16 @@ export function NewSeasonDialog({
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-[90dvh] w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl"
+        tabIndex={-1}
+        className="flex max-h-[90dvh] outline-none w-full max-w-2xl flex-col overflow-hidden rounded-t-2xl border border-border bg-card shadow-xl sm:rounded-2xl"
       >
         <div className="border-b border-border px-5 py-4">
           <h2 id={titleId} className="text-xl font-semibold tracking-tight">
-            {preview ? `Start ${preview.year} season` : "Start new season"}
+            {startSeasonLabel(preview?.year)}
           </h2>
           <p className="mt-1 text-sm text-muted">
             Review the suggested work calendar, uncheck tasks you don't need,
@@ -207,10 +206,10 @@ export function NewSeasonDialog({
                     Based on {preview.climateSummary.yearsAnalyzed} years of
                     weather history
                     {preview.climateSummary.avgLastSpringFrost
-                      ? ` · Avg last spring frost: ${preview.climateSummary.avgLastSpringFrost}`
+                      ? ` · Avg last spring frost: ${formatShortDate(preview.climateSummary.avgLastSpringFrost)}`
                       : ""}
                     {preview.climateSummary.avgFirstFallFrost
-                      ? ` · Avg first fall frost: ${preview.climateSummary.avgFirstFallFrost}`
+                      ? ` · Avg first fall frost: ${formatShortDate(preview.climateSummary.avgFirstFallFrost)}`
                       : ""}
                   </p>
                 ) : null}
@@ -237,7 +236,7 @@ export function NewSeasonDialog({
                       return (
                         <li
                           key={v.name}
-                          className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+                          className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
                         >
                           <div className="min-w-0 text-sm">
                             <span className="font-medium">{v.name}</span>
@@ -251,12 +250,12 @@ export function NewSeasonDialog({
                               </span>
                             ) : null}
                           </div>
-                          <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-nowrap items-center gap-2">
                             {v.suggestedTag &&
                             currentValue !== v.suggestedTag ? (
                               <Button
                                 type="button"
-                                size="sm"
+                                size="smTouch"
                                 variant="outline"
                                 onClick={() =>
                                   setVarietyTag(v.name, v.suggestedTag!)
@@ -268,7 +267,7 @@ export function NewSeasonDialog({
                             ) : null}
                             <select
                               aria-label={`Harvest timing for ${v.name}`}
-                              className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+                              className="h-11 rounded-md border border-border bg-card px-2 text-sm sm:h-9 disabled:cursor-not-allowed disabled:opacity-60"
                               value={currentValue}
                               onChange={(event) =>
                                 setVarietyTag(
@@ -279,7 +278,7 @@ export function NewSeasonDialog({
                                 )
                               }
                             >
-                              <option value="">Unset</option>
+                              <option value="">Timing unset</option>
                               {VARIETY_HARVEST_TIMINGS.map((timing) => (
                                 <option key={timing} value={timing}>
                                   {VARIETY_HARVEST_TIMING_LABELS[timing]}
@@ -331,9 +330,6 @@ export function NewSeasonDialog({
                               <span className="mt-0.5 block text-xs text-muted">
                                 {task.body}
                               </span>
-                              <span className="mt-1 block text-xs text-muted">
-                                Source: {task.source}
-                              </span>
                             </span>
                           </label>
                           <div className="shrink-0 sm:w-40">
@@ -351,6 +347,12 @@ export function NewSeasonDialog({
                             />
                           </div>
                         </div>
+                        <details className="mt-2 pl-6.5 text-xs text-muted">
+                          <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-primary sm:min-h-0">
+                            Why this date?
+                          </summary>
+                          <p className="mt-1">{task.source}</p>
+                        </details>
                       </li>
                     ))}
                   </ul>
@@ -376,6 +378,7 @@ export function NewSeasonDialog({
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               disabled={submitting}
               onClick={onClose}
             >
@@ -383,14 +386,11 @@ export function NewSeasonDialog({
             </Button>
             <Button
               type="button"
+              className="w-full sm:w-auto"
               disabled={loading || !preview || submitting}
               onClick={() => void handleCreate()}
             >
-              {submitting
-                ? "Starting…"
-                : preview
-                  ? `Start ${preview.year} season`
-                  : "Start season"}
+              {submitting ? "Starting…" : startSeasonLabel(preview?.year)}
             </Button>
           </div>
         </div>

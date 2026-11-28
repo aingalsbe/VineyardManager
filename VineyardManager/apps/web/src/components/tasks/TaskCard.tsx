@@ -79,7 +79,7 @@ export function TaskCard({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="smTouch"
               onClick={() => onRestore(task)}
             >
               Restore
@@ -90,7 +90,7 @@ export function TaskCard({
           {onStatusChange && task.status !== "acknowledged" ? (
             <Button
               type="button"
-              size="sm"
+              size="smTouch"
               onClick={() => onStatusChange(task, "acknowledged")}
             >
               Mark complete
@@ -100,7 +100,7 @@ export function TaskCard({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="smTouch"
               onClick={() => onStatusChange(task, "sent")}
             >
               Start
@@ -110,7 +110,7 @@ export function TaskCard({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="smTouch"
               onClick={() => onEdit(task)}
             >
               Edit
@@ -120,7 +120,7 @@ export function TaskCard({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="smTouch"
               onClick={() => onDelete(task)}
             >
               Delete

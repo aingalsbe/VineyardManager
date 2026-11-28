@@ -19,6 +19,8 @@ const buttonVariants = cva(
       size: {
         default: "h-11 min-h-11 px-4",
         sm: "h-9 px-3 text-sm",
+        /** 44px tap target on phones, compact from sm (Sage P2 #3). */
+        smTouch: "h-11 px-3 text-sm sm:h-9",
         lg: "h-12 px-6",
         icon: "size-11",
       },

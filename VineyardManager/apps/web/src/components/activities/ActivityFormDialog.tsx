@@ -9,11 +9,12 @@ import {
   type Row,
   type WateringMethod,
 } from "@vineyard/shared";
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useModalFocus } from "@/hooks/useModalFocus";
 import { ApiError, createActivity, updateActivity } from "@/lib/api";
 import { rowLabel } from "@/lib/rowLabel";
 
@@ -122,14 +123,8 @@ export function ActivityFormDialog({
     setFormError(null);
   }, [open, activity, presetType, presetRowId]);
 
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !saving) onClose();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, saving, onClose]);
+  const panelRef = useRef<HTMLDivElement>(null);
+  useModalFocus(panelRef, open, { onEscape: onClose, busy: saving });
 
   if (!open) return null;
 
@@ -245,10 +240,12 @@ export function ActivityFormDialog({
       }}
     >
       <div
+        ref={panelRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-lg"
+        tabIndex={-1}
+        className="w-full max-w-lg outline-none rounded-xl border border-border bg-card p-6 shadow-lg"
       >
         <h2 id={titleId} className="text-2xl font-semibold tracking-tight">
           {isEditing ? "Edit work entry" : "Log work"}
@@ -375,16 +372,17 @@ export function ActivityFormDialog({
             </p>
           ) : null}
 
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
             <Button
               type="button"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={onClose}
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={saving}>
               {saving ? "Saving…" : isEditing ? "Save changes" : "Log work"}
             </Button>
           </div>

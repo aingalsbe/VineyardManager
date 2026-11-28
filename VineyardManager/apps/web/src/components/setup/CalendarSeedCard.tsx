@@ -50,15 +50,20 @@ export function CalendarSeedCard({
       <p className="mt-3 text-sm text-muted">
         {address} · {timezone}
       </p>
-      {dormant ? (
-        <p className="mt-2 text-sm text-muted">
-          Start a new season first before adding calendar tasks.
+      {readOnly ? (
+        <p id="calendar-seed-reason" className="mt-2 text-sm text-muted">
+          Only a power user can add calendar tasks.
+        </p>
+      ) : dormant ? (
+        <p id="calendar-seed-reason" className="mt-2 text-sm text-muted">
+          Start the next season first, then add calendar tasks.
         </p>
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           type="button"
           disabled={busy || readOnly || dormant}
+          aria-describedby={readOnly || dormant ? "calendar-seed-reason" : undefined}
           onClick={() => void onSeed()}
         >
           {busy ? "Adding…" : "Add missing calendar tasks"}

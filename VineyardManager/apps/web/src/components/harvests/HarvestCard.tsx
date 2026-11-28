@@ -66,7 +66,7 @@ export function HarvestCard({
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
+                size="smTouch"
                 onClick={() => onRestore(harvest)}
               >
                 Restore
@@ -78,7 +78,7 @@ export function HarvestCard({
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="smTouch"
                   onClick={() => onEdit(harvest)}
                 >
                   Edit
@@ -88,7 +88,7 @@ export function HarvestCard({
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="smTouch"
                   onClick={() => onDelete(harvest)}
                 >
                   Delete

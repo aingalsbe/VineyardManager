@@ -111,7 +111,7 @@ export function VarietyCatalogCard({
             return (
               <li
                 key={entry}
-                className="flex flex-col gap-2 rounded-lg border border-border/70 bg-background/40 p-2.5 sm:flex-row sm:items-center sm:justify-between"
+                className="grid gap-2 rounded-lg border border-border/70 bg-background/40 p-2.5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
               >
                 <div className="min-w-0">
                   <span className="font-medium">{entry}</span>
@@ -122,12 +122,12 @@ export function VarietyCatalogCard({
                     </p>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-nowrap items-center gap-2">
                   {!readOnly && suggestion && currentTag !== suggestion.timing ? (
                     <Button
                       type="button"
                       variant="outline"
-                      size="sm"
+                      size="smTouch"
                       disabled={saving}
                       onClick={() => void persistTag(entry, suggestion.timing)}
                     >
@@ -136,7 +136,7 @@ export function VarietyCatalogCard({
                   ) : null}
                   <select
                     aria-label={`Harvest timing for ${entry}`}
-                    className="h-9 rounded-md border border-border bg-card px-2 text-sm"
+                    className="h-11 rounded-md border border-border bg-card px-2 text-sm sm:h-9 disabled:cursor-not-allowed disabled:bg-background disabled:opacity-60"
                     value={currentTag}
                     disabled={readOnly || saving}
                     onChange={(event) =>
@@ -157,7 +157,7 @@ export function VarietyCatalogCard({
                     <Button
                       type="button"
                       variant="ghost"
-                      size="sm"
+                      size="smTouch"
                       disabled={saving}
                       onClick={() => void onRemove(entry)}
                     >
@@ -170,6 +170,11 @@ export function VarietyCatalogCard({
           })}
         </ul>
       )}
+      {readOnly && catalog.length > 0 ? (
+        <p className="mt-3 text-sm text-muted">
+          Only a power user can change harvest timing.
+        </p>
+      ) : null}
       {readOnly ? null : (
       <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={(event) => void onAdd(event)}>
         <div className="min-w-40 flex-1">
