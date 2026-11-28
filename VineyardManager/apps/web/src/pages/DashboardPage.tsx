@@ -35,7 +35,8 @@ import { useVineyardWeather } from "@/hooks/useVineyardWeather";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { useVineyardTasks } from "@/hooks/useVineyardTasks";
 import { ApiError, updateTask } from "@/lib/api";
-import { healthSwatch } from "@/lib/health";
+import { DORMANT_SWATCH, healthSwatch, isDormantHealth } from "@/lib/health";
+import { nextSeasonYear, startSeasonLabel } from "@/lib/seasonCopy";
 import { cn } from "@/lib/utils";
 import {
   buildVarietyLookup,
@@ -428,8 +429,8 @@ export function DashboardPage() {
               </Badge>
             </div>
             <p className="mt-2 text-sm text-muted">
-              No overdue penalties while dormant. Health scoring resumes when a
-              new season starts.
+              No overdue penalties while dormant. Health scoring resumes when the
+              next season starts.
             </p>
           </>
         ) : (
@@ -568,8 +569,8 @@ export function DashboardPage() {
             </p>
             <p className="mt-0.5 text-sm text-muted">
               {canSetup
-                ? "Daily rain checks and weekly digests are paused until you start a new season."
-                : "Daily rain checks and weekly digests are paused. A power user can start a new season in Setup."}
+                ? `Daily rain checks and weekly digests are paused until you start the ${nextSeasonYear(currentSeason) ?? "next"} season.`
+                : `Daily rain checks and weekly digests are paused. A power user can start the ${nextSeasonYear(currentSeason) ?? "next"} season in Setup.`}
             </p>
           </div>
           {canSetup && vineyardId ? (
@@ -578,7 +579,7 @@ export function DashboardPage() {
               className="min-h-11 shrink-0"
               onClick={() => setNewSeasonOpen(true)}
             >
-              New Season
+              {startSeasonLabel(nextSeasonYear(currentSeason))}
             </Button>
           ) : null}
         </section>
@@ -874,26 +875,33 @@ function RowChip({
   onSelect: () => void;
 }) {
   const short = rowLabel(row, varieties);
+  const dormant = isDormantHealth(row);
   return (
     <button
       type="button"
       onClick={onSelect}
       title={rowFullLabel(row, varieties)}
-      aria-label={`${short}, score ${row.score}, ${row.color}. Show on map`}
+      aria-label={
+        dormant
+          ? `${short}, dormant. Show on map`
+          : `${short}, score ${row.score}, ${row.color}. Show on map`
+      }
       className={cn(
         "flex min-h-11 w-full items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left hover:border-primary/50 hover:bg-primary/5",
         focusRing,
       )}
     >
       <span
-        className={`size-3 shrink-0 rounded-full ${healthSwatch[row.color]}`}
+        className={`size-3 shrink-0 rounded-full ${dormant ? DORMANT_SWATCH : healthSwatch[row.color]}`}
         aria-hidden
       />
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium">
           {short}
         </span>
-        <span className="block text-xs text-muted">{row.score}</span>
+        <span className="block text-xs text-muted">
+          {dormant ? "Dormant" : row.score}
+        </span>
       </span>
     </button>
   );

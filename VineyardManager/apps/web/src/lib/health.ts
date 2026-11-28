@@ -28,3 +28,13 @@ export const healthBarText: Record<HealthColor, string> = {
   orange: "text-white",
   red: "text-white",
 };
+
+/** Neutral swatch for dormant vineyards (Sage P2 #10): not a health color. */
+export const DORMANT_SWATCH = "bg-card ring-2 ring-inset ring-muted";
+
+/** True when the API marked this health result as dormant (A8, D-20). */
+export function isDormantHealth(
+  health: { reasons?: ReadonlyArray<{ code: string }> } | null | undefined,
+): boolean {
+  return Boolean(health?.reasons?.some((reason) => reason.code === "vineyard_dormant"));
+}

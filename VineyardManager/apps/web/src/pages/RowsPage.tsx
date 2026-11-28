@@ -23,6 +23,7 @@ import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
 import { ApiError, restoreRow, type DeleteRowResult } from "@/lib/api";
 import { pluralize } from "@/lib/pluralize";
+import { isDormantHealth } from "@/lib/health";
 import { rowLabel } from "@/lib/rowLabel";
 import { RESTORE_HINT } from "@/lib/seasonCopy";
 
@@ -308,6 +309,7 @@ export function RowsPage() {
                       ? {
                           color: rowHealth.color,
                           reason: rowHealth.reasons[0]?.message,
+                          dormant: isDormantHealth(rowHealth),
                         }
                       : null
                   }

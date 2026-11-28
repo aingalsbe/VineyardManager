@@ -8,15 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ApiError, listSeasons } from "@/lib/api";
-
-function formatShortDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+import { seasonClosedLine, seasonStartLine } from "@/lib/seasonCopy";
 
 export function PastSeasonsPage() {
   const { vineyard, vineyardStatus, vineyardError, reloadVineyard } =
@@ -115,12 +107,12 @@ export function PastSeasonsPage() {
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-muted">
-                      {season.startedAt
-                        ? `Started ${formatShortDate(season.startedAt)}`
-                        : "Not started yet"}
-                      {season.closedAt
-                        ? ` · Closed ${formatShortDate(season.closedAt)}`
-                        : ""}
+                      {[
+                        seasonStartLine(season),
+                        season.closedAt ? seasonClosedLine(season.closedAt) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">

@@ -114,3 +114,11 @@ test("Recently removed toggle label flips to a back label", () => {
   assert.equal(removedToggleLabel(false, "harvests"), "Recently removed");
   assert.equal(removedToggleLabel(true, "work log"), "Back to work log");
 });
+
+test("next season year: planned year, else last closed + 1", async () => {
+  const { nextSeasonYear } = await import("../src/lib/seasonCopy.ts");
+  assert.equal(nextSeasonYear({ plannedSeason: { year: 2027 }, lastClosedSeason: { year: 2026 } }), 2027);
+  assert.equal(nextSeasonYear({ plannedSeason: null, lastClosedSeason: { year: 2026 } }), 2027);
+  assert.equal(nextSeasonYear({ plannedSeason: null, lastClosedSeason: null }), null);
+  assert.equal(startSeasonLabel(nextSeasonYear({ lastClosedSeason: { year: 2026 } })), "Start 2027 season");
+});

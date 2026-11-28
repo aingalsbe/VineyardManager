@@ -12,7 +12,7 @@ import {
   OverflowMenu,
   type OverflowMenuItem,
 } from "@/components/ui/overflow-menu";
-import { healthSwatch } from "@/lib/health";
+import { DORMANT_SWATCH, healthSwatch } from "@/lib/health";
 import { cn } from "@/lib/utils";
 import { rowFullLabel, rowLabel, rowVarietyText } from "@/lib/rowLabel";
 
@@ -31,7 +31,7 @@ export function RowCard({
   /** Caller confirms before deleting. Omit for viewers. */
   onDelete?: (row: Row) => void;
   onRestore?: (row: Row) => void;
-  health?: { color: HealthColor; reason?: string } | null;
+  health?: { color: HealthColor; reason?: string; dormant?: boolean } | null;
   highlighted?: boolean;
 }) {
   const isDeleted = Boolean(row.deletedAt);
@@ -84,14 +84,20 @@ export function RowCard({
           {health ? (
             <p className="mt-2 flex items-start gap-2 text-sm text-muted">
               <span
-                className={`mt-1 size-2.5 shrink-0 rounded-full ${healthSwatch[health.color]}`}
+                className={`mt-1 size-2.5 shrink-0 rounded-full ${health.dormant ? DORMANT_SWATCH : healthSwatch[health.color]}`}
                 aria-hidden
               />
               <span className="min-w-0 [overflow-wrap:anywhere]">
-                <span className="font-medium capitalize text-foreground">
-                  {health.color}
-                </span>
-                {health.reason ? ` — ${health.reason}` : ""}
+                {health.dormant ? (
+                  <span className="font-medium text-foreground">Dormant</span>
+                ) : (
+                  <>
+                    <span className="font-medium capitalize text-foreground">
+                      {health.color}
+                    </span>
+                    {health.reason ? ` — ${health.reason}` : ""}
+                  </>
+                )}
               </span>
             </p>
           ) : null}

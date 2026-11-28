@@ -7,7 +7,7 @@ import {
 } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { healthSwatch } from "@/lib/health";
+import { DORMANT_SWATCH, healthSwatch, isDormantHealth } from "@/lib/health";
 import { useEffect, useId, useMemo, useState } from "react";
 import { rowLabel, rowSecondaryLabel } from "@/lib/rowLabel";
 
@@ -54,6 +54,7 @@ export function RowActionPanel({
   );
 
   const reasons = health?.reasons ?? [];
+  const dormant = isDormantHealth(health);
   const hasWateringReason = reasons.some(
     (reason) =>
       reason.code === "no_watering" ||
@@ -132,25 +133,33 @@ export function RowActionPanel({
             ) : null}
           </div>
           {health ? (
-            <Badge variant={health.color}>
-              {health.color} {health.score}
-            </Badge>
+            dormant ? (
+              <Badge variant="muted">Dormant</Badge>
+            ) : (
+              <Badge variant={health.color}>
+                {health.color} {health.score}
+              </Badge>
+            )
           ) : null}
         </div>
 
         {health ? (
           <div className="mt-3 flex items-center gap-2 text-muted">
             <span
-              className={`size-3 rounded-full ${healthSwatch[health.color]}`}
+              className={`size-3 rounded-full ${dormant ? DORMANT_SWATCH : healthSwatch[health.color]}`}
               aria-hidden
             />
             <span className="capitalize">
-              {health.color} · {health.score}
+              {dormant ? "Dormant" : `${health.color} · ${health.score}`}
             </span>
           </div>
         ) : null}
 
-        {reasons.length > 0 ? (
+        {dormant ? (
+          <p className="mt-4 text-muted">
+            Health scoring is paused until the next season starts.
+          </p>
+        ) : reasons.length > 0 ? (
           <ul className="mt-4 space-y-1 text-muted">
             {reasons.map((reason) => (
               <li key={`${reason.code}-${reason.message}`}>{reason.message}</li>

@@ -8,16 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { ApiError, getSeasonDetail } from "@/lib/api";
+import { formatPounds, formatShortDate, formatShortMonth } from "@/lib/format";
 import { healthMeaning } from "@/lib/health";
-
-function formatShortDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+import { seasonClosedLine } from "@/lib/seasonCopy";
 
 export function SeasonDetailPage() {
   const { seasonId } = useParams<{ seasonId: string }>();
@@ -67,8 +60,10 @@ export function SeasonDetailPage() {
         title={season ? `${season.year} Season Summary` : "Season Summary"}
         description={
           season
-            ? `${vineyard?.name ?? ""} · ${SEASON_STATUS_LABELS[season.status]}${
-                season.closedAt ? ` · Closed ${formatShortDate(season.closedAt)}` : ""
+            ? `${vineyard?.name ?? ""} · ${
+                season.closedAt
+                  ? seasonClosedLine(season.closedAt)
+                  : SEASON_STATUS_LABELS[season.status]
               }`
             : "Frozen end-of-season summary."
         }
@@ -140,8 +135,10 @@ export function SeasonDetailPage() {
                       key={pt.month}
                       className="rounded-md border border-border bg-background/60 px-2.5 py-1"
                     >
-                      <span className="font-medium">{pt.month}</span>:{" "}
-                      <span className="capitalize">{pt.color}</span> {pt.score}
+                      <span className="font-medium">
+                        {formatShortMonth(pt.month) || pt.month}
+                      </span>
+                      : <span className="capitalize">{pt.color}</span> {pt.score}
                     </li>
                   ))}
                 </ul>
@@ -184,13 +181,13 @@ export function SeasonDetailPage() {
           <Card>
             <CardTitle>Harvest</CardTitle>
             <p className="mt-2 text-2xl font-semibold tracking-tight">
-              {summary.harvests.totalLb} lb total
+              {formatPounds(summary.harvests.totalLb)} total
             </p>
             {summary.harvests.previousSeasonYear !== null &&
             summary.harvests.previousTotalLb !== null ? (
               <p className="mt-1 text-sm text-muted">
                 Previous season ({summary.harvests.previousSeasonYear}):{" "}
-                {summary.harvests.previousTotalLb} lb
+                {formatPounds(summary.harvests.previousTotalLb)}
                 {summary.harvests.deltaPct !== null
                   ? ` (${summary.harvests.deltaPct > 0 ? "+" : ""}${summary.harvests.deltaPct}%)`
                   : ""}
@@ -211,7 +208,7 @@ export function SeasonDetailPage() {
                 </h3>
                 {summary.harvests.byVariety.length === 0 ? (
                   <p className="mt-2 text-sm text-muted">
-                    No pound harvests recorded.
+                    No harvests recorded this season.
                   </p>
                 ) : (
                   <ul className="mt-2 divide-y divide-border text-sm">
@@ -222,9 +219,9 @@ export function SeasonDetailPage() {
                       >
                         <span className="font-medium">{v.variety}</span>
                         <span>
-                          {v.totalLb} lb
+                          {formatPounds(v.totalLb)}
                           {v.previousTotalLb !== null
-                            ? ` (prev ${v.previousTotalLb} lb)`
+                            ? ` (prev ${formatPounds(v.previousTotalLb)})`
                             : ""}
                         </span>
                       </li>
@@ -237,7 +234,7 @@ export function SeasonDetailPage() {
                 <h3 className="text-sm font-semibold text-foreground">By row</h3>
                 {summary.harvests.byRow.length === 0 ? (
                   <p className="mt-2 text-sm text-muted">
-                    No row harvests recorded.
+                    No harvests recorded this season.
                   </p>
                 ) : (
                   <ul className="mt-2 divide-y divide-border text-sm">
@@ -250,9 +247,9 @@ export function SeasonDetailPage() {
                           {r.code} · {r.variety}
                         </span>
                         <span>
-                          {r.totalLb} lb
+                          {formatPounds(r.totalLb)}
                           {r.previousTotalLb !== null
-                            ? ` (prev ${r.previousTotalLb} lb)`
+                            ? ` (prev ${formatPounds(r.previousTotalLb)})`
                             : ""}
                         </span>
                       </li>
@@ -365,7 +362,7 @@ export function SeasonDetailPage() {
                 <ul className="mt-2 space-y-1 text-sm text-muted">
                   {summary.tasks.dismissedByCloseList.map((task) => (
                     <li key={task.id}>
-                      {task.title} — due {task.dueDate}
+                      {task.title} · Due {formatShortDate(task.dueDate)}
                       {task.rowCode ? ` · ${task.rowCode}` : ""}
                     </li>
                   ))}

@@ -99,7 +99,7 @@ export function VarietyCatalogCard({
       <CardTitle className="mt-1">Grapes you grow</CardTitle>
       <CardDescription>
         Rows pick from this list. Confirm early, mid, or late harvest timing to
-        guide each variety’s New Season sugar-check window.
+        guide each variety’s sugar-check window when you start the next season.
       </CardDescription>
       {catalog.length === 0 ? (
         <p className="mt-3 text-muted">No varieties yet. Add Norton, Chardonel, …</p>

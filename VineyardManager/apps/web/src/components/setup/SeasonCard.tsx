@@ -12,15 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApiError, reopenSeason } from "@/lib/api";
-
-function formatShortDate(iso: string | null | undefined): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
+import { formatShortDate } from "@/lib/format";
+import { nextSeasonYear, startSeasonLabel } from "@/lib/seasonCopy";
 
 function reopenDaysRemaining(reopenableUntil: string | null | undefined): number {
   if (!reopenableUntil) return 0;
@@ -179,7 +172,7 @@ export function SeasonCard({
                   setNewSeasonOpen(true);
                 }}
               >
-                Start new season
+                {startSeasonLabel(nextSeasonYear(current))}
               </Button>
             ) : null}
             {canReopen && lastClosed ? (

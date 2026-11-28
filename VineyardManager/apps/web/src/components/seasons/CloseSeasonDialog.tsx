@@ -8,6 +8,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { ApiError, closeSeason, getCloseSeasonPreview } from "@/lib/api";
+import { formatPounds, formatShortDate } from "@/lib/format";
 import { healthSwatch } from "@/lib/health";
 
 export function CloseSeasonDialog({
@@ -144,7 +145,7 @@ export function CloseSeasonDialog({
             <div className="rounded-lg border border-border bg-background p-3">
               <p className="text-xs text-muted">Harvest total</p>
               <p className="mt-1 font-semibold">
-                {preview.harvests.totalLb} lb
+                {formatPounds(preview.harvests.totalLb)}
                 {preview.harvests.skippedNonLb > 0
                   ? ` (+${preview.harvests.skippedNonLb} other)`
                   : ""}
@@ -155,8 +156,8 @@ export function CloseSeasonDialog({
           <div className="rounded-lg border border-border bg-background p-3">
             <p className="font-medium text-foreground">Season work logged</p>
             <p className="mt-1 text-muted">
-              {preview.work.waterings} waterings · {preview.work.fertilizing} fertilizing ·{" "}
-              {preview.work.pestTreatments} pest · {preview.work.weedTreatments} weed
+              Watering {preview.work.waterings} · Fertilizing {preview.work.fertilizing} ·
+              Pest {preview.work.pestTreatments} · Weed {preview.work.weedTreatments}
             </p>
           </div>
 
@@ -180,7 +181,7 @@ export function CloseSeasonDialog({
                       {task.rowCode ? ` (${task.rowCode})` : ""}
                     </span>
                     <span className="shrink-0 text-muted">
-                      Due {task.dueDate}
+                      Due {formatShortDate(task.dueDate)}
                     </span>
                   </li>
                 ))}

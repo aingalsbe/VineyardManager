@@ -122,3 +122,14 @@ export function deletedNotice(kind: DeleteKind): string {
   const noun = kind.charAt(0).toUpperCase() + kind.slice(1);
   return `${noun} deleted. ${RESTORE_HINT}`;
 }
+
+/** Year the next season will use (D-15): planned year, else last closed + 1. */
+export function nextSeasonYear(current: {
+  plannedSeason?: Pick<SeasonLike, "year"> | null;
+  lastClosedSeason?: Pick<SeasonLike, "year"> | null;
+} | null | undefined): number | null {
+  if (!current) return null;
+  if (current.plannedSeason) return current.plannedSeason.year;
+  if (current.lastClosedSeason) return current.lastClosedSeason.year + 1;
+  return null;
+}
