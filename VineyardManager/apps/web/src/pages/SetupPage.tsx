@@ -167,6 +167,7 @@ export function SetupPage() {
             vineyardId={current.id}
             readOnly={!canSetup}
             catalog={current.varietyCatalog}
+            harvestTags={current.varietyHarvestTags}
             usedOnRows={
               state.status === "ready"
                 ? state.rows.map((row) => row.variety)

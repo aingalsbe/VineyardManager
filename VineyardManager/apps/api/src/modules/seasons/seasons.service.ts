@@ -48,6 +48,11 @@ import {
   dispatchPendingSeasonSummaryMails,
   enqueueSeasonSummaryMailIntents,
 } from "./season-summary-mail.js";
+import {
+  buildLocationBasedSeasonCalendar,
+  buildVarietySuggestions,
+  fetchTenYearClimateHistory,
+} from "./season-calendar.js";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -866,6 +871,9 @@ export function buildFixedCalendarTasks(year: number): NewSeasonSuggestedTask[] 
  */
 export async function getNewSeasonPreview(
   vineyardId: string,
+  options: {
+    fetchClimateHistory?: typeof fetchTenYearClimateHistory;
+  } = {},
 ): Promise<NewSeasonPreview> {
   const vineyard = await requireLiveVineyard(prisma, vineyardId);
   const seasons = await prisma.season.findMany({
@@ -886,20 +894,44 @@ export async function getNewSeasonPreview(
     : state.lastClosedSeason.year + 1;
   const catalog = parseVarietyCatalog(vineyard.varietyCatalog);
   const currentTags = parseVarietyHarvestTags(vineyard.varietyHarvestTags);
+  const varieties = buildVarietySuggestions(catalog, currentTags);
+
+  const fetcher = options.fetchClimateHistory ?? fetchTenYearClimateHistory;
+  const historyDays = await fetcher({
+    lat: vineyard.lat != null ? Number(vineyard.lat.toString()) : null,
+    lng: vineyard.lng != null ? Number(vineyard.lng.toString()) : null,
+    address: vineyard.address,
+    timezone: vineyard.timezone || "America/Chicago",
+  });
+
+  if (historyDays && historyDays.length >= 300) {
+    const computed = buildLocationBasedSeasonCalendar({
+      targetYear: year,
+      historyDays,
+      varieties: catalog,
+      confirmedTags: currentTags,
+    });
+    if (computed) {
+      return {
+        year,
+        plannedSeasonId: state.plannedSeason?.id ?? null,
+        calendarSource: "location",
+        calendarNote: `Dates estimated from ${computed.climateSummary.yearsAnalyzed} years of historical weather for ${vineyard.address}. Review and adjust before starting.`,
+        climateSummary: computed.climateSummary,
+        varieties,
+        tasks: computed.tasks,
+      };
+    }
+  }
 
   return {
     year,
     plannedSeasonId: state.plannedSeason?.id ?? null,
     calendarSource: "fixed_fallback",
     calendarNote:
-      "Using the standard fixed calendar dates for this season year. Review and adjust dates before starting.",
+      "Historical weather was unavailable for this location, so standard fixed calendar dates are shown as a fallback. You can still adjust every date and start the season.",
     climateSummary: null,
-    varieties: catalog.map((name) => ({
-      name,
-      currentTag: currentTags[name] ?? null,
-      suggestedTag: null,
-      suggestionSource: null,
-    })),
+    varieties,
     tasks: buildFixedCalendarTasks(year),
   };
 }

@@ -263,6 +263,7 @@ export type VineyardWritePayload = {
   rowLayout?: RowLayout | null;
   healthThresholds?: HealthThresholds;
   varietyCatalog?: string[];
+  varietyHarvestTags?: VarietyHarvestTags;
 };
 
 export async function createVineyard(
