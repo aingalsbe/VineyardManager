@@ -5,10 +5,14 @@ import {
   type ActivitySource,
   type ActivityType,
   type AuthSession,
+  type CloseSeasonPreview,
+  type CloseSeasonResult,
+  type CurrentSeasonState,
   type Harvest,
   type PublicUser,
   type Row,
   type ScheduledTask,
+  type SeasonDto,
   type TaskStatus,
   type RowLayout,
   type HealthThresholds,
@@ -33,6 +37,7 @@ export class ApiError extends Error {
     public readonly code: string,
     message: string,
     public readonly status?: number,
+    public readonly data?: unknown,
   ) {
     super(message);
   }
@@ -73,12 +78,15 @@ export async function apiJson<T>(path: string, init?: RequestInit): Promise<T> {
 async function throwApiError(response: Response, path: string): Promise<never> {
   let code = "HTTP_ERROR";
   let message = response.statusText;
+  let data: unknown = undefined;
   try {
     const body = (await response.json()) as {
       error?: { code?: string; message?: string };
+      data?: unknown;
     };
     code = body.error?.code ?? code;
     message = body.error?.message ?? message;
+    data = body.data;
   } catch {
     // keep status text
   }
@@ -93,7 +101,7 @@ async function throwApiError(response: Response, path: string): Promise<never> {
       window.location.assign("/login");
     }
   }
-  throw new ApiError(code, message, response.status);
+  throw new ApiError(code, message, response.status, data);
 }
 
 export function getApiHealth(signal?: AbortSignal): Promise<ApiHealth> {
@@ -597,3 +605,65 @@ export async function deleteActivity(id: string): Promise<void> {
     method: "DELETE",
   });
 }
+
+export async function listSeasons(
+  vineyardId: string,
+  signal?: AbortSignal,
+): Promise<SeasonDto[]> {
+  const body = await apiJson<ListResponse<SeasonDto>>(
+    `/vineyards/${vineyardId}/seasons`,
+    { signal },
+  );
+  return body.data;
+}
+
+export async function getCurrentSeason(
+  vineyardId: string,
+  signal?: AbortSignal,
+): Promise<CurrentSeasonState> {
+  const body = await apiJson<{ data: CurrentSeasonState }>(
+    `/vineyards/${vineyardId}/seasons/current`,
+    { signal },
+  );
+  return body.data;
+}
+
+export async function getSeasonDetail(
+  vineyardId: string,
+  seasonId: string,
+  signal?: AbortSignal,
+): Promise<SeasonDto> {
+  const body = await apiJson<{ data: SeasonDto }>(
+    `/vineyards/${vineyardId}/seasons/${seasonId}`,
+    { signal },
+  );
+  return body.data;
+}
+
+export async function getCloseSeasonPreview(
+  vineyardId: string,
+  seasonId: string,
+  signal?: AbortSignal,
+): Promise<CloseSeasonPreview> {
+  const body = await apiJson<{ data: CloseSeasonPreview }>(
+    `/vineyards/${vineyardId}/seasons/${seasonId}/close-preview`,
+    { signal },
+  );
+  return body.data;
+}
+
+export async function closeSeason(
+  vineyardId: string,
+  seasonId: string,
+  previewToken: string,
+): Promise<CloseSeasonResult> {
+  const body = await apiJson<{ data: CloseSeasonResult }>(
+    `/vineyards/${vineyardId}/seasons/${seasonId}/close`,
+    {
+      method: "POST",
+      body: JSON.stringify({ previewToken }),
+    },
+  );
+  return body.data;
+}
+

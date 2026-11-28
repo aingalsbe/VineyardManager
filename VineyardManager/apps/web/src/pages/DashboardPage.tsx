@@ -22,9 +22,11 @@ import { RowActionPanel } from "@/components/health/RowActionPanel";
 import { VineyardHealthMap } from "@/components/health/VineyardHealthMap";
 import { VineyardMapDialog } from "@/components/health/VineyardMapDialog";
 import { WeatherHealthControl } from "@/components/weather/WeatherHealthControl";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { useApiHealth } from "@/hooks/useApiHealth";
+import { useCurrentSeason } from "@/hooks/useCurrentSeason";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useHarvests } from "@/hooks/useHarvests";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
@@ -188,13 +190,17 @@ function RowLink({
 }
 
 export function DashboardPage() {
-  const { canOperate } = useRoleAccess();
+  const { canOperate, canSetup } = useRoleAccess();
   const api = useApiHealth();
   const rows = useVineyardRows();
   const tasks = useVineyardTasks({ skipRows: true });
   const harvests = useHarvests({ skipRows: true });
   const health = useVineyardHealth();
   const weather = useVineyardWeather();
+  const season = useCurrentSeason();
+
+  const currentSeason =
+    season.state.status === "ready" ? season.state.current : null;
 
   const rowsLoading = rows.state.status === "loading";
   const emptyVineyard =
@@ -215,6 +221,11 @@ export function DashboardPage() {
   const readyHarvests =
     harvests.state.status === "ready" ? harvests.state.harvests : [];
   const healthReady = health.state.status === "ready" ? health.state.health : null;
+  const isDormant = Boolean(currentSeason?.dormant || healthReady?.dormant);
+  const dormantSince =
+    (currentSeason?.dormant ? currentSeason.dormantSince : null) ??
+    healthReady?.dormantSince ??
+    null;
   const healthError =
     health.state.status === "error" ? health.state.message : null;
   const tasksError = tasks.state.status === "error" ? tasks.state.message : null;
@@ -264,9 +275,11 @@ export function DashboardPage() {
     () => (healthReady ? healthReady.rows.slice().sort((a, b) => a.score - b.score) : []),
     [healthReady],
   );
-  const attentionRows = rowsByScore
-    .filter((row) => row.color === "red" || row.color === "orange")
-    .slice(0, ATTENTION_LIMIT);
+  const attentionRows = isDormant
+    ? []
+    : rowsByScore
+        .filter((row) => row.color === "red" || row.color === "orange")
+        .slice(0, ATTENTION_LIMIT);
   const weatherAlerts =
     weather.state.status === "ready" ? weather.state.weather.alerts : [];
 
@@ -280,6 +293,7 @@ export function DashboardPage() {
     void tasks.reload();
     void harvests.reload();
     void health.reload();
+    void season.reload();
   };
 
   const openMap = (rowId: string | null = null) => {
@@ -403,20 +417,34 @@ export function DashboardPage() {
       }
     >
       {healthReady ? (
-        <>
-          <div className="flex flex-wrap items-center gap-3">
-            <span
-              className={`size-4 rounded-full ${healthSwatch[healthReady.overall.color]}`}
-              aria-hidden
-            />
-            <p className="text-2xl font-semibold tracking-tight capitalize">
-              {healthReady.overall.color} {healthReady.overall.score}
+        isDormant ? (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge variant="muted" className="px-3 py-1 text-base font-semibold">
+                Dormant
+              </Badge>
+            </div>
+            <p className="mt-2 text-sm text-muted">
+              No overdue penalties while dormant. Health scoring resumes when a
+              new season starts.
             </p>
-          </div>
-          <p className="mt-1 text-sm text-muted">
-            {healthReady.overall.reasons[0]?.message ?? "No issues scored."}
-          </p>
-        </>
+          </>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <span
+                className={`size-4 rounded-full ${healthSwatch[healthReady.overall.color]}`}
+                aria-hidden
+              />
+              <p className="text-2xl font-semibold tracking-tight capitalize">
+                {healthReady.overall.color} {healthReady.overall.score}
+              </p>
+            </div>
+            <p className="mt-1 text-sm text-muted">
+              {healthReady.overall.reasons[0]?.message ?? "No issues scored."}
+            </p>
+          </>
+        )
       ) : healthError ? (
         <InlineError
           message={healthError}
@@ -525,6 +553,29 @@ export function DashboardPage() {
   return (
     <div className="mx-auto w-full max-w-6xl pb-6">
       {header}
+
+      {isDormant ? (
+        <section
+          aria-label="Dormant season"
+          className="mb-4 flex flex-col gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0">
+            <p className="text-base font-semibold text-foreground">
+              Dormant since {dormantSince ? formatDate(dormantSince) : "last season close"}
+            </p>
+            <p className="mt-0.5 text-sm text-muted">
+              {canSetup
+                ? "Daily rain checks and weekly digests are paused until you start a new season."
+                : "Daily rain checks and weekly digests are paused. A power user can start a new season in Setup."}
+            </p>
+          </div>
+          {canSetup ? (
+            <Button asChild className="min-h-11 shrink-0">
+              <Link to="/setup">New Season</Link>
+            </Button>
+          ) : null}
+        </section>
+      ) : null}
 
       {/* Weather pop-down portals into this container (covers the decision area). */}
       <div className="relative" ref={weatherOverlayRef}>

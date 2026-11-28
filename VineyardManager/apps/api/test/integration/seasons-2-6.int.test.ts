@@ -289,6 +289,9 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
     assert.ok(dormantData.lastClosedSeason?.reopenableUntil);
     assert.equal(dormantData.plannedSeason?.id, planned.id);
     assert.equal(dormantData.plannedSeason?.year, 2027);
+
+    // 5. Phase 2 — Close Season (A2–A9)
+    await phase2CloseSeasonCases(prisma, base, owner.id, tokens);
   } finally {
     globalThis.fetch = originalFetch;
     try {
@@ -303,3 +306,387 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
     }
   }
 });
+
+async function phase2CloseSeasonCases(
+  prisma: PrismaClient,
+  base: URL,
+  ownerId: string,
+  tokens: { power_user: string; manager: string; viewer: string },
+): Promise<void> {
+  const { runScheduledDigest } = await import(
+    "../../src/modules/digest/digest.send.js"
+  );
+
+  // Two vineyards so we prove other vineyard is untouched (A7)
+  const v1 = await createVineyard(prisma, ownerId);
+  const v2 = await createVineyard(prisma, ownerId);
+
+  const row1 = await prisma.row.create({
+    data: {
+      vineyardId: v1.id,
+      code: "L1",
+      name: "Line 1",
+      variety: "Norton",
+      lengthFeet: 100,
+      lengthInches: 0,
+      vineCount: 20,
+      plantedYear: 2020,
+    },
+  });
+
+  const s1Active = await prisma.season.create({
+    data: {
+      vineyardId: v1.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T18:00:00.000Z"),
+    },
+  });
+  const s2Active = await prisma.season.create({
+    data: {
+      vineyardId: v2.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T18:00:00.000Z"),
+    },
+  });
+
+  // Tasks in v1/s1Active: 1 pending, 1 sent, 1 acknowledged, 1 dismissed, 1 soft-deleted, 1 untagged
+  const tPending = await prisma.task.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: s1Active.id,
+      rowId: row1.id,
+      type: "maintenance",
+      title: "Open pending task",
+      body: "",
+      dueAt: new Date("2026-09-15T17:00:00.000Z"),
+      status: "pending",
+    },
+  });
+  const tSent = await prisma.task.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: s1Active.id,
+      type: "maintenance",
+      title: "Open in-progress task",
+      body: "",
+      dueAt: new Date("2026-10-15T17:00:00.000Z"),
+      status: "sent",
+    },
+  });
+  const tAck = await prisma.task.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: s1Active.id,
+      type: "maintenance",
+      title: "Completed task",
+      body: "",
+      dueAt: new Date("2026-04-01T17:00:00.000Z"),
+      status: "acknowledged",
+    },
+  });
+  const tDeleted = await prisma.task.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: s1Active.id,
+      type: "maintenance",
+      title: "Soft-deleted open task",
+      body: "",
+      dueAt: new Date("2026-05-01T17:00:00.000Z"),
+      status: "pending",
+      deletedAt: new Date("2026-05-02T17:00:00.000Z"),
+    },
+  });
+  const tUntagged = await prisma.task.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: null,
+      type: "maintenance",
+      title: "Untagged task",
+      body: "",
+      dueAt: new Date("2026-06-01T17:00:00.000Z"),
+      status: "pending",
+    },
+  });
+  // Task in other vineyard v2 must remain untouched
+  const tOtherVineyard = await prisma.task.create({
+    data: {
+      vineyardId: v2.id,
+      seasonId: s2Active.id,
+      type: "maintenance",
+      title: "Other vineyard task",
+      body: "",
+      dueAt: new Date("2026-09-01T17:00:00.000Z"),
+      status: "pending",
+    },
+  });
+
+  await prisma.harvest.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: s1Active.id,
+      rowId: row1.id,
+      harvestedAt: new Date("2026-09-12T17:00:00.000Z"),
+      yieldAmount: 125.5,
+      yieldUnit: "lb",
+    },
+  });
+
+  await prisma.activity.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: s1Active.id,
+      scopeType: "vineyard",
+      scopeId: v1.id,
+      activityType: "watering",
+      performedAt: new Date("2026-07-10T17:00:00.000Z"),
+      details: { method: "drip" },
+      source: "manual",
+    },
+  });
+
+  // A4: manager and viewer get 403 FORBIDDEN on close-preview and close
+  for (const role of ["manager", "viewer"] as const) {
+    const prevRes = await httpJson(
+      base,
+      "GET",
+      `${API_PREFIX}/vineyards/${v1.id}/seasons/${s1Active.id}/close-preview`,
+      tokens[role],
+    );
+    assert.equal(prevRes.status, 403, `${role} must get 403 on close-preview`);
+    assert.equal(
+      (prevRes.body as { error?: { code?: string } })?.error?.code,
+      "FORBIDDEN",
+    );
+
+    const closeRes = await httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v1.id}/seasons/${s1Active.id}/close`,
+      tokens[role],
+      { previewToken: "fake" },
+    );
+    assert.equal(closeRes.status, 403, `${role} must get 403 on close`);
+    assert.equal(
+      (closeRes.body as { error?: { code?: string } })?.error?.code,
+      "FORBIDDEN",
+    );
+  }
+
+  // A2: Power user gets close preview
+  const prevRes = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v1.id}/seasons/${s1Active.id}/close-preview`,
+    tokens.power_user,
+  );
+  assert.equal(prevRes.status, 200);
+  const preview = (prevRes.body as {
+    data: {
+      openTaskCount: number;
+      untaggedOpenTaskCount: number;
+      harvests: { totalLb: number };
+      work: { waterings: number };
+      previewToken: string;
+    };
+  }).data;
+  assert.equal(preview.openTaskCount, 2);
+  assert.equal(preview.untaggedOpenTaskCount, 1);
+  assert.equal(preview.harvests.totalLb, 125.5);
+  assert.equal(preview.work.waterings, 1);
+  assert.ok(preview.previewToken.length >= 32);
+
+  // A5: Mutate state after preview -> close returns 409 PREVIEW_STALE with fresh counts, nothing changes
+  await prisma.activity.create({
+    data: {
+      vineyardId: v1.id,
+      seasonId: s1Active.id,
+      scopeType: "vineyard",
+      scopeId: v1.id,
+      activityType: "weed_prevention",
+      performedAt: new Date("2026-07-12T17:00:00.000Z"),
+      details: { method: "manual" },
+      source: "manual",
+    },
+  });
+  const staleRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v1.id}/seasons/${s1Active.id}/close`,
+    tokens.power_user,
+    { previewToken: preview.previewToken },
+  );
+  assert.equal(staleRes.status, 409);
+  assert.equal(
+    (staleRes.body as { error?: { code?: string } })?.error?.code,
+    "PREVIEW_STALE",
+  );
+  const freshPreview = (staleRes.body as {
+    data: { work: { weedTreatments: number }; previewToken: string };
+  }).data;
+  assert.equal(freshPreview.work.weedTreatments, 1);
+  assert.notEqual(freshPreview.previewToken, preview.previewToken);
+
+  // Confirm season is still active and tasks untouched after stale 409
+  const stillActive = await prisma.season.findUniqueOrThrow({
+    where: { id: s1Active.id },
+  });
+  assert.equal(stillActive.status, "active");
+  assert.equal(stillActive.closeVersion, 0);
+
+  // A3 & A6: Two concurrent close calls with the fresh token -> exactly ONE 200 and ONE 409 SEASON_NOT_ACTIVE
+  const [closeA, closeB] = await Promise.all([
+    httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v1.id}/seasons/${s1Active.id}/close`,
+      tokens.power_user,
+      { previewToken: freshPreview.previewToken },
+    ),
+    httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v1.id}/seasons/${s1Active.id}/close`,
+      tokens.power_user,
+      { previewToken: freshPreview.previewToken },
+    ),
+  ]);
+  const statuses = [closeA.status, closeB.status].sort((a, b) => a - b);
+  assert.deepEqual(statuses, [200, 409]);
+  const failedConcurrent = closeA.status === 409 ? closeA : closeB;
+  assert.equal(
+    (failedConcurrent.body as { error?: { code?: string } })?.error?.code,
+    "SEASON_NOT_ACTIVE",
+  );
+
+  // Verify DB state after close
+  const closedSeason = await prisma.season.findUniqueOrThrow({
+    where: { id: s1Active.id },
+  });
+  assert.equal(closedSeason.status, "closed");
+  assert.equal(closedSeason.closeVersion, 1);
+  assert.ok(closedSeason.closedAt);
+  assert.equal(closedSeason.closedBy, ownerId);
+  assert.ok(closedSeason.snapshot);
+  assert.ok(closedSeason.summary);
+
+  const [pAfter, sAfter, aAfter, dAfter, uAfter, oAfter] = await Promise.all([
+    prisma.task.findUniqueOrThrow({ where: { id: tPending.id } }),
+    prisma.task.findUniqueOrThrow({ where: { id: tSent.id } }),
+    prisma.task.findUniqueOrThrow({ where: { id: tAck.id } }),
+    prisma.task.findUniqueOrThrow({ where: { id: tDeleted.id } }),
+    prisma.task.findUniqueOrThrow({ where: { id: tUntagged.id } }),
+    prisma.task.findUniqueOrThrow({ where: { id: tOtherVineyard.id } }),
+  ]);
+  assert.equal(pAfter.status, "dismissed");
+  assert.equal(sAfter.status, "dismissed");
+  assert.equal(aAfter.status, "acknowledged");
+  assert.equal(dAfter.status, "pending"); // soft-deleted untouched
+  assert.equal(uAfter.status, "pending"); // untagged untouched (D-13)
+  assert.equal(oAfter.status, "pending"); // other vineyard untouched (A7)
+
+  // A7: Closing already-closed season -> 409 SEASON_NOT_ACTIVE
+  const closeAgain = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v1.id}/seasons/${s1Active.id}/close`,
+    tokens.power_user,
+    { previewToken: freshPreview.previewToken },
+  );
+  assert.equal(closeAgain.status, 409);
+  assert.equal(
+    (closeAgain.body as { error?: { code?: string } })?.error?.code,
+    "SEASON_NOT_ACTIVE",
+  );
+
+  // A8: Dormant health returns neutral dormant state & scheduled digest skips dormant vineyard
+  const healthRes = await httpJson(
+    base,
+    "GET",
+    `${API_PREFIX}/vineyards/${v1.id}/health`,
+    tokens.viewer,
+  );
+  assert.equal(healthRes.status, 200);
+  const healthBody = (healthRes.body as {
+    data: { dormant?: boolean; dormantSince?: string | null; overall: { score: number } };
+  }).data;
+  assert.equal(healthBody.dormant, true);
+  assert.ok(healthBody.dormantSince);
+  assert.equal(healthBody.overall.score, 100);
+
+  const digestRes = await runScheduledDigest(v1.id, new Date("2026-11-16T12:00:00.000Z"));
+  assert.equal(digestRes.dormant, true);
+  assert.equal(digestRes.sent, 0);
+  assert.equal(
+    await prisma.digestLog.count({ where: { vineyardId: v1.id } }),
+    0,
+  );
+
+  // A9: New task, harvest, and activity after close land in planned season (2027), never closed 2026
+  const newTaskRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v1.id}/tasks`,
+    tokens.manager,
+    {
+      title: "Post-close task",
+      body: "Winter prep",
+      dueAt: "2026-12-01",
+      type: "maintenance",
+      status: "pending",
+    },
+  );
+  assert.equal(newTaskRes.status, 201);
+  const newHarvestRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/harvests`,
+    tokens.manager,
+    {
+      rowId: row1.id,
+      harvestedAt: "2026-11-20",
+      yieldAmount: 10,
+      yieldUnit: "lb",
+    },
+  );
+  assert.equal(newHarvestRes.status, 201);
+  const newActivityRes = await httpJson(
+    base,
+    "POST",
+    `${API_PREFIX}/vineyards/${v1.id}/activities`,
+    tokens.manager,
+    {
+      scopeType: "vineyard",
+      scopeId: v1.id,
+      activityType: "pruning",
+      performedAt: "2026-12-05",
+      details: {},
+      source: "manual",
+    },
+  );
+  assert.equal(newActivityRes.status, 201);
+
+  const planned2027 = await prisma.season.findFirst({
+    where: { vineyardId: v1.id, year: 2027, status: "planned" },
+  });
+  assert.ok(planned2027, "post-close writes must create planned season 2027");
+
+  const createdTaskId = (newTaskRes.body as { data: { id: string } }).data.id;
+  const createdHarvestId = (newHarvestRes.body as { data: { id: string } }).data.id;
+  const createdActivityId = (newActivityRes.body as { data: { id: string } }).data.id;
+
+  assert.equal(
+    (await prisma.task.findUniqueOrThrow({ where: { id: createdTaskId } })).seasonId,
+    planned2027.id,
+  );
+  assert.equal(
+    (await prisma.harvest.findUniqueOrThrow({ where: { id: createdHarvestId } })).seasonId,
+    planned2027.id,
+  );
+  assert.equal(
+    (await prisma.activity.findUniqueOrThrow({ where: { id: createdActivityId } })).seasonId,
+    planned2027.id,
+  );
+}
+

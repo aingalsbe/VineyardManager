@@ -63,6 +63,7 @@ export async function buildDigestData(
         vineyardId,
         deletedAt: null,
         status: { in: [...OPEN_TASK_STATUSES] },
+        OR: [{ seasonId: null }, { season: { status: { not: "closed" } } }],
       },
       include: {
         row: { select: { code: true, name: true, variety: true, deletedAt: true } },

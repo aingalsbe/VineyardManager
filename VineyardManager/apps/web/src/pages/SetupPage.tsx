@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { CalendarSeedCard } from "@/components/setup/CalendarSeedCard";
 import { HealthThresholdsCard } from "@/components/setup/HealthThresholdsCard";
 import { PeopleCard } from "@/components/setup/PeopleCard";
+import { SeasonCard } from "@/components/setup/SeasonCard";
 import { VarietyCatalogCard } from "@/components/setup/VarietyCatalogCard";
 import { VineyardForm } from "@/components/setup/VineyardForm";
 import { RowLayoutEditor } from "@/components/setup/RowLayoutEditor";
@@ -12,6 +13,7 @@ import { StatCard } from "@/components/StatCard";
 import type { AppOutletContext } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { useCurrentSeason } from "@/hooks/useCurrentSeason";
 import { useRoleAccess } from "@/hooks/useRoleAccess";
 import { useVineyardHealth } from "@/hooks/useVineyardHealth";
 import { useVineyardRows } from "@/hooks/useVineyardRows";
@@ -22,6 +24,7 @@ export function SetupPage() {
   const { vineyard, reloadVineyard } = useOutletContext<AppOutletContext>();
   const { state, reload } = useVineyardRows();
   const health = useVineyardHealth();
+  const season = useCurrentSeason();
   const stats =
     state.status === "ready" ? summarizeRows(state.rows) : null;
   const current: Vineyard | null =
@@ -30,6 +33,7 @@ export function SetupPage() {
   async function onVineyardSaved() {
     await reloadVineyard();
     await reload({ silent: true });
+    await season.reload({ silent: true });
   }
 
   return (
@@ -79,6 +83,24 @@ export function SetupPage() {
           />
         )}
       </div>
+
+      {current ? (
+        <section className="mb-6">
+          <SeasonCard
+            vineyardId={current.id}
+            current={season.state.status === "ready" ? season.state.current : null}
+            loading={season.state.status === "loading"}
+            error={season.state.status === "error" ? season.state.message : null}
+            canSetup={canSetup}
+            onChanged={async () => {
+              await Promise.all([
+                season.reload({ silent: true }),
+                health.reload({ silent: true }),
+              ]);
+            }}
+          />
+        </section>
+      ) : null}
 
       {stats ? (
         <section className="mb-6 grid gap-4 sm:grid-cols-3">

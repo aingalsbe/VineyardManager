@@ -296,23 +296,16 @@ export async function fetchCurrentAndDailyForecast(
 }
 
 /**
- * Recent daily history from Open-Meteo archive (precip / temps / wind).
- * `dayCount` defaults to 14 (inclusive of yesterday; archive lags ~1–2 days).
+ * Fetch daily archive weather for an explicit [startDate, endDate] range (YYYY-MM-DD).
+ * Used by season close weather summaries and 10-year climate calendar generation.
  */
-export async function fetchWeatherHistoryDays(
+export async function fetchArchiveDateRange(
   point: GeoPoint,
   timeZone: string,
-  dayCount: number = 14,
+  startDate: string,
+  endDate: string,
+  timeoutMs: number = WEATHER_FETCH_TIMEOUT_MS,
 ): Promise<OpenMeteoHistoryDay[]> {
-  const end = new Date();
-  // Archive often lags; end at yesterday local-ish UTC date
-  end.setUTCDate(end.getUTCDate() - 1);
-  const start = new Date(end);
-  start.setUTCDate(start.getUTCDate() - (Math.max(1, dayCount) - 1));
-
-  const startStr = start.toISOString().slice(0, 10);
-  const endStr = end.toISOString().slice(0, 10);
-
   const url = new URL(ARCHIVE_URL);
   url.searchParams.set("latitude", String(point.lat));
   url.searchParams.set("longitude", String(point.lng));
@@ -325,14 +318,16 @@ export async function fetchWeatherHistoryDays(
       "wind_speed_10m_max",
     ].join(","),
   );
-  url.searchParams.set("start_date", startStr);
-  url.searchParams.set("end_date", endStr);
+  url.searchParams.set("start_date", startDate);
+  url.searchParams.set("end_date", endDate);
   url.searchParams.set("temperature_unit", "fahrenheit");
   url.searchParams.set("wind_speed_unit", "mph");
   url.searchParams.set("precipitation_unit", "inch");
   url.searchParams.set("timezone", timeZone);
 
-  const response = await fetchWithTimeout(url);
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(timeoutMs),
+  });
   if (!response.ok) {
     throw new Error(`Open-Meteo archive failed (${response.status})`);
   }
@@ -360,6 +355,27 @@ export async function fetchWeatherHistoryDays(
   }
 
   return days;
+}
+
+/**
+ * Recent daily history from Open-Meteo archive (precip / temps / wind).
+ * `dayCount` defaults to 14 (inclusive of yesterday; archive lags ~1–2 days).
+ */
+export async function fetchWeatherHistoryDays(
+  point: GeoPoint,
+  timeZone: string,
+  dayCount: number = 14,
+): Promise<OpenMeteoHistoryDay[]> {
+  const end = new Date();
+  // Archive often lags; end at yesterday local-ish UTC date
+  end.setUTCDate(end.getUTCDate() - 1);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - (Math.max(1, dayCount) - 1));
+
+  const startStr = start.toISOString().slice(0, 10);
+  const endStr = end.toISOString().slice(0, 10);
+
+  return fetchArchiveDateRange(point, timeZone, startStr, endStr);
 }
 
 async function geocodeViaOpenMeteo(address: string): Promise<GeoPoint | null> {
