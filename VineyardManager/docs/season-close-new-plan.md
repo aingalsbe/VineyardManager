@@ -103,7 +103,7 @@ Each variety gets an early, mid or late tag. You set it once, and the app sugges
 
 ## 7. Build order
 
-Each step can ship on its own and gets QA before the next one starts.
+Each step can ship on its own and gets QA before the next one starts. *(Status: Step 1 shipped on `main`; Steps 2–6 implemented on `feature/seasons-2-6`, pending QA and release.)*
 
 1. **Seasons and tagging.** Existing records get tagged to the right year and this year stays open. *Check:* totals match today's Metrics page.
 2. **Close Season preview and close.** *Check:* viewers and managers are refused, open tasks become dismissed, the vineyard shows dormant, and the rain check and digest skip it.

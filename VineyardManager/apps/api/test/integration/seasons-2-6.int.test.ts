@@ -304,6 +304,9 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
 
     // 9. Phase 6 — New Season & per-season seeding fix (D1–D5, G2)
     await phase6NewSeasonAndSeedCases(prisma, base, owner.id, tokens);
+
+    // 10. Phase 8 — backfill-seasons-2-6.ts dry-run, apply, and idempotent re-run (§5.2)
+    await phase8Backfill26Cases(prisma, owner.id);
   } finally {
     globalThis.fetch = originalFetch;
     try {
@@ -1953,6 +1956,171 @@ async function phase6NewSeasonAndSeedCases(
     );
   }
 }
+
+async function phase8Backfill26Cases(
+  prisma: PrismaClient,
+  ownerId: string,
+): Promise<void> {
+  const { runBackfill26WithClient, formatBackfill26Line } = await import(
+    "../../scripts/backfill-seasons-2-6.js"
+  );
+
+  const v = await createVineyard(prisma, ownerId);
+  const closed2025 = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2025,
+      status: "closed",
+      closedAt: new Date("2025-11-15T18:00:00.000Z"),
+    },
+  });
+  const active2026 = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T18:00:00.000Z"),
+    },
+  });
+
+  // Closed-season task with matching title must NOT be touched
+  const closedTask = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: closed2025.id,
+      type: "maintenance",
+      title: "Dormant prune",
+      body: "",
+      dueAt: new Date("2025-03-08T18:00:00.000Z"),
+      status: "acknowledged",
+      templateKey: null,
+    },
+  });
+
+  // Active-season live tasks: 1 unique match + 1 duplicate title + 1 untagged report-only
+  const activeTask1 = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      type: "maintenance",
+      title: "Dormant prune",
+      body: "",
+      dueAt: new Date("2026-03-08T18:00:00.000Z"),
+      status: "pending",
+      templateKey: null,
+    },
+  });
+  const activeTaskDup = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: active2026.id,
+      type: "maintenance",
+      title: "Dormant prune",
+      body: "",
+      dueAt: new Date("2026-03-09T18:00:00.000Z"),
+      status: "pending",
+      templateKey: null,
+    },
+  });
+  const untaggedTask = await prisma.task.create({
+    data: {
+      vineyardId: v.id,
+      seasonId: null,
+      type: "maintenance",
+      title: "Untagged legacy note",
+      body: "",
+      dueAt: new Date("2026-04-01T18:00:00.000Z"),
+      status: "pending",
+      templateKey: null,
+    },
+  });
+
+  // Soft-deleted row with legacy __old_<id8> code and preDeleteCode null
+  const legacyRow = await prisma.row.create({
+    data: {
+      vineyardId: v.id,
+      code: "TEMP",
+      name: "Legacy deleted row",
+      variety: "Norton",
+      lengthFeet: 80,
+      lengthInches: 0,
+      vineCount: 16,
+      plantedYear: 2020,
+      status: "retired",
+      deletedAt: new Date("2026-05-01T18:00:00.000Z"),
+      preDeleteCode: null,
+    },
+  });
+  await prisma.row.update({
+    where: { id: legacyRow.id },
+    data: { code: `N9__old_${legacyRow.id.slice(0, 8)}` },
+  });
+
+  // 1. Dry-run reports planned changes without mutating anything
+  const dryLines = await runBackfill26WithClient(prisma, "dry-run");
+  assert.ok(dryLines.some((l) => l.reason === "set_template_key" && l.count >= 1));
+  assert.ok(dryLines.some((l) => l.reason === "duplicate_title" && l.count >= 1));
+  assert.ok(dryLines.some((l) => l.reason === "set_pre_delete_code" && l.count >= 1));
+  assert.ok(dryLines.some((l) => l.reason === "untagged_report" && l.count >= 1));
+  for (const line of dryLines) {
+    assert.match(
+      formatBackfill26Line(line),
+      /^vineyard=\d+ table=(tasks|harvests|activities|rows) reason=(untagged_report|set_template_key|duplicate_title|set_pre_delete_code) count=\d+$/,
+    );
+  }
+  assert.equal(
+    (await prisma.task.findUniqueOrThrow({ where: { id: activeTask1.id } })).templateKey,
+    null,
+    "dry-run must not mutate task.templateKey",
+  );
+  assert.equal(
+    (await prisma.row.findUniqueOrThrow({ where: { id: legacyRow.id } })).preDeleteCode,
+    null,
+    "dry-run must not mutate row.preDeleteCode",
+  );
+
+  // 2. Apply sets ONLY the target columns, leaves closed/untagged untouched
+  const applyLines = await runBackfill26WithClient(prisma, "apply");
+  assert.ok(applyLines.some((l) => l.reason === "set_template_key"));
+  assert.ok(applyLines.some((l) => l.reason === "set_pre_delete_code"));
+
+  assert.equal(
+    (await prisma.task.findUniqueOrThrow({ where: { id: activeTask1.id } })).templateKey,
+    "dormant_prune",
+  );
+  assert.equal(
+    (await prisma.task.findUniqueOrThrow({ where: { id: activeTaskDup.id } })).templateKey,
+    null,
+    "duplicate title must be skipped",
+  );
+  assert.equal(
+    (await prisma.task.findUniqueOrThrow({ where: { id: closedTask.id } })).templateKey,
+    null,
+    "closed season task must not be touched",
+  );
+  assert.equal(
+    (await prisma.task.findUniqueOrThrow({ where: { id: untaggedTask.id } })).seasonId,
+    null,
+    "untagged task must be reported only, never modified",
+  );
+  const rowAfter = await prisma.row.findUniqueOrThrow({ where: { id: legacyRow.id } });
+  assert.equal(rowAfter.preDeleteCode, "N9");
+  assert.equal(rowAfter.preDeleteStatus, null);
+
+  // 3. Second apply prints NO set_template_key or set_pre_delete_code change lines (idempotent no-op)
+  const secondApplyLines = await runBackfill26WithClient(prisma, "apply");
+  assert.equal(
+    secondApplyLines.some((l) => l.reason === "set_template_key"),
+    false,
+    "second apply must be a no-op for template_key",
+  );
+  assert.equal(
+    secondApplyLines.some((l) => l.reason === "set_pre_delete_code"),
+    false,
+    "second apply must be a no-op for pre_delete_code",
+  );
+}
+
 
 
 

@@ -26,6 +26,8 @@ Shipped:
 | POST | `/auth/logout` | Increments `user.tokenVersion` (revokes existing tokens) and clears `vm_session` cookie -> `{ data: { ok: true } }` |
 | GET | `/auth/me` | Current user `{ id, email, displayName, role, disabledAt }` (never `passwordHash`) |
 | PATCH | `/auth/me` | Own `{ displayName?, email?, currentPassword? }`. Changing `email` requires valid `currentPassword` (`401 INVALID_CREDENTIALS`). Never role/password. `409 EMAIL_TAKEN` if another live user has the email |
+| GET | `/auth/me/notification-prefs` | Caller's notification preferences (`{ emailEnabled, weeklyDigest, pushEnabled, frequency, ... }`). Own prefs only |
+| PATCH | `/auth/me/notification-prefs` | Partial Zod-validated update of caller's notification prefs (`weeklyDigest`, `emailEnabled`, `pushEnabled`, `frequency`); merges without dropping unknown keys |
 | POST | `/auth/change-password` | `{ currentPassword, newPassword }` (10-72 chars). Increments `tokenVersion` (invalidates other sessions) and refreshes caller's session cookie. Wrong current: `401 INVALID_CREDENTIALS` |
 | POST | `/auth/forgot-password` | Public, rate-limited. `{ email }` -> always `{ data: { ok: true } }`. Development also may include `devResetUrl`. Disabled/unknown emails still return ok and send nothing |
 | POST | `/auth/reset-password` | Public, rate-limited. `{ token, newPassword }` (10-72 chars). Atomic single-use claim; increments `tokenVersion`. Invalid/expired/used/disabled account: `400 RESET_INVALID` |
@@ -45,11 +47,11 @@ Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards` | List (`hasLogo`, `rowLayout` on each; never `logoPath`) |
+| GET | `/vineyards` | List (`hasLogo`, `rowLayout`, `varietyHarvestTags` on each; never `logoPath`) |
 | POST | `/vineyards` | Create (name, address, timezone). `409 CONFLICT` if one already exists |
 | GET | `/vineyards/{id}` | Detail |
-| PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng, `rowLayout`, `healthThresholds`, `varietyCatalog` |
-| PUT | `/vineyards/{id}/logo` | Multipart field `file` (PNG/JPEG/WebP, â‰¤1 MB) |
+| PATCH | `/vineyards/{id}` | Name, address, timezone, optional lat/lng, `rowLayout`, `healthThresholds`, `varietyCatalog`, `varietyHarvestTags` (`Record<string, "early" \| "mid" \| "late">`) |
+| PUT | `/vineyards/{id}/logo` | Multipart field `file` (PNG/JPEG/WebP, ≤1 MB) |
 | GET | `/vineyards/{id}/logo` | Image bytes. Auth required. `404` if none |
 | DELETE | `/vineyards/{id}/logo` | Remove file + clear fields |
 
@@ -59,9 +61,26 @@ Out of this slice:
 | --- | --- | --- |
 | DELETE | `/vineyards/{id}` | Soft-delete (future) |
 
+## Seasons
+
+Each vineyard has its own calendar-year seasons (`legacy | active | planned | closed`). Dormancy is derived (at least one `closed` season and no `active` season). Only `power_user` (`requireSetup`) can preview/close, reopen, or preview/start a new season (`403 FORBIDDEN` for managers and viewers). Every mutation on a closed-season task, harvest, or activity returns `409 SEASON_LOCKED`.
+
+Shipped:
+
+| Method | Path | Description |
+| --- | --- | --- |
+| GET | `/vineyards/{vid}/seasons` | List seasons (newest year first): `{ id, vineyardId, year, status, startedAt, closedAt, reopenedAt, closeVersion, reopenableUntil, hasSummary }`. Readable by all signed-in roles |
+| GET | `/vineyards/{vid}/seasons/current` | Current season state: `{ dormant: false, dormantSince: null, season, lastClosedSeason, plannedSeason }` or `{ dormant: true, dormantSince, season: null, lastClosedSeason, plannedSeason }`. Readable by all roles |
+| GET | `/vineyards/{vid}/seasons/{seasonId}` | Season detail including frozen `summary` (or latest `summaryHistory` entry while reopened) and `summaryHistory`. Readable by all roles |
+| GET | `/vineyards/{vid}/seasons/{seasonId}/close-preview` | Power user only. Open tasks list, harvest/work totals, health score/color, `midSeason` warning + reason, `untaggedOpenTaskCount`, and SHA-256 `previewToken`. `409 SEASON_NOT_ACTIVE` if not active |
+| POST | `/vineyards/{vid}/seasons/{seasonId}/close` | Power user only. Body `{ previewToken }`. Transactional `FOR UPDATE`: dismisses live open tasks in that season, writes frozen `snapshot` + rule-based `summary`, bumps `closeVersion`, writes `season_summary_mails` intents, sets `status=closed`. Returns `409 PREVIEW_STALE` (with fresh `data`) if state changed, `409 SEASON_NOT_ACTIVE` if not active |
+| POST | `/vineyards/{vid}/seasons/{seasonId}/reopen` | Power user only. Allowed within 30 days of `closedAt` and only while dormant. Moves `summary` to `summaryHistory`, clears `snapshot`/`closedAt`, sets `status=active` (dismissed tasks stay dismissed; planned-season records stay in planned season). Idempotent `200`. `409 REOPEN_WINDOW_PASSED` after 30 days; `409 NOT_DORMANT` if another season is active |
+| GET | `/vineyards/{vid}/seasons/new-preview` | Power user only; dormant only (`409 NOT_DORMANT`). Returns target `year` (planned season year else last closed + 1), `plannedSeasonId`, `calendarSource` (`location` \| `fixed_fallback`), `climateSummary`, `varieties` (with non-auto-applied suggestions), and stage-grouped `tasks` with Dormant Pruning first |
+| POST | `/vineyards/{vid}/seasons/new` | Power user only; dormant only (`409 NOT_DORMANT`). Body `{ year, tasks: [{ templateKey, dueDate, checked, title?, body?, relatedActivityType? }], varietyHarvestTags? }`. Promotes planned season (keeping its records) or creates active season, creates checked tasks dated at local noon in `Vineyard.timezone` |
+
 ## Varieties
 
-Names are `varietyCatalog` on the vineyard (PATCH above). Row.variety stays a string.
+Names are `varietyCatalog` and confirmed harvest bands are `varietyHarvestTags` on the vineyard (PATCH above). Row.variety stays a string.
 
 Out of this slice (no Variety table):
 
@@ -74,11 +93,12 @@ Out of this slice (no Variety table):
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/rows` | List rows (length, vine count, variety, status) |
+| GET | `/vineyards/{vid}/rows` | List rows (length, vine count, variety, status). Optional `?deleted=only` lists soft-deleted rows ("Recently removed") |
 | POST | `/vineyards/{vid}/rows` | Create row |
 | PATCH | `/vineyards/{vid}/rows/{id}` | Partial update (operate). Any subset of row fields; sent fields validated; `{}` → `400 Enter at least one field` |
 | GET | `/vineyards/{vid}/rows/{id}/delete-preview` | Operate (viewer `403`). `404 NOT_FOUND` if row missing or already deleted. Same helper as DELETE (`rows/row-delete.ts`). `200 { data: { rowId, code, mode: "soft"\|"hard", counts: { tasks, openTasks, harvests, activities }, openTasks: [{ id, title, dueDate, status }], message } }` |
-| DELETE | `/vineyards/{vid}/rows/{id}` | Operate (viewer `403`). Option `openTasks: "keep" \| "dismiss"` via `?openTasks=` and/or JSON body (default `keep`; other values or query/body mismatch → `400 VALIDATION_ERROR`). Row with any task/harvest/activity (incl. soft-deleted): **soft** — `deletedAt`, `status: retired`, code → `<code>__old_<id8>`; history kept. No references: **hard** delete. `dismiss` sets live `pending`/`sent` tasks on the row to `dismissed` in the same transaction (closed tasks untouched). Both drop the row from `rowLayout`. `200 { data: { id, mode, message, openTasks, dismissedTaskCount, counts, row? } }`; `404 NOT_FOUND` |
+| DELETE | `/vineyards/{vid}/rows/{id}` | Operate (viewer `403`). Option `openTasks: "keep" \| "dismiss"` via `?openTasks=` and/or JSON body (default `keep`; other values or query/body mismatch → `400 VALIDATION_ERROR`). Row with any task/harvest/activity (incl. soft-deleted): **soft** — stores `preDeleteCode` / `preDeleteStatus`, sets `deletedAt`, `status: retired`, code → `<code>__old_<id8>`; history kept. No references: **hard** delete. `dismiss` sets live `pending`/`sent` tasks on the row to `dismissed` in the same transaction (`409 SEASON_LOCKED` if any open task belongs to a closed season). Both drop the row from `rowLayout`. `200 { data: { id, mode, message, openTasks, dismissedTaskCount, counts, row? } }`; `404 NOT_FOUND` |
+| POST | `/vineyards/{vid}/rows/{id}/restore` | Operate (viewer `403`). Restores a soft-deleted row (unplaced on map, status = `preDeleteStatus` else `active`). Optional `{ code }` overrides restored code; returns `409 ROW_CODE_TAKEN` if target code is in use. Hard-deleted rows return `404` |
 
 Row delete details:
 
@@ -97,11 +117,12 @@ First-class harvest records (not Activities). `vineyardId` is copied from the ro
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/harvests` | List (`?rowId=` optional) |
+| GET | `/harvests` | List (`?rowId=`, `?vineyardId=`, `?seasonId=current\|all\|<uuid>`, `?deleted=only`) |
 | GET | `/harvests/{id}` | Detail |
-| POST | `/harvests` | Create (`rowId`, date, yield, unit, notes, crew) |
-| PATCH | `/harvests/{id}` | Update fields |
-| DELETE | `/harvests/{id}` | Soft-delete |
+| POST | `/harvests` | Create (`rowId`, date, yield, unit, notes, crew); routed to active or planned season |
+| PATCH | `/harvests/{id}` | Update fields (`409 SEASON_LOCKED` if closed season) |
+| DELETE | `/harvests/{id}` | Soft-delete (`409 SEASON_LOCKED` if closed season) |
+| POST | `/harvests/{id}/restore` | Operate. Restore soft-deleted harvest (`409 SEASON_LOCKED` if closed season) |
 
 ## Activities
 
@@ -109,21 +130,23 @@ Work log (not Harvests). Scope for this slice is **vineyard** or **row** only.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/activities` | List (`?rowId=` `?activityType=` `?scopeType=`), newest first |
-| POST | `/vineyards/{vid}/activities` | Create (`scopeType`, `scopeId`, `activityType`, `performedAt?`, `details`). `performedBy` is the signed-in user |
+| GET | `/vineyards/{vid}/activities` | List (`?rowId=`, `?activityType=`, `?scopeType=`, `?seasonId=current\|all\|<uuid>`, `?deleted=only`), newest first |
+| POST | `/vineyards/{vid}/activities` | Create (`scopeType`, `scopeId`, `activityType`, `performedAt?`, `details`). `performedBy` is the signed-in user; routed to active or planned season |
 | GET | `/activities/{id}` | Detail |
-| DELETE | `/activities/{id}` | Soft-delete |
+| PATCH | `/activities/{id}` | Operate. Edit `activityType`, `performedAt`, `scopeType` (`vineyard\|row`), `scopeId`, `details` (`source` and `performedBy` immutable; `409 SEASON_LOCKED` if closed season) |
+| DELETE | `/activities/{id}` | Soft-delete (`409 SEASON_LOCKED` if closed season) |
+| POST | `/activities/{id}/restore` | Operate. Restore soft-deleted activity (`409 SEASON_LOCKED` if closed season) |
 
 ## Health and dashboard
 
-Computed on the fly from rows, tasks, and activities. No HealthSnapshot persistence this slice.
+Computed on the fly from rows, tasks, and activities. No HealthSnapshot persistence this slice. Closed-season records are ignored; dormant vineyards return `{ dormant: true, dormantSince, overall: { score: 100, color: "green", reasons: [] }, rows: ... }` with no overdue penalties.
 
 Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/health` | `{ data: { vineyardId, asOf, overall: { score, color, reasons }, rows: [...] } }`. Optional `?asOf=YYYY-MM-DD`. Auth required. |
-| GET | `/vineyards/{vid}/metrics` | Computed health series, harvest YoY (lb), and activity counts. `?period=month\|quarter\|year` (default `year`). Optional `?asOf=YYYY-MM-DD`. Variety rollups sum rows that share `Row.variety`. No HealthSnapshot. |
+| GET | `/vineyards/{vid}/health` | `{ data: { vineyardId, asOf, dormant?, dormantSince?, overall: { score, color, reasons }, rows: [...] } }`. Optional `?asOf=YYYY-MM-DD`. Auth required. |
+| GET | `/vineyards/{vid}/metrics` | Computed health series, harvest YoY (lb), and activity counts. `?period=month\|quarter\|year` (default `year`). Optional `?asOf=YYYY-MM-DD`, `?seasonId=current\|all\|<uuid>`. Variety rollups sum rows that share `Row.variety`. No HealthSnapshot. |
 
 Out of this slice:
 
@@ -136,7 +159,7 @@ Out of this slice:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/vineyards/{vid}/assistant/analyze` | State â†’ suggestions / rationale |
+| POST | `/vineyards/{vid}/assistant/analyze` | State → suggestions / rationale |
 | POST | `/vineyards/{vid}/assistant/suggest-schedule` | Next maintenance window |
 | GET | `/vineyards/{vid}/assistant/history` | Past interactions |
 
@@ -144,10 +167,11 @@ Out of this slice:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| GET | `/vineyards/{vid}/tasks` | List tasks (`?rowId=` `?status=`) |
-| POST | `/vineyards/{vid}/tasks` | Create task (optional `rowId`) |
-| PATCH | `/vineyards/{vid}/tasks/{id}` | Edit fields or change status |
-| DELETE | `/vineyards/{vid}/tasks/{id}` | Soft-delete (operate). `200 { data: task }`; `404 NOT_FOUND`; viewer `403`. Task `row` ref includes `deletedAt` (removed rows) |
+| GET | `/vineyards/{vid}/tasks` | List tasks (`?rowId=`, `?status=`, `?seasonId=current\|all\|<uuid>`, `?deleted=only`) |
+| POST | `/vineyards/{vid}/tasks` | Create task (optional `rowId`); routed to active or planned season |
+| PATCH | `/vineyards/{vid}/tasks/{id}` | Edit fields or change status (`409 SEASON_LOCKED` if closed season) |
+| DELETE | `/vineyards/{vid}/tasks/{id}` | Soft-delete (operate). `200 { data: task }`; `404 NOT_FOUND`; `409 SEASON_LOCKED` if closed season; viewer `403`. Task `row` ref includes `deletedAt` (removed rows) |
+| POST | `/vineyards/{vid}/tasks/{id}/restore` | Operate. Restore soft-deleted task (`409 SEASON_LOCKED` if closed season) |
 
 ## Notifications and schedule
 
@@ -155,7 +179,7 @@ Shipped:
 
 | Method | Path | Description |
 | --- | --- | --- |
-| POST | `/vineyards/{vid}/schedule/seed` | Idempotent annual maintenance tasks for the current year. `{ created, skipped, tasks }` |
+| POST | `/vineyards/{vid}/schedule/seed` | Power user only. Adds missing annual calendar tasks to the active season (deduped by `(seasonId, templateKey)` inside the transaction, dates in `Vineyard.timezone` for `season.year`). Refuses while dormant with `409 VINEYARD_DORMANT`. `{ created, skipped, tasks }` |
 
 Out of this slice:
 

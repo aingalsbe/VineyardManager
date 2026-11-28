@@ -26,7 +26,6 @@ Severity: **Medium** = should fix before a real-user rollout. **Low** = cosmetic
 | --- | --- | --- | --- |
 | D2 | Low | Health flags a task due on day 8, but the digest's 7-day list leaves it out, so the two disagree. | Share one due-soon window constant between health and the digest. |
 | D3 | Low | A viewer on the read-only preview sees "Your role cannot change this.", which doesn't fit. | Use read-only wording for preview. |
-| D4 | Low | No digest on/off toggle in Settings and no preferences link in the email (the `weeklyDigest` pref exists in the API only). | Settings toggle plus a link in the email footer. Sage also suggested a recipient greeting, the source on each alert, and health thresholds. |
 | D5 | Low | If the API crashes mid-send, a rare duplicate is possible after the 1-hour retry window. | Acceptable for now. |
 | D6 | Low | The 404 for a missing vineyard on send-test is untested, because recipient checks run first. | Add a test. |
 
@@ -45,7 +44,6 @@ Severity: **Medium** = should fix before a real-user rollout. **Low** = cosmetic
 | # | Sev | Issue | Notes / likely fix |
 | --- | --- | --- | --- |
 | L1 | Low | The Dashboard decides "overdue" by the browser's local midnight, while health and the digest use the vineyard's time zone. Same today (America/Chicago). | Compute overdue in the vineyard's time zone everywhere. |
-| L2 | Low | There's no way to undo a row delete (soft-deleted rows can't be restored from the UI). | Add Restore under a "Removed rows" filter. |
 | L3 | Low | Harvest and activity cards get "Removed row" only through the `__old_` code fallback (the `deletedAt` field was added later). | Use `row.deletedAt` everywhere now that it's serialized. |
 
 ---
@@ -61,3 +59,5 @@ Severity: **Medium** = should fix before a real-user rollout. **Low** = cosmetic
 | C6: Redact password reset logs (no live tokens or recipient emails logged) | `384b398` |
 | D1: Digest shows friendly "Weather isn't available this week" copy instead of raw provider error | Security & Efficiency release |
 | U5: Route-level `React.lazy()` code splitting (main JS chunk dropped from ~888 kB to ~350 kB; `recharts` deferred to `/metrics`) | Security & Efficiency release |
+| D4: Settings weekly digest email switch + `GET/PATCH /auth/me/notification-prefs` + digest footer preferences link | `feature/seasons-2-6`, pending release |
+| L2: Recently removed filter & Restore flow for rows (plus tasks, harvests, and work log entries) | `feature/seasons-2-6`, pending release |
