@@ -5,6 +5,7 @@ import {
   loginSchema,
   resetPasswordSchema,
   updateMeSchema,
+  updateNotificationPrefsSchema,
 } from "@vineyard/shared";
 import { Router } from "express";
 import { prisma } from "../../db/prisma.js";
@@ -12,8 +13,10 @@ import { serializePublicUser } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
 import {
   changeOwnPassword,
+  getOwnNotificationPrefs,
   requestPasswordReset,
   resetPasswordWithToken,
+  updateOwnNotificationPrefs,
   updateOwnProfile,
 } from "./account.service.js";
 import { getAuthUser } from "./auth.middleware.js";
@@ -99,6 +102,19 @@ authRouter.patch("/me", async (req, res) => {
   const body = updateMeSchema.parse(req.body);
   const user = await updateOwnProfile(actor.id, body);
   res.json({ data: user });
+});
+
+authRouter.get("/me/notification-prefs", async (req, res) => {
+  const actor = getAuthUser(req);
+  const prefs = await getOwnNotificationPrefs(actor.id);
+  res.json({ data: prefs });
+});
+
+authRouter.patch("/me/notification-prefs", async (req, res) => {
+  const actor = getAuthUser(req);
+  const body = updateNotificationPrefsSchema.parse(req.body);
+  const prefs = await updateOwnNotificationPrefs(actor.id, body);
+  res.json({ data: prefs });
 });
 
 authRouter.post("/change-password", async (req, res) => {

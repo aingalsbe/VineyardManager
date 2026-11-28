@@ -4,6 +4,7 @@ import {
   type TaskStatus,
 } from "@vineyard/shared";
 import { Badge } from "@/components/ui/badge";
+import { RemovedFooter } from "@/components/ListChrome";
 import { Button } from "@/components/ui/button";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import {
@@ -25,6 +26,7 @@ export function TaskCard({
   onEdit,
   onStatusChange,
   onDelete,
+  onRestore,
   varietyLookup,
 }: {
   task: ScheduledTask;
@@ -32,12 +34,15 @@ export function TaskCard({
   onStatusChange?: (task: ScheduledTask, status: TaskStatus) => void;
   /** Caller confirms before deleting. Omit for viewers. */
   onDelete?: (task: ScheduledTask) => void;
+  onRestore?: (task: ScheduledTask) => void;
   varietyLookup?: RowVarietyLookup;
 }) {
   const rowText = task.row ? rowLabel(task.row, varietyLookup) : "Whole vineyard";
   const rowTitle = task.row
     ? rowFullLabel(task.row, varietyLookup)
     : undefined;
+  const isClosedSeason = task.seasonStatus === "closed";
+  const isDeleted = Boolean(task.deletedAt);
 
   return (
     <article className="min-w-0 rounded-xl border border-border bg-card p-5 shadow-sm">
@@ -54,6 +59,7 @@ export function TaskCard({
           ) : null}
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {isClosedSeason ? <Badge variant="muted">Closed season</Badge> : null}
           <Badge variant="muted">{TASK_TYPE_LABELS[task.type]}</Badge>
           <TaskStatusBadge status={task.status} />
         </div>
@@ -64,12 +70,12 @@ export function TaskCard({
           <span className="text-muted">Due </span>
           <span className="font-medium">{formatDue(task.dueAt)}</span>
         </p>
-        {onEdit || onStatusChange || onDelete ? (
+        {isDeleted ? null : !isClosedSeason && (onEdit || onStatusChange || onDelete) ? (
         <div className="flex flex-wrap gap-2">
           {onStatusChange && task.status !== "acknowledged" ? (
             <Button
               type="button"
-              size="sm"
+              size="smTouch"
               onClick={() => onStatusChange(task, "acknowledged")}
             >
               Mark complete
@@ -79,7 +85,7 @@ export function TaskCard({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="smTouch"
               onClick={() => onStatusChange(task, "sent")}
             >
               Start
@@ -89,7 +95,7 @@ export function TaskCard({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="smTouch"
               onClick={() => onEdit(task)}
             >
               Edit
@@ -99,7 +105,7 @@ export function TaskCard({
             <Button
               type="button"
               variant="outline"
-              size="sm"
+              size="smTouch"
               onClick={() => onDelete(task)}
             >
               Delete
@@ -108,6 +114,13 @@ export function TaskCard({
         </div>
         ) : null}
       </div>
+      {isDeleted ? (
+        <RemovedFooter
+          deletedAt={task.deletedAt}
+          onRestore={onRestore ? () => onRestore(task) : undefined}
+          lockedReason={isClosedSeason ? "Closed season, so it can't be restored." : undefined}
+        />
+      ) : null}
     </article>
   );
 }

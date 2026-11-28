@@ -4,6 +4,7 @@ import {
   type Row,
 } from "@vineyard/shared";
 import { Pencil, Trash2 } from "lucide-react";
+import { RemovedFooter } from "@/components/ListChrome";
 import { RowStatusBadge } from "@/components/rows/RowStatusBadge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
@@ -11,7 +12,7 @@ import {
   OverflowMenu,
   type OverflowMenuItem,
 } from "@/components/ui/overflow-menu";
-import { healthSwatch } from "@/lib/health";
+import { DORMANT_SWATCH, healthSwatch } from "@/lib/health";
 import { cn } from "@/lib/utils";
 import { rowFullLabel, rowLabel, rowVarietyText } from "@/lib/rowLabel";
 
@@ -20,6 +21,7 @@ export function RowCard({
   onEdit,
   onRecordHarvest,
   onDelete,
+  onRestore,
   health,
   highlighted = false,
 }: {
@@ -28,34 +30,41 @@ export function RowCard({
   onRecordHarvest?: (row: Row) => void;
   /** Caller confirms before deleting. Omit for viewers. */
   onDelete?: (row: Row) => void;
-  health?: { color: HealthColor; reason?: string } | null;
+  onRestore?: (row: Row) => void;
+  health?: { color: HealthColor; reason?: string; dormant?: boolean } | null;
   highlighted?: boolean;
 }) {
+  const isDeleted = Boolean(row.deletedAt);
+  const displayCode =
+    row.preDeleteCode || row.code.replace(/__old_[0-9a-f]{8}$/i, "") || row.code;
+
   // Secondary/write actions live in the ⋯ menu so the header never
   // overflows at 390px. Viewers get no handlers, so no menu.
-  const menuItems: OverflowMenuItem[] = [
-    ...(onEdit
-      ? [
-          {
-            key: "edit",
-            label: "Edit row",
-            icon: <Pencil className="size-4" aria-hidden />,
-            onSelect: () => onEdit(row),
-          },
-        ]
-      : []),
-    ...(onDelete
-      ? [
-          {
-            key: "delete",
-            label: "Delete row",
-            icon: <Trash2 className="size-4" aria-hidden />,
-            destructive: true,
-            onSelect: () => onDelete(row),
-          },
-        ]
-      : []),
-  ];
+  const menuItems: OverflowMenuItem[] = isDeleted
+    ? []
+    : [
+        ...(onEdit
+          ? [
+              {
+                key: "edit",
+                label: "Edit row",
+                icon: <Pencil className="size-4" aria-hidden />,
+                onSelect: () => onEdit(row),
+              },
+            ]
+          : []),
+        ...(onDelete
+          ? [
+              {
+                key: "delete",
+                label: "Delete row",
+                icon: <Trash2 className="size-4" aria-hidden />,
+                destructive: true,
+                onSelect: () => onDelete(row),
+              },
+            ]
+          : []),
+      ];
 
   return (
     <Card className={cn("min-w-0", highlighted && "ring-2 ring-primary")}>
@@ -64,7 +73,7 @@ export function RowCard({
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-start sm:gap-3">
         <div className="min-w-0 sm:flex-1">
           <CardTitle className="[overflow-wrap:anywhere]" title={rowFullLabel(row)}>
-            {rowLabel(row)}
+            {isDeleted ? `${displayCode} ${row.variety}`.trim() : rowLabel(row)}
           </CardTitle>
           <CardDescription className="[overflow-wrap:anywhere]">
             {row.name}
@@ -75,20 +84,26 @@ export function RowCard({
           {health ? (
             <p className="mt-2 flex items-start gap-2 text-sm text-muted">
               <span
-                className={`mt-1 size-2.5 shrink-0 rounded-full ${healthSwatch[health.color]}`}
+                className={`mt-1 size-2.5 shrink-0 rounded-full ${health.dormant ? DORMANT_SWATCH : healthSwatch[health.color]}`}
                 aria-hidden
               />
               <span className="min-w-0 [overflow-wrap:anywhere]">
-                <span className="font-medium capitalize text-foreground">
-                  {health.color}
-                </span>
-                {health.reason ? ` — ${health.reason}` : ""}
+                {health.dormant ? (
+                  <span className="font-medium text-foreground">Dormant</span>
+                ) : (
+                  <>
+                    <span className="font-medium capitalize text-foreground">
+                      {health.color}
+                    </span>
+                    {health.reason ? ` — ${health.reason}` : ""}
+                  </>
+                )}
               </span>
             </p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center justify-between gap-2 sm:justify-start">
-          <RowStatusBadge status={row.status} />
+          {isDeleted ? <span /> : <RowStatusBadge status={row.status} />}
           <OverflowMenu
             label={`More actions for ${rowLabel(row)}`}
             items={menuItems}
@@ -114,7 +129,12 @@ export function RowCard({
       {row.notes ? (
         <p className="mt-4 text-sm [overflow-wrap:anywhere] text-muted">{row.notes}</p>
       ) : null}
-      {onRecordHarvest ? (
+      {isDeleted ? (
+        <RemovedFooter
+          deletedAt={row.deletedAt}
+          onRestore={onRestore ? () => onRestore(row) : undefined}
+        />
+      ) : onRecordHarvest && onRecordHarvest ? (
         <div className="mt-4 border-t border-border pt-4">
           <Button
             type="button"

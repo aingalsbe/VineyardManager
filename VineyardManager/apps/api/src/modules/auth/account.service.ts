@@ -244,3 +244,40 @@ export async function pruneExpiredPasswordResets(
   });
   return result.count;
 }
+
+export async function getOwnNotificationPrefs(userId: string) {
+  const { mergeNotificationPrefs } = await import("@vineyard/shared");
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null, disabledAt: null },
+    select: { notificationPrefs: true },
+  });
+  if (!user) {
+    throw new HttpError(401, "UNAUTHORIZED", "Unauthorized");
+  }
+  return mergeNotificationPrefs(user.notificationPrefs, {});
+}
+
+export async function updateOwnNotificationPrefs(
+  userId: string,
+  patch: {
+    emailEnabled?: boolean;
+    weeklyDigest?: boolean;
+    pushEnabled?: boolean;
+    frequency?: "weekly" | "as_needed" | "daily";
+  },
+) {
+  const { mergeNotificationPrefs } = await import("@vineyard/shared");
+  const user = await prisma.user.findFirst({
+    where: { id: userId, deletedAt: null, disabledAt: null },
+    select: { id: true, notificationPrefs: true },
+  });
+  if (!user) {
+    throw new HttpError(401, "UNAUTHORIZED", "Unauthorized");
+  }
+  const merged = mergeNotificationPrefs(user.notificationPrefs, patch);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { notificationPrefs: merged as Prisma.InputJsonValue },
+  });
+  return merged;
+}

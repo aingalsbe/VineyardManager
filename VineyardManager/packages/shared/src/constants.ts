@@ -185,6 +185,10 @@ export const WEATHER_ALERT_SEVERITIES = [
 
 export const WEATHER_ALERT_SOURCES = ["nws", "open-meteo", "derived"] as const;
 
+export const SEASON_STATUSES = ["legacy", "active", "planned", "closed"] as const;
+
+export const VARIETY_HARVEST_TIMINGS = ["early", "mid", "late"] as const;
+
 export const API_PREFIX = "/api/v1";
 
 export function formatYield(amount: number, unit: (typeof YIELD_UNITS)[number]): string {

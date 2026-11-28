@@ -249,18 +249,43 @@ export async function runDailyRainCheck(
 }
 
 export async function runDailyRainCheckForAllVineyards(
-  options: { asOf?: Date } = {},
+  options: {
+    asOf?: Date;
+    deps?: {
+      listVineyards?: () => Promise<Array<{ id: string; name: string }>>;
+      isDormant?: (vineyardId: string) => Promise<boolean>;
+      runCheck?: (
+        vineyardId: string,
+        opts: { asOf?: Date },
+      ) => Promise<DailyRainCheckResult>;
+    };
+  } = {},
 ): Promise<DailyRainCheckResult[]> {
-  const vineyards = await prisma.vineyard.findMany({
-    where: { deletedAt: null },
-    select: { id: true, name: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const listVineyards =
+    options.deps?.listVineyards ??
+    (() =>
+      prisma.vineyard.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { createdAt: "asc" },
+      }));
+  const isDormant =
+    options.deps?.isDormant ??
+    (async (vineyardId: string) => {
+      const { isVineyardDormant } = await import("../seasons/seasons.service.js");
+      return (await isVineyardDormant(prisma, vineyardId)).dormant;
+    });
+  const runCheck = options.deps?.runCheck ?? runDailyRainCheck;
+
+  const vineyards = await listVineyards();
 
   const results: DailyRainCheckResult[] = [];
   for (const vineyard of vineyards) {
     try {
-      results.push(await runDailyRainCheck(vineyard.id, options));
+      if (await isDormant(vineyard.id)) {
+        continue;
+      }
+      results.push(await runCheck(vineyard.id, { asOf: options.asOf }));
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Unknown rain-check error";

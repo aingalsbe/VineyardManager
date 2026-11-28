@@ -17,8 +17,10 @@ import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardDescription, CardTitle } from "@/components/ui/card";
+import { useRoleAccess } from "@/hooks/useRoleAccess";
+import { useDormantHealth, type DormantHealth } from "@/hooks/useDormantHealth";
 import { useVineyardMetrics } from "@/hooks/useVineyardMetrics";
-import { healthSwatch } from "@/lib/health";
+import { DORMANT_SWATCH, healthSwatch } from "@/lib/health";
 import {
   ACTIVITY_CHART_COLORS,
   CHART_AXIS,
@@ -69,11 +71,13 @@ function harvestDelta(current: number, prior: number): string | null {
 }
 
 export function MetricsPage() {
+  const { canSetup } = useRoleAccess();
   const [period, setPeriod] = useState<MetricsPeriod>("year");
   const [scope, setScope] = useState<MetricsScope>("vineyard");
   const [rowId, setRowId] = useState<string>("");
   const [variety, setVariety] = useState<string>("");
   const { state, reload } = useVineyardMetrics(period);
+  const dormantHealth = useDormantHealth();
 
   const metrics = state.status === "ready" ? state.metrics : null;
 
@@ -147,18 +151,23 @@ export function MetricsPage() {
         <EmptyState
           title="No vineyard yet"
           action={
-            <Button asChild>
-              <Link to="/setup">Set up vineyard</Link>
-            </Button>
+            canSetup ? (
+              <Button asChild>
+                <Link to="/setup">Set up vineyard</Link>
+              </Button>
+            ) : undefined
           }
         >
-          Add the property in Setup, then harvests and work will show up here.
+          {canSetup
+            ? "Add the property in Setup, then harvests and work will show up here."
+            : "Ask a power user to set up the vineyard."}
         </EmptyState>
       ) : null}
 
       {metrics ? (
         <MetricsBody
           metrics={metrics}
+          dormantHealth={dormantHealth}
           scope={scope}
           onScope={setScope}
           selectedRowId={selectedRowId}
@@ -173,6 +182,7 @@ export function MetricsPage() {
 
 function MetricsBody({
   metrics,
+  dormantHealth,
   scope,
   onScope,
   selectedRowId,
@@ -181,6 +191,7 @@ function MetricsBody({
   onVariety,
 }: {
   metrics: VineyardMetrics;
+  dormantHealth: DormantHealth;
   scope: MetricsScope;
   onScope: (scope: MetricsScope) => void;
   selectedRowId: string;
@@ -276,15 +287,29 @@ function MetricsBody({
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Card>
           <p className="text-sm font-medium text-muted">Vineyard health now</p>
-          <div className="mt-2 flex items-center gap-3">
-            <span
-              className={`size-4 rounded-full ${healthSwatch[metrics.health.current.color]}`}
-              aria-hidden
-            />
-            <p className="text-3xl font-semibold tracking-tight capitalize">
-              {metrics.health.current.color} {metrics.health.current.score}
-            </p>
-          </div>
+          {dormantHealth.dormant ? (
+            <>
+              <div className="mt-2 flex items-center gap-3">
+                <span className={`size-4 rounded-full ${DORMANT_SWATCH}`} aria-hidden />
+                <p className="text-3xl font-semibold tracking-tight">Dormant</p>
+              </div>
+              <p className="mt-1 text-sm text-muted">
+                {dormantHealth.closedAt
+                  ? `Closed at ${dormantHealth.closedAt.color.charAt(0).toUpperCase()}${dormantHealth.closedAt.color.slice(1)} ${dormantHealth.closedAt.score}`
+                  : "Scoring resumes when the next season starts."}
+              </p>
+            </>
+          ) : (
+            <div className="mt-2 flex items-center gap-3">
+              <span
+                className={`size-4 rounded-full ${healthSwatch[metrics.health.current.color]}`}
+                aria-hidden
+              />
+              <p className="text-3xl font-semibold tracking-tight capitalize">
+                {metrics.health.current.color} {metrics.health.current.score}
+              </p>
+            </div>
+          )}
         </Card>
         <Card>
           <p className="text-sm font-medium text-muted">Harvest this period</p>

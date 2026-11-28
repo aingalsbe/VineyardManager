@@ -38,10 +38,13 @@ vineyardMetricsRouter.get(
       );
     }
     const asOf = parseAsOf(asOfQuery.parse(req.query.asOf));
+    const seasonId =
+      typeof req.query.seasonId === "string" ? req.query.seasonId : undefined;
     const data = await getVineyardMetrics(
       vineyardId,
       periodParse.data,
       asOf,
+      seasonId,
     );
     res.json({ data });
   },

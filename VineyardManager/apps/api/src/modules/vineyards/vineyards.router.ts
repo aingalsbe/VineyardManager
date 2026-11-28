@@ -198,6 +198,9 @@ vineyardsRouter.patch("/:id", requireSetup, async (req: Request<{ id: string }>,
   if (body.varietyCatalog !== undefined) {
     data.varietyCatalog = body.varietyCatalog as Prisma.InputJsonValue;
   }
+  if (body.varietyHarvestTags !== undefined) {
+    data.varietyHarvestTags = body.varietyHarvestTags as Prisma.InputJsonValue;
+  }
 
   const vineyard = await prisma.vineyard.update({
     where: { id },

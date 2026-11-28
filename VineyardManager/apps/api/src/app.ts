@@ -22,6 +22,7 @@ import { vineyardHealthRouter } from "./modules/health/vineyard-health.router.js
 import { vineyardMetricsRouter } from "./modules/metrics/metrics.router.js";
 import { rowsRouter } from "./modules/rows/rows.router.js";
 import { vineyardScheduleRouter } from "./modules/schedule/schedule.router.js";
+import { vineyardSeasonsRouter } from "./modules/seasons/seasons.router.js";
 import { tasksRouter } from "./modules/tasks/tasks.router.js";
 import { vineyardUsersRouter } from "./modules/users/users.router.js";
 import { vineyardsRouter } from "./modules/vineyards/vineyards.router.js";
@@ -122,6 +123,7 @@ export function createApp(options: CreateAppOptions = {}) {
   app.use(`${API_PREFIX}/vineyards/:vineyardId/rows`, rowsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/tasks`, tasksRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/schedule`, vineyardScheduleRouter);
+  app.use(`${API_PREFIX}/vineyards/:vineyardId/seasons`, vineyardSeasonsRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/users`, vineyardUsersRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/weather`, vineyardWeatherRouter);
   app.use(`${API_PREFIX}/vineyards/:vineyardId/digest`, vineyardDigestRouter);

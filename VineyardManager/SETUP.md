@@ -67,9 +67,13 @@ The API loads `apps/api/.env` itself (`config.ts`). Variables actually read by t
 | `WEATHER_CRON_ENABLED` | Daily Open-Meteo rain check, 6:15 AM CT | Default **on**; only `false` turns it off |
 | `DIGEST_CRON_ENABLED` | Weekly digest, Mondays 6:30 AM CT | Default off. **Keep `false`** until Aaron says otherwise |
 | `DIGEST_SEASON_MONTHS` | Months the digest cron may send (e.g. `3-10`) | `.env.example` |
-| `DIGEST_TEST_RECIPIENTS` | Allowlist for `POST /digest/send-test` | Use `aingalsbe@gmail.com` |
+| `DIGEST_TEST_RECIPIENTS` | Allowlist for `POST /digest/send-test` and test-mode Season Summary emails | Use `aingalsbe@gmail.com` |
+| `SEASON_SUMMARY_MAIL_MODE` | Season Summary email delivery mode: `"test"` (default; sends only to `DIGEST_TEST_RECIPIENTS`) or `"live"` | Keep `"test"` until Aaron explicitly approves `"live"` |
+| `SEASON_SUMMARY_MAIL_WORKER_ENABLED` | In-process drain for `season_summary_mails` intents (default `true`, `false` in `NODE_ENV=test`) | Leave unset in normal runs |
 | `NODE_ENV` | `production` changes dev behavior (e.g. Secure cookies, no dev reset URLs, strict JWT secret guard) | Not set in dev |
 | `VITE_API_URL` (web) | API base path for the web app | `apps/web/.env.example` (`/api/v1`) |
+
+Per-user weekly digest preferences live in `User.notificationPrefs` (`GET/PATCH /api/v1/auth/me/notification-prefs` and Settings → Notifications). Turning off the weekly digest does not stop Season Summary emails (only `emailEnabled: false` does).
 
 To check which keys a `.env` has without showing values:
 
@@ -93,14 +97,14 @@ pnpm db:generate
 
 ## 7. Database: migrate, seed, back up, restore
 
-Postgres runs in Docker (user `vineyard`, database `vineyard_manager`, port 5432, volume `vineyard_pg`).
+Postgres runs in Docker (user `vineyard`, database `vineyard_manager`, port 5432, volume `vineyard_pg`). For isolated feature worktrees, create disposable branch databases in the same container (e.g., `createdb -U vineyard vineyard_seasons_dev` and `vineyard_seasons_test`) and point `DATABASE_URL` in the shell session only so the main dev database stays untouched.
 
 ```powershell
 pnpm db:migrate:deploy   # apply the existing migrations (also run automatically by Start-VineyardManager.ps1)
 pnpm db:seed             # demo data + dev logins (fresh DB only)
 ```
 
-Use `pnpm db:migrate` (`prisma migrate dev`) only when writing a new migration. It may try to drop the `digest_logs_scheduled_once` partial index; delete that DROP INDEX line from the generated SQL.
+Use `pnpm db:migrate` (`prisma migrate dev`) only when writing a new migration. It may try to drop hand-written partial/expression indexes (`digest_logs_scheduled_once`, `seasons_one_active_per_vineyard`, `seasons_one_planned_per_vineyard`, `tasks_season_template_key_live_unique`, and the season composite indexes); delete any generated `DROP INDEX` lines from the SQL before applying.
 
 **Dump the DB** (dumps inside the container, then copies out, so PowerShell can't mangle the file):
 

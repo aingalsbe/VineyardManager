@@ -10,8 +10,14 @@ export type HarvestsState =
   | { status: "empty-vineyard" }
   | { status: "ready"; rows: Row[]; harvests: Harvest[] };
 
-export function useHarvests(hookOptions?: { skipRows?: boolean }) {
+export function useHarvests(hookOptions?: {
+  skipRows?: boolean;
+  deleted?: "only";
+  seasonId?: string;
+}) {
   const skipRows = hookOptions?.skipRows ?? false;
+  const deleted = hookOptions?.deleted;
+  const seasonId = hookOptions?.seasonId;
   const { vineyard, vineyardStatus, vineyardError, reloadVineyard } =
     useOutletContext<AppOutletContext>();
   const [state, setState] = useState<HarvestsState>({ status: "loading" });
@@ -45,7 +51,11 @@ export function useHarvests(hookOptions?: { skipRows?: boolean }) {
       try {
         const [rows, harvests] = await Promise.all([
           skipRows ? Promise.resolve([] as Row[]) : listRows(vineyard.id, controller.signal),
-          listHarvests(undefined, controller.signal),
+          listHarvests(undefined, controller.signal, {
+            vineyardId: vineyard.id,
+            ...(deleted ? { deleted } : {}),
+            ...(seasonId ? { seasonId } : {}),
+          }),
         ]);
         if (controller.signal.aborted) return;
         setState({ status: "ready", rows, harvests });
@@ -58,7 +68,7 @@ export function useHarvests(hookOptions?: { skipRows?: boolean }) {
         setState({ status: "error", message });
       }
     },
-    [vineyard, vineyardStatus, vineyardError, skipRows],
+    [vineyard, vineyardStatus, vineyardError, skipRows, deleted, seasonId],
   );
 
   useEffect(() => {

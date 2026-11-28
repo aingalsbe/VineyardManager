@@ -41,6 +41,7 @@ export type ScheduledDigestResult = {
   vineyardId: string;
   vineyardName: string;
   weekStart: string;
+  dormant?: boolean;
   /** Eligible manager/power_user accounts (emailEnabled + weeklyDigest not false). */
   eligible: number;
   /** Active manager/power_user accounts excluded by their prefs (not logged). */
@@ -70,6 +71,7 @@ function isUniqueViolation(error: unknown): boolean {
  * and the row is claimed BEFORE sending, so a re-run (or an overlapping run)
  * never double-sends. Rows left `failed` are retried on the next run.
  * SMTP errors are logged as failed and the run continues.
+ * Skips dormant vineyards without sending or logging (A8).
  */
 export async function runScheduledDigest(
   vineyardId: string,
@@ -77,6 +79,31 @@ export async function runScheduledDigest(
 ): Promise<ScheduledDigestResult> {
   const weekStart = digestWeekStart(asOf);
   const weekStartValue = weekStartDate(weekStart);
+
+  const vineyard = await prisma.vineyard.findFirst({
+    where: { id: vineyardId, deletedAt: null },
+    select: { id: true, name: true },
+  });
+  if (!vineyard) {
+    throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
+  }
+  const { isVineyardDormant } = await import("../seasons/seasons.service.js");
+  const dormantState = await isVineyardDormant(prisma, vineyardId);
+  if (dormantState.dormant) {
+    return {
+      vineyardId: vineyard.id,
+      vineyardName: vineyard.name,
+      weekStart,
+      dormant: true,
+      eligible: 0,
+      optedOut: 0,
+      sent: 0,
+      failed: 0,
+      skipped: 0,
+      alreadyLogged: 0,
+      recipients: [],
+    };
+  }
 
   // 404s if the vineyard is missing/deleted.
   const data = await buildDigestData(vineyardId, asOf);
@@ -207,19 +234,39 @@ export async function runScheduledDigest(
   return result;
 }
 
-/** Cron entry point: every non-deleted vineyard; one vineyard failing doesn't stop the rest. */
+/** Cron entry point: every non-deleted, non-dormant vineyard; one vineyard failing doesn't stop the rest. */
 export async function runScheduledDigestForAllVineyards(
   asOf: Date = new Date(),
+  deps?: {
+    listVineyards?: () => Promise<Array<{ id: string; name: string }>>;
+    isDormant?: (vineyardId: string) => Promise<boolean>;
+    runDigest?: (vineyardId: string, date: Date) => Promise<ScheduledDigestResult>;
+  },
 ): Promise<ScheduledDigestResult[]> {
-  const vineyards = await prisma.vineyard.findMany({
-    where: { deletedAt: null },
-    select: { id: true, name: true },
-    orderBy: { createdAt: "asc" },
-  });
+  const listVineyards =
+    deps?.listVineyards ??
+    (() =>
+      prisma.vineyard.findMany({
+        where: { deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { createdAt: "asc" },
+      }));
+  const isDormant =
+    deps?.isDormant ??
+    (async (vineyardId: string) => {
+      const { isVineyardDormant } = await import("../seasons/seasons.service.js");
+      return (await isVineyardDormant(prisma, vineyardId)).dormant;
+    });
+  const runDigest = deps?.runDigest ?? runScheduledDigest;
+
+  const vineyards = await listVineyards();
   const results: ScheduledDigestResult[] = [];
   for (const vineyard of vineyards) {
     try {
-      results.push(await runScheduledDigest(vineyard.id, asOf));
+      if (await isDormant(vineyard.id)) {
+        continue;
+      }
+      results.push(await runDigest(vineyard.id, asOf));
     } catch (error) {
       console.error(`[digest] ${vineyard.name}: run failed`, mailErrorMessage(error));
     }

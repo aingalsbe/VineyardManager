@@ -72,10 +72,11 @@ model User {
   deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
   disabledAt        DateTime? @map("disabled_at") @db.Timestamptz(6)
 
-  ownedVineyards  Vineyard[]      @relation("VineyardOwner")
-  assignedTasks   Task[]
-  passwordResets  PasswordReset[]
-  digestLogs      DigestLog[]
+  ownedVineyards     Vineyard[]          @relation("VineyardOwner")
+  assignedTasks      Task[]
+  passwordResets     PasswordReset[]
+  digestLogs         DigestLog[]
+  seasonSummaryMails SeasonSummaryMail[]
 
   @@map("users")
 }
@@ -95,21 +96,22 @@ model PasswordReset {
 }
 
 model Vineyard {
-  id               String    @id @default(uuid()) @db.Uuid
-  ownerId          String    @map("owner_id") @db.Uuid
-  name             String
-  address          String
-  lat              Decimal?  @db.Decimal(9, 6)
-  lng              Decimal?  @db.Decimal(9, 6)
-  timezone         String
-  healthThresholds Json      @map("health_thresholds")
-  varietyCatalog   Json      @default("[]") @map("variety_catalog")
-  rowLayout        Json?     @map("row_layout")
-  logoPath         String?   @map("logo_path")
-  logoContentType  String?   @map("logo_content_type")
-  createdAt        DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt        DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt        DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id                 String    @id @default(uuid()) @db.Uuid
+  ownerId            String    @map("owner_id") @db.Uuid
+  name               String
+  address            String
+  lat                Decimal?  @db.Decimal(9, 6)
+  lng                Decimal?  @db.Decimal(9, 6)
+  timezone           String
+  healthThresholds   Json      @map("health_thresholds")
+  varietyCatalog     Json      @default("[]") @map("variety_catalog")
+  varietyHarvestTags Json      @default("{}") @map("variety_harvest_tags")
+  rowLayout          Json?     @map("row_layout")
+  logoPath           String?   @map("logo_path")
+  logoContentType    String?   @map("logo_content_type")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt          DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt          DateTime? @map("deleted_at") @db.Timestamptz(6)
 
   owner      User       @relation("VineyardOwner", fields: [ownerId], references: [id])
   rows       Row[]
@@ -124,20 +126,22 @@ model Vineyard {
 }
 
 model Row {
-  id           String    @id @default(uuid()) @db.Uuid
-  vineyardId   String    @map("vineyard_id") @db.Uuid
-  code         String
-  name         String
-  variety      String
-  lengthFeet   Int       @map("length_feet")
-  lengthInches Int       @map("length_inches")
-  vineCount    Int       @map("vine_count")
-  plantedYear  Int       @map("planted_year")
-  status       RowStatus @default(active)
-  notes        String?
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id              String     @id @default(uuid()) @db.Uuid
+  vineyardId      String     @map("vineyard_id") @db.Uuid
+  code            String
+  name            String
+  variety         String
+  lengthFeet      Int        @map("length_feet")
+  lengthInches    Int        @map("length_inches")
+  vineCount       Int        @map("vine_count")
+  plantedYear     Int        @map("planted_year")
+  status          RowStatus  @default(active)
+  notes           String?
+  preDeleteCode   String?    @map("pre_delete_code")
+  preDeleteStatus RowStatus? @map("pre_delete_status")
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
   vineyard   Vineyard   @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
   tasks      Task[]
@@ -150,6 +154,11 @@ model Row {
 }
 
 /// Scheduled work or notification. Vineyard-wide, or scoped to a row.
+/// A hand-written partial unique index (raw SQL in migration seasons_close_new_restore)
+/// enforces at most one live task per (season_id, template_key):
+///   CREATE UNIQUE INDEX tasks_season_template_key_live_unique
+///     ON tasks (season_id, template_key) WHERE template_key IS NOT NULL AND deleted_at IS NULL;
+/// Prisma 6 cannot express partial indexes; preserve this index in any future migration.
 model Task {
   id                  String        @id @default(uuid()) @db.Uuid
   vineyardId          String        @map("vineyard_id") @db.Uuid
@@ -161,6 +170,7 @@ model Task {
   dueAt               DateTime      @map("due_at") @db.Timestamptz(6)
   status              TaskStatus    @default(pending)
   relatedActivityType ActivityType? @map("related_activity_type")
+  templateKey         String?       @map("template_key")
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt           DateTime?     @map("deleted_at") @db.Timestamptz(6)
@@ -276,22 +286,63 @@ enum SeasonStatus {
   closed
 }
 
+enum SeasonSummaryMailStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
 // Partial unique indexes (one active / one planned per vineyard) are hand-written SQL in the migration; Prisma cannot express them.
 model Season {
-  id         String       @id @default(uuid()) @db.Uuid
-  vineyardId String       @map("vineyard_id") @db.Uuid
-  year       Int
-  status     SeasonStatus
-  startedAt  DateTime?    @map("started_at") @db.Timestamptz(6)
-  closedAt   DateTime?    @map("closed_at") @db.Timestamptz(6)
-  createdAt  DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  vineyard   Vineyard     @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
-  tasks      Task[]
-  harvests   Harvest[]
-  activities Activity[]
+  id             String              @id @default(uuid()) @db.Uuid
+  vineyardId     String              @map("vineyard_id") @db.Uuid
+  year           Int
+  status         SeasonStatus
+  startedAt      DateTime?           @map("started_at") @db.Timestamptz(6)
+  closedAt       DateTime?           @map("closed_at") @db.Timestamptz(6)
+  reopenedAt     DateTime?           @map("reopened_at") @db.Timestamptz(6)
+  startedBy      String?             @map("started_by") @db.Uuid
+  closedBy       String?             @map("closed_by") @db.Uuid
+  closeVersion   Int                 @default(0) @map("close_version")
+  snapshot       Json?
+  summary        Json?
+  summaryHistory Json                @default("[]") @map("summary_history")
+  /// Calendar template keys the user unchecked when starting this season; "Add missing calendar tasks" never re-adds them.
+  declinedTemplateKeys String[]      @default([]) @map("declined_template_keys")
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+  vineyard       Vineyard            @relation(fields: [vineyardId], references: [id], onDelete: Restrict)
+  tasks          Task[]
+  harvests       Harvest[]
+  activities     Activity[]
+  summaryMails   SeasonSummaryMail[]
 
   @@unique([vineyardId, year])
   @@unique([id, vineyardId])
   @@map("seasons")
 }
+
+/// Outbox / delivery intent for Season Summary emails written in the close transaction.
+model SeasonSummaryMail {
+  id                String                  @id @default(uuid()) @db.Uuid
+  seasonId          String                  @map("season_id") @db.Uuid
+  vineyardId        String                  @map("vineyard_id") @db.Uuid
+  closeVersion      Int                     @map("close_version")
+  userId            String?                 @map("user_id") @db.Uuid
+  recipientEmail    String                  @map("recipient_email")
+  status            SeasonSummaryMailStatus @default(pending)
+  attempts          Int                     @default(0)
+  lastErrorCode     String?                 @map("last_error_code")
+  providerMessageId String?                 @map("provider_message_id")
+  createdAt         DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+  sentAt            DateTime?               @map("sent_at") @db.Timestamptz(6)
+
+  season Season @relation(fields: [seasonId, vineyardId], references: [id, vineyardId], onDelete: Restrict, onUpdate: Restrict)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@unique([seasonId, closeVersion, recipientEmail])
+  @@index([status, createdAt])
+  @@map("season_summary_mails")
+}
+

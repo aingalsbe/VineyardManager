@@ -12,6 +12,7 @@ import {
 } from "@vineyard/shared";
 import { prisma } from "../../db/prisma.js";
 import { HttpError } from "../../middleware/error-handler.js";
+import { resolveSeasonFilter } from "../seasons/seasons.service.js";
 
 const ACTIVITY_LOOKBACK_DAYS = 23;
 
@@ -26,6 +27,7 @@ export async function getVineyardMetrics(
   vineyardId: string,
   period: MetricsPeriod,
   asOf: Date,
+  rawSeasonId?: string,
 ) {
   const vineyard = await prisma.vineyard.findFirst({
     where: { id: vineyardId, deletedAt: null },
@@ -39,6 +41,9 @@ export async function getVineyardMetrics(
   if (!vineyard) {
     throw new HttpError(404, "NOT_FOUND", "Vineyard not found");
   }
+
+  const seasonId = await resolveSeasonFilter(prisma, vineyardId, rawSeasonId);
+  const seasonWhere = seasonId ? { seasonId } : {};
 
   const range = periodRange(asOf, period, vineyard.timezone);
   const activityWindowStart = new Date(
@@ -56,6 +61,7 @@ export async function getVineyardMetrics(
         vineyardId,
         deletedAt: null,
         status: { in: [...OPEN_TASK_STATUSES] },
+        ...seasonWhere,
       },
       select: { id: true, rowId: true, title: true, dueAt: true, status: true },
     }),
@@ -64,6 +70,7 @@ export async function getVineyardMetrics(
         vineyardId,
         deletedAt: null,
         performedAt: { gte: activityWindowStart },
+        ...seasonWhere,
       },
       select: {
         id: true,
@@ -75,7 +82,7 @@ export async function getVineyardMetrics(
       },
     }),
     prisma.harvest.findMany({
-      where: { vineyardId, deletedAt: null },
+      where: { vineyardId, deletedAt: null, ...seasonWhere },
       select: {
         rowId: true,
         harvestedAt: true,

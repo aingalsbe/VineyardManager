@@ -54,7 +54,7 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 | --- | --- |
 | **Owner** | Devon (API) + Sage (UI) |
 | **QA** | Avery |
-| **Status** | Step 1 shipped (`851bb88`); steps 2–6 queued after Security & Efficiency release |
+| **Status** | Step 1 shipped (`851bb88`); steps 2–6 built on `feature/seasons-2-6`, pending QA/release |
 
 **Aaron's answers (Oct 17, 2026):**
 
@@ -68,11 +68,11 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 **Build order (6 steps; each ships on its own and gets QA before the next):**
 
 1. [x] Seasons and tagging: tag existing records by year, keep this year open (`851bb88`).
-2. [ ] Close Season preview and close. Check: viewers/managers refused, open tasks Dismissed, vineyard dormant, rain check and digest skip it.
-3. [ ] Lock and Reopen. Check: editing/deleting a closed-season record is refused with a clear message; Reopen works.
-4. [ ] Summary, Past Seasons page and email. Check: summary matches frozen numbers; test email reaches only the test list.
-5. [ ] New Season with fixed calendar + Dormant Pruning (preview, uncheck, adjust); fixes the skip-reused-task-title bug. Check: second season gets a full calendar.
-6. [ ] Location-based dates (Open-Meteo degree days) with fixed-calendar fallback. Check: expected dates for at least two test locations.
+2. [x] Close Season preview and close (`feature/seasons-2-6`, pending QA/release). Check: viewers/managers refused, open tasks Dismissed, vineyard dormant, rain check and digest skip it.
+3. [x] Lock and Reopen (`feature/seasons-2-6`, pending QA/release). Check: editing/deleting a closed-season record is refused with a clear message; Reopen works.
+4. [x] Summary, Past Seasons page and email (`feature/seasons-2-6`, pending QA/release). Check: summary matches frozen numbers; test email reaches only the test list.
+5. [x] New Season with fixed calendar + Dormant Pruning (`feature/seasons-2-6`, pending QA/release); fixes the skip-reused-task-title bug. Check: second season gets a full calendar.
+6. [x] Location-based dates (Open-Meteo degree days) with fixed-calendar fallback (`feature/seasons-2-6`, pending QA/release). Check: expected dates for at least two test locations.
 
 **Facts for step 1 (learned 2026-10-17):**
 

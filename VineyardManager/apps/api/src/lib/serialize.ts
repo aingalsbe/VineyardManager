@@ -1,15 +1,21 @@
-import type { Activity, Harvest, Row, Task, User, Vineyard } from "@prisma/client";
-import { rowLayoutSchema } from "@vineyard/shared";
-import type {
-  Activity as ActivityDto,
-  ActivityScope,
-  ActivitySource,
-  Harvest as HarvestDto,
-  PublicUser,
-  Row as RowDto,
-  RowLayout,
-  ScheduledTask,
-  Vineyard as VineyardDto,
+import type { Activity, Harvest, Row, Season, Task, User, Vineyard } from "@prisma/client";
+import {
+  computeReopenableUntil,
+  rowLayoutSchema,
+  varietyHarvestTagsSchema,
+  type Activity as ActivityDto,
+  type ActivityScope,
+  type ActivitySource,
+  type Harvest as HarvestDto,
+  type PublicUser,
+  type Row as RowDto,
+  type RowLayout,
+  type ScheduledTask,
+  type SeasonDto,
+  type SeasonStatus,
+  type SeasonSummary,
+  type VarietyHarvestTags,
+  type Vineyard as VineyardDto,
 } from "@vineyard/shared";
 
 function decimalToNumber(value: { toString(): string } | null): number | null {
@@ -27,6 +33,11 @@ function parseVarietyCatalog(value: unknown): string[] {
   return value.filter(
     (item): item is string => typeof item === "string" && item.trim().length > 0,
   );
+}
+
+export function parseVarietyHarvestTags(value: unknown): VarietyHarvestTags {
+  const parsed = varietyHarvestTagsSchema.safeParse(value);
+  return parsed.success ? parsed.data : {};
 }
 
 export function serializePublicUser(
@@ -53,6 +64,7 @@ export function serializeVineyard(row: Vineyard): VineyardDto {
     healthThresholds:
       row.healthThresholds as unknown as VineyardDto["healthThresholds"],
     varietyCatalog: parseVarietyCatalog(row.varietyCatalog),
+    varietyHarvestTags: parseVarietyHarvestTags(row.varietyHarvestTags),
     hasLogo: Boolean(row.logoPath),
     rowLayout: parseRowLayout(row.rowLayout),
     createdAt: row.createdAt.toISOString(),
@@ -74,6 +86,8 @@ export function serializeRow(record: Row): RowDto {
     plantedYear: record.plantedYear,
     status: record.status,
     notes: record.notes,
+    preDeleteCode: record.preDeleteCode ?? null,
+    preDeleteStatus: record.preDeleteStatus ?? null,
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,
@@ -85,6 +99,10 @@ type RowRefRecord = {
   code: string;
   name: string;
   deletedAt?: Date | null;
+};
+
+type SeasonStatusRef = {
+  status: SeasonStatus;
 };
 
 /** Embedded row ref; deletedAt is null unless the row was removed. */
@@ -100,17 +118,18 @@ function serializeRowRef(row: RowRefRecord | null | undefined) {
 
 export function serializeTask(
   record: Task & {
-    row?: {
-      id: string;
-      code: string;
-      name: string;
-      deletedAt?: Date | null;
-    } | null;
+    row?: RowRefRecord | null;
+    season?: SeasonStatusRef | null;
   },
 ): ScheduledTask {
   return {
     id: record.id,
     vineyardId: record.vineyardId,
+    seasonId: record.seasonId ?? null,
+    ...(record.season !== undefined
+      ? { seasonStatus: record.season?.status ?? null }
+      : {}),
+    templateKey: record.templateKey ?? null,
     rowId: record.rowId,
     userId: record.userId,
     type: record.type,
@@ -122,26 +141,24 @@ export function serializeTask(
     createdAt: record.createdAt.toISOString(),
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,
-    row: record.row
-      ? {
-          id: record.row.id,
-          code: record.row.code,
-          name: record.row.name,
-          deletedAt: record.row.deletedAt?.toISOString() ?? null,
-        }
-      : null,
+    row: serializeRowRef(record.row),
   };
 }
 
 export function serializeHarvest(
   record: Harvest & {
     row?: RowRefRecord | null;
+    season?: SeasonStatusRef | null;
   },
 ): HarvestDto {
   return {
     id: record.id,
     rowId: record.rowId,
     vineyardId: record.vineyardId,
+    seasonId: record.seasonId ?? null,
+    ...(record.season !== undefined
+      ? { seasonStatus: record.season?.status ?? null }
+      : {}),
     harvestedAt: record.harvestedAt.toISOString(),
     yieldAmount: Number(record.yieldAmount.toString()),
     yieldUnit: record.yieldUnit,
@@ -157,12 +174,17 @@ export function serializeHarvest(
 export function serializeActivity(
   record: Activity & {
     row?: RowRefRecord | null;
+    season?: SeasonStatusRef | null;
   },
   performedByDisplayName?: string | null,
 ): ActivityDto {
   return {
     id: record.id,
     vineyardId: record.vineyardId,
+    seasonId: record.seasonId ?? null,
+    ...(record.season !== undefined
+      ? { seasonStatus: record.season?.status ?? null }
+      : {}),
     rowId: record.rowId,
     scopeType: record.scopeType as ActivityScope,
     scopeId: record.scopeId,
@@ -176,5 +198,50 @@ export function serializeActivity(
     updatedAt: record.updatedAt.toISOString(),
     deletedAt: record.deletedAt?.toISOString() ?? null,
     row: serializeRowRef(record.row),
+  };
+}
+
+function parseSummary(value: unknown): SeasonSummary | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as SeasonSummary;
+}
+
+function parseSummaryHistory(value: unknown): SeasonSummary[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(
+    (entry): entry is SeasonSummary =>
+      Boolean(entry) && typeof entry === "object" && !Array.isArray(entry),
+  );
+}
+
+export function serializeSeason(
+  record: Season,
+  options: { includeSummary?: boolean } = {},
+): SeasonDto {
+  const summary = parseSummary(record.summary);
+  const summaryHistory = parseSummaryHistory(record.summaryHistory);
+  const hasSummary = summary !== null || summaryHistory.length > 0;
+  return {
+    id: record.id,
+    vineyardId: record.vineyardId,
+    year: record.year,
+    status: record.status,
+    startedAt: record.startedAt?.toISOString() ?? null,
+    closedAt: record.closedAt?.toISOString() ?? null,
+    reopenedAt: record.reopenedAt?.toISOString() ?? null,
+    startedBy: record.startedBy ?? null,
+    closedBy: record.closedBy ?? null,
+    closeVersion: record.closeVersion,
+    reopenableUntil:
+      record.status === "closed" ? computeReopenableUntil(record.closedAt) : null,
+    hasSummary,
+    ...(options.includeSummary
+      ? {
+          summary: summary ?? summaryHistory[summaryHistory.length - 1] ?? null,
+          summaryHistory,
+        }
+      : {}),
+    createdAt: record.createdAt.toISOString(),
+    updatedAt: record.updatedAt.toISOString(),
   };
 }

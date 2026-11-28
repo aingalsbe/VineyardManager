@@ -1,9 +1,7 @@
-import { useEffect, useId, useRef, type ReactNode, type RefObject } from "react";
+import { useId, useRef, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
-
-const FOCUSABLE =
-  'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+import { useModalFocus } from "@/hooks/useModalFocus";
 
 /**
  * Reusable confirm modal (alertdialog). Same chrome as VineyardMapDialog /
@@ -22,6 +20,7 @@ export function ConfirmDialog({
   busy = false,
   cancelLabel = "Cancel",
   returnFocusRef,
+  stackActions = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -41,80 +40,19 @@ export function ConfirmDialog({
    * returns to the element that opened the dialog.
    */
   returnFocusRef?: RefObject<HTMLElement | null>;
+  /** Stack full-width footer buttons at every size (long labels, e.g. row delete). */
+  stackActions?: boolean;
 }) {
   const titleId = useId();
   const descriptionId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
-  const onCloseRef = useRef(onClose);
-  const busyRef = useRef(busy);
-  const returnFocusPropRef = useRef(returnFocusRef);
-  useEffect(() => {
-    onCloseRef.current = onClose;
-    busyRef.current = busy;
-    returnFocusPropRef.current = returnFocusRef;
+  useModalFocus(panelRef, open, {
+    initialFocusRef: cancelRef,
+    onEscape: onClose,
+    busy,
+    returnFocusRef,
   });
-
-  // Initial focus on Cancel; restore focus to the opener on close.
-  useEffect(() => {
-    if (!open) return;
-    const opener = document.activeElement as HTMLElement | null;
-    cancelRef.current?.focus();
-    return () => {
-      const explicit = returnFocusPropRef.current?.current;
-      if (explicit?.isConnected) {
-        if (explicit.tabIndex < 0 && !explicit.hasAttribute("tabindex")) {
-          explicit.tabIndex = -1;
-        }
-        explicit.focus();
-      } else if (opener?.isConnected) {
-        opener.focus();
-      } else {
-        // Opener was removed (e.g. the deleted card); land on the page heading.
-        const fallback = document.querySelector<HTMLElement>("main h1");
-        if (fallback) {
-          fallback.tabIndex = -1;
-          fallback.focus();
-        }
-      }
-    };
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      const panel = panelRef.current;
-      if (event.key === "Escape") {
-        event.preventDefault();
-        event.stopPropagation();
-        if (!busyRef.current) onCloseRef.current();
-        return;
-      }
-      if (event.key !== "Tab" || !panel) return;
-      const focusable = Array.from(
-        panel.querySelectorAll<HTMLElement>(FOCUSABLE),
-      );
-      const first = focusable[0];
-      const last = focusable[focusable.length - 1];
-      if (!first || !last) {
-        event.preventDefault();
-        panel.focus();
-        return;
-      }
-      if (!panel.contains(document.activeElement)) {
-        event.preventDefault();
-        first.focus();
-      } else if (event.shiftKey && document.activeElement === first) {
-        event.preventDefault();
-        last.focus();
-      } else if (!event.shiftKey && document.activeElement === last) {
-        event.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [open]);
 
   if (!open) return null;
 
@@ -161,12 +99,18 @@ export function ConfirmDialog({
             </p>
           ) : null}
         </div>
-        <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background/60 px-5 py-4 sm:flex-row sm:flex-wrap sm:justify-end">
+        <div
+          className={
+            stackActions
+              ? "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background/60 px-5 py-4 [&>button]:w-full"
+              : "flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background/60 px-5 py-4 sm:flex-row sm:flex-wrap sm:justify-end"
+          }
+        >
           <Button
             ref={cancelRef}
             type="button"
             variant="outline"
-            className="w-full sm:w-auto"
+            className={stackActions ? "w-full" : "w-full sm:w-auto"}
             disabled={busy}
             onClick={onClose}
           >

@@ -385,6 +385,7 @@ export function render(data: DigestData): { subject: string; html: string; text:
   const base = data.appUrl.replace(/\/+$/, "");
   const appUrl = `${base}/`;
   const tasksUrl = `${base}/tasks`;
+  const prefsUrl = `${base}/settings#notifications`;
   const name = oneLine(vineyard.name);
   const tone = healthTone(health.color);
   const weekOf = `Week of ${formatCalendarDate(data.weekStart)}`;
@@ -429,7 +430,7 @@ ${sectionHeading("Weather")}
 </table>
 <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;table-layout:fixed;">
 <tr><td class="vm-px" style="padding:16px 24px 8px 24px;font-family:${FONT};font-size:12px;line-height:18px;color:${COLOR.muted};${WRAP}">
-${esc(reasonWhy)}<br>
+${esc(reasonWhy)} <a href="${esc(prefsUrl)}" target="_blank" rel="noopener noreferrer" style="color:${COLOR.primary};text-decoration:underline;">Change email preferences</a>.<br>
 Generated ${esc(generated)}.<br>
 ${esc(weatherNote)}
 </td></tr>
@@ -543,6 +544,7 @@ ${esc(weatherNote)}
   blank();
   L.push("--");
   para(reasonWhy);
+  L.push(`Change email preferences: ${prefsUrl}`);
   para(`Generated ${generated}.`);
   para(weatherNote);
 

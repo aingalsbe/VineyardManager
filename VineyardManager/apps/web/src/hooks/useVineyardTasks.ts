@@ -15,8 +15,14 @@ export type VineyardTasksState =
       tasks: ScheduledTask[];
     };
 
-export function useVineyardTasks(hookOptions?: { skipRows?: boolean }) {
+export function useVineyardTasks(hookOptions?: {
+  skipRows?: boolean;
+  deleted?: "only";
+  seasonId?: string;
+}) {
   const skipRows = hookOptions?.skipRows ?? false;
+  const deleted = hookOptions?.deleted;
+  const seasonId = hookOptions?.seasonId;
   const { vineyard, vineyardStatus, vineyardError, reloadVineyard } =
     useOutletContext<AppOutletContext>();
   const [state, setState] = useState<VineyardTasksState>({
@@ -52,7 +58,10 @@ export function useVineyardTasks(hookOptions?: { skipRows?: boolean }) {
       try {
         const [rows, tasks] = await Promise.all([
           skipRows ? Promise.resolve([] as Row[]) : listRows(vineyard.id, controller.signal),
-          listTasks(vineyard.id, controller.signal),
+          listTasks(vineyard.id, controller.signal, {
+            ...(deleted ? { deleted } : {}),
+            ...(seasonId ? { seasonId } : {}),
+          }),
         ]);
         if (controller.signal.aborted) return;
         setState({ status: "ready", vineyard, rows, tasks });
@@ -65,7 +74,7 @@ export function useVineyardTasks(hookOptions?: { skipRows?: boolean }) {
         setState({ status: "error", message });
       }
     },
-    [vineyard, vineyardStatus, vineyardError, skipRows],
+    [vineyard, vineyardStatus, vineyardError, skipRows, deleted, seasonId],
   );
 
   useEffect(() => {

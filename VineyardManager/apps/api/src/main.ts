@@ -6,6 +6,10 @@ import {
   stopDigestScheduler,
 } from "./modules/digest/digest.scheduler.js";
 import {
+  startSeasonSummaryMailWorker,
+  stopSeasonSummaryMailWorker,
+} from "./modules/seasons/season-summary-mail.js";
+import {
   startWeatherScheduler,
   stopWeatherScheduler,
 } from "./modules/weather/weather.scheduler.js";
@@ -16,6 +20,7 @@ const server = app.listen(config.port, () => {
   console.log(`Vineyard Manager API listening on http://localhost:${config.port}`);
   startWeatherScheduler();
   startDigestScheduler();
+  startSeasonSummaryMailWorker();
 });
 
 let shuttingDown = false;
@@ -32,7 +37,11 @@ async function shutdown(signal: string): Promise<void> {
   forceTimer.unref();
 
   try {
-    await Promise.allSettled([stopWeatherScheduler(), stopDigestScheduler()]);
+    await Promise.allSettled([
+      stopWeatherScheduler(),
+      stopDigestScheduler(),
+      stopSeasonSummaryMailWorker(),
+    ]);
     await new Promise<void>((resolve, reject) => {
       server.close((err) => (err ? reject(err) : resolve()));
     });
