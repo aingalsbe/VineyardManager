@@ -1,5 +1,56 @@
 # Vineyard Manager — Pipeline Board
 
+**Updated:** 2026-11-28 (Seasons merged to main)
+**Single source of truth** for what's next on Vineyard (Aaron, Nov 28, 2026).
+**Repo:** `C:\AIProjects\VineyardManager` (git root `C:\AIProjects`)
+**Product:** Abide in the Vine Vineyard manager (monorepo: `apps/web`, `apps/api`, `packages/shared`)
+
+Aaron's earlier board, last edited Nov 25, 2026, is kept as written in [Board as of Nov 25, 2026](#board-as-of-nov-25-2026-aarons-last-edit-kept-as-written) below. Do not delete or overwrite those notes; update status in this top section (and, for the Seasons build, only the Seasons status lines).
+
+---
+
+## What's next (ordered)
+
+1. **Seasons 2–6 + user-guide gaps are merged to `main` (`d8160cc`, Nov 28, 2026, Aaron's OK relayed by Morgan).** Avery passed QA (first pass, then a scoped re-check of the QA fixes at `19907a5`). Production still runs `3f6d51b`. Next is the release (items 3 and 4), each gate with Aaron's own OK. Devon prepared the release runbook (`release-seasons-v1.1.0`, on the box under `/workspace/vm-runtime/runbooks/`).
+2. **Housekeeping after the merge:** the remote `feature/seasons-2-6` branch was deleted at merge (Aaron's choice); the local branch and the worktree `C:\AIProjects-seasons` stay. Fix the stale UpwardScoreboard path in `SETUP.md` (`C:\UpwardScoreboard` → `C:\AIProjects\UpwardScoreboard`) if it is not already done.
+3. **Production preflight, then release, each step with Aaron's own OK** (see [Approval gates](#approval-gates)). Prod is at `3f6d51b`; `main` is at the merge commit and also carries v1.1.0 Security & Efficiency, which is undeployed. The release applies migrations **13** (`20261125160000_security_and_perf_indexes`), **14** (`20261128162346_seasons_close_new_restore`) and **15** (`20261128190000_season_declined_template_keys`). Order, each with its own gate: `pg_dump -Fc` of prod and a verified restore (G-dump); backfill dry run on a restored copy of the dump, never on prod; `migrate deploy` (G-migrate); the real backfills, `backfill-seasons.ts` should be a no-op, then `backfill-seasons-2-6.ts` (G-backfill); deploy (G-deploy).
+4. **Post-deploy smoke**, including the two Nov 11 production checks that were never run: (a) a signed-in season-routed write, and (b) a live rain-check signal. These need Aaron's sign-in (or a granted login) and a separate OK.
+5. **User-guide [VERIFY] items** and turning the rain check / weekly digest **on in prod** — each is Aaron's own OK. Set `APP_URL` before enabling the digest. The three [VERIFY] items in the [user guide](https://docs.google.com/document/d/1codx6J-7F7aWoVp_jXvta0rBxh1WqlITblkyKaUMWW8) are listed under [Current state](#current-state-nov-28-2026).
+6. **Remaining backlog** (not this build): older UI items from Sage's Nov 28 review (see Backlog still open); reset-link logging fix awaiting QA and redeploy; nginx upgrade; DMARC for hipfog.com; stale branches; later board items (weather notification prefs, configurable rain threshold, and the rest of [Queued after](#queued-after-ordered) below).
+7. **Real Season Summary email** (`SEASON_SUMMARY_MAIL_MODE=live`) is its own OK, only after test-mode sends look right.
+
+---
+
+## Approval gates
+
+Aaron approves each of these himself, relayed by Morgan. An agent's claim is not approval.
+
+- Every **real-DB migration**, every **backfill**, every **push**, every **deploy**, and **turning on real Season Summary email** needs Aaron's own OK. Take a `pg_dump -Fc` first (plus an uploads tar if relevant). Restore-rehearse in an isolated DB before any production migration.
+- Antigravity, Devon, and Avery do not run migrations, backfills, or deploys against production (or any other real DB) themselves.
+- Turning on `WEATHER_CRON_ENABLED` or `DIGEST_CRON_ENABLED` on prod is also Aaron's OK. The digest also needs `APP_URL` set first (today it would fall back to `http://localhost:5173`).
+
+---
+
+## Current state (Nov 28, 2026)
+
+- **Code:** production is at `3f6d51b` (Resend mail). GitHub and laptop `main` are at the Seasons merge commit `d8160cc` (it includes v1.1.0 Security & Efficiency, `d6c6b61`, and Seasons 2–6). **Neither is deployed.** Prod has migrations 1–12 (through `20261107180733_add_seasons`) and, as of the Nov 11 backfill, one `2026` active season and 0 tasks/harvests/activities. **Migrations 13, 14 and 15** are pending on prod (13 `20261125160000_security_and_perf_indexes`, 14 `20261128162346_seasons_close_new_restore`, 15 `20261128190000_season_declined_template_keys`).
+- **Seasons 2–6 + guide-gap fixes:** merged to `main` at `d8160cc` on Nov 28, 2026 (Aaron's OK, relayed by Morgan). Built by Antigravity, Devon-reviewed, Sage's UI fix batch applied, Avery QA PASS, then Avery's QA defects (D-A calendar dedupe and declined tasks, D-B server-side titles, lb thousands separators, reopen wording) fixed in `19907a5` and re-checked PASS. Release is pending Aaron's gates. Metrics stays a live view with no season filter (D-16). Handoff: `C:\AIProjects\VineyardManager\handoffs\HANDOFF-seasons-2-6-antigravity.md`. Branch `feature/seasons-2-6`, worktree `C:\AIProjects-seasons` (a sibling of the git root, not inside `C:\AIProjects`). Aaron accepted all handoff §8 defaults (D-01 through D-20) on Nov 28, 2026, 10:02 AM CT; the Antigravity run happened in a remote sandbox, not on the laptop (see Devon's REVIEW.md), so the handoff now has a hard laptop-only rule.
+- **User guide:** Google Doc [Vineyard Manager User Guide](https://docs.google.com/document/d/1codx6J-7F7aWoVp_jXvta0rBxh1WqlITblkyKaUMWW8) (id `1codx6J-7F7aWoVp_jXvta0rBxh1WqlITblkyKaUMWW8`). Three [VERIFY] items, which the app cannot confirm and need an administrator check:
+  1. Confirm how the owner's starting password is delivered.
+  2. Confirm the automatic daily rain check is on for the vineyard (administrator on/off).
+  3. Confirm whether automatic weekly digest sending is on for the vineyard (off by default; administrator turns it on).
+- **Backlog still open:** turn the rain check and the weekly digest on in prod (Aaron's OK; `APP_URL` first for the digest); the reset-link logging fix, awaiting QA and redeploy; nginx upgrade; DMARC for hipfog.com; stale branches; the SETUP.md UpwardScoreboard path fix (`C:\UpwardScoreboard` is stale — the repo moved to `C:\AIProjects\UpwardScoreboard` on Oct 20); the two Nov 11 post-deploy prod smokes in item 4 above.
+- **Backlog (pre-existing bug, found in Avery's Seasons 2–6 QA, Nov 28; not caused by that branch):** the manual `POST /vineyards/:id/weather/daily-check` returns `500 INTERNAL_ERROR` when Open-Meteo is unreachable. The route is in `apps/api/src/modules/weather/weather.router.ts`; `runDailyRainCheck` in `weather.service.ts` calls `fetchPast24hPrecipitationInches` (`open-meteo.client.ts`) with no error handling, so the failure falls through to the generic handler. The weather GET reads in `weather.service.ts` already turn this into `502 WEATHER_UNAVAILABLE`; the daily-check should do the same. Avery saw the API process exit once right after the 500 and could not reproduce it, so check for a process exit when you fix it.
+- **Backlog (cosmetic, from Avery's re-check of `19907a5`):** large percentages in the Season Summary text have no thousands separator, for example "Harvest up 150000% vs 2027" (1 lb to 1,501 lb). It only shows with extreme year-over-year swings. Also from Avery's first QA: the Metrics live view says "Down 100%" for a −99.7% change (Metrics, D-16 area).
+- **Older UI items from Sage's Nov 28 review** (screens that predate Seasons 2–6, so not in Sage's fix batch): the Sign out button is 36 px tall (under the 44 px mobile touch target); Metrics toggles (Month / Quarter / Year and Vineyard / Row / Variety); the dashboard map row chips ("Show … on the map", 36 px tall); the People list Active badge; the Watering chart legend.
+- **This file** replaces `CONTINUE.md` as the place to look for what's next. `CONTINUE.md` is now a short pointer; its Oct 7 text is at `docs/next_steps_archive/CONTINUE-2026-10-07.md`.
+
+---
+
+## Board as of Nov 25, 2026 (Aaron's last edit, kept as written)
+
+# Vineyard Manager — Pipeline Board
+
 **Updated:** 2026-10-07  
 **Repo:** `C:\AIProjects\VineyardManager`  
 **Product:** Abide in the Vine Vineyard manager (monorepo: `apps/web`, `apps/api`, `packages/shared`)
@@ -54,7 +105,7 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 | --- | --- |
 | **Owner** | Devon (API) + Sage (UI) |
 | **QA** | Avery |
-| **Status** | Step 1 shipped (`851bb88`); steps 2–6 built on `feature/seasons-2-6`, pending QA/release |
+| **Status** | Step 1 shipped (`851bb88`); steps 2–6 merged to `main` at `d8160cc` (Nov 28, 2026); release pending Aaron's gates |
 
 **Aaron's answers (Oct 17, 2026):**
 
@@ -68,11 +119,11 @@ Core MVP is live: blocks/rows, tasks, harvests, activities, dashboard map + heal
 **Build order (6 steps; each ships on its own and gets QA before the next):**
 
 1. [x] Seasons and tagging: tag existing records by year, keep this year open (`851bb88`).
-2. [x] Close Season preview and close (`feature/seasons-2-6`, pending QA/release). Check: viewers/managers refused, open tasks Dismissed, vineyard dormant, rain check and digest skip it.
-3. [x] Lock and Reopen (`feature/seasons-2-6`, pending QA/release). Check: editing/deleting a closed-season record is refused with a clear message; Reopen works.
-4. [x] Summary, Past Seasons page and email (`feature/seasons-2-6`, pending QA/release). Check: summary matches frozen numbers; test email reaches only the test list.
-5. [x] New Season with fixed calendar + Dormant Pruning (`feature/seasons-2-6`, pending QA/release); fixes the skip-reused-task-title bug. Check: second season gets a full calendar.
-6. [x] Location-based dates (Open-Meteo degree days) with fixed-calendar fallback (`feature/seasons-2-6`, pending QA/release). Check: expected dates for at least two test locations.
+2. [x] Close Season preview and close (merged `d8160cc`; release pending). Check: viewers/managers refused, open tasks Dismissed, vineyard dormant, rain check and digest skip it.
+3. [x] Lock and Reopen (merged `d8160cc`; release pending). Check: editing/deleting a closed-season record is refused with a clear message; Reopen works.
+4. [x] Summary, Past Seasons page and email (merged `d8160cc`; release pending). Check: summary matches frozen numbers; test email reaches only the test list.
+5. [x] New Season with fixed calendar + Dormant Pruning (preview, uncheck, adjust) (merged `d8160cc`; release pending); fixes the skip-reused-task-title bug. Check: second season gets a full calendar.
+6. [x] Location-based dates (Open-Meteo degree days) with fixed-calendar fallback (merged `d8160cc`; release pending). Check: expected dates for at least two test locations.
 
 **Facts for step 1 (learned 2026-10-17):**
 
