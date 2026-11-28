@@ -298,6 +298,9 @@ test("seasons 2-6 integration suite: migration indexes and season read API (A1)"
 
     // 7. Phase 4 — User-guide gaps (F1–F7, G1, G3)
     await phase4UserGuideGapsCases(prisma, base, owner.id, manager.id, tokens);
+
+    // 8. Phase 5 — Season Summary, Past Seasons, mail intents & retries (C1–C6)
+    await phase5SummaryAndMailCases(prisma, base, owner.id, tokens);
   } finally {
     globalThis.fetch = originalFetch;
     try {
@@ -1507,6 +1510,217 @@ async function phase4UserGuideGapsCases(
     true,
   );
 }
+
+async function phase5SummaryAndMailCases(
+  prisma: PrismaClient,
+  base: URL,
+  ownerId: string,
+  tokens: { power_user: string; manager: string; viewer: string },
+): Promise<void> {
+  const {
+    dispatchPendingSeasonSummaryMails,
+    resetSummaryMailBackoffForTests,
+  } = await import("../../src/modules/seasons/season-summary-mail.js");
+  const { config } = await import("../../src/config.js");
+
+  resetSummaryMailBackoffForTests();
+
+  const v = await createVineyard(prisma, ownerId);
+  const season = await prisma.season.create({
+    data: {
+      vineyardId: v.id,
+      year: 2026,
+      status: "active",
+      startedAt: new Date("2026-03-01T18:00:00.000Z"),
+    },
+  });
+
+  // Allowlist our test owner email temporarily (in-memory only, restored in finally)
+  const ownerRow = await prisma.user.findUniqueOrThrow({
+    where: { id: ownerId },
+    select: { email: true },
+  });
+  // Ensure test owner has a non-.local test domain for pending mail intent verification
+  const originalEmail = ownerRow.email;
+  const syntheticEmail = `p5-owner-${season.id.slice(0, 8)}@example.test`;
+  await prisma.user.update({
+    where: { id: ownerId },
+    data: { email: syntheticEmail },
+  });
+  const savedAllowlist = [...config.digestTestRecipients];
+  config.digestTestRecipients.splice(0, config.digestTestRecipients.length, syntheticEmail);
+
+  try {
+    // 1. Preview & close season (closeVersion = 1)
+    const prev1 = await httpJson(
+      base,
+      "GET",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}/close-preview`,
+      tokens.power_user,
+    );
+    assert.equal(prev1.status, 200);
+    const token1 = (prev1.body as { data: { previewToken: string } }).data
+      .previewToken;
+
+    const close1 = await httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}/close`,
+      tokens.power_user,
+      { previewToken: token1 },
+    );
+    assert.equal(close1.status, 200);
+
+    const intentsV1 = await prisma.seasonSummaryMail.findMany({
+      where: { seasonId: season.id, closeVersion: 1 },
+    });
+    const pendingV1 = intentsV1.filter((i) => i.status === "pending");
+    assert.equal(
+      pendingV1.length,
+      1,
+      "test mode must enqueue pending intent only for allowlisted recipient",
+    );
+    assert.equal(pendingV1[0]?.recipientEmail, syntheticEmail);
+
+    // Repeat close -> 409 SEASON_NOT_ACTIVE and zero additional intents
+    const closeAgain = await httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}/close`,
+      tokens.power_user,
+      { previewToken: token1 },
+    );
+    assert.equal(closeAgain.status, 409);
+    const intentsAfterRepeat = await prisma.seasonSummaryMail.count({
+      where: { seasonId: season.id },
+    });
+    assert.equal(intentsAfterRepeat, intentsV1.length);
+
+    // 2. Mocked transport failure leaves season closed and intent failed, then retry succeeds
+    const logs: string[] = [];
+    const failPass = await dispatchPendingSeasonSummaryMails({
+      db: prisma,
+      backoffMs: [0, 0, 0],
+      logger: (line) => logs.push(line),
+      transport: async () => {
+        const err = new Error("mock provider failure");
+        (err as { code?: string }).code = "ECONNREFUSED";
+        throw err;
+      },
+    });
+    assert.ok(failPass.failed >= 1);
+    const afterFailIntent = await prisma.seasonSummaryMail.findUniqueOrThrow({
+      where: { id: pendingV1[0]!.id },
+    });
+    assert.equal(afterFailIntent.status, "failed");
+    assert.equal(afterFailIntent.attempts, 1);
+    assert.equal(afterFailIntent.lastErrorCode, "ECONNREFUSED");
+
+    // Season must still be closed
+    const seasonStillClosed = await prisma.season.findUniqueOrThrow({
+      where: { id: season.id },
+    });
+    assert.equal(seasonStillClosed.status, "closed");
+
+    // Retry pass succeeds
+    const okPass = await dispatchPendingSeasonSummaryMails({
+      db: prisma,
+      backoffMs: [0, 0, 0],
+      logger: (line) => logs.push(line),
+      transport: async () => ({ sent: true, messageId: "mock-msg-1" }),
+    });
+    assert.ok(okPass.sent >= 1);
+    const afterOkIntent = await prisma.seasonSummaryMail.findUniqueOrThrow({
+      where: { id: pendingV1[0]!.id },
+    });
+    assert.equal(afterOkIntent.status, "sent");
+    assert.equal(afterOkIntent.attempts, 2);
+    assert.equal(afterOkIntent.providerMessageId, "mock-msg-1");
+
+    // C6: Verify logs contain no recipient email
+    for (const line of logs) {
+      assert.equal(line.includes(syntheticEmail), false);
+    }
+
+    // 3. Reopen -> viewer can still read prior summary via Past Seasons detail (C3)
+    const reopenRes = await httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}/reopen`,
+      tokens.power_user,
+    );
+    assert.equal(reopenRes.status, 200);
+
+    const detailWhileReopened = await httpJson(
+      base,
+      "GET",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}`,
+      tokens.viewer,
+    );
+    assert.equal(detailWhileReopened.status, 200);
+    const reopenedDetail = (
+      detailWhileReopened.body as {
+        data: { hasSummary: boolean; summary: { closeVersion: number } | null; summaryHistory?: unknown[] };
+      }
+    ).data;
+    assert.equal(reopenedDetail.hasSummary, true);
+    assert.equal(reopenedDetail.summary?.closeVersion, 1);
+    assert.equal(reopenedDetail.summaryHistory?.length, 1);
+
+    // 4. Close again -> closeVersion = 2 and creates a new intent set
+    const prev2 = await httpJson(
+      base,
+      "GET",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}/close-preview`,
+      tokens.power_user,
+    );
+    assert.equal(prev2.status, 200);
+    const token2 = (prev2.body as { data: { previewToken: string } }).data
+      .previewToken;
+
+    const close2 = await httpJson(
+      base,
+      "POST",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}/close`,
+      tokens.power_user,
+      { previewToken: token2 },
+    );
+    assert.equal(close2.status, 200);
+
+    const intentsV2 = await prisma.seasonSummaryMail.findMany({
+      where: { seasonId: season.id, closeVersion: 2 },
+    });
+    assert.equal(
+      intentsV2.filter((i) => i.status === "pending").length,
+      1,
+      "reopen -> close must bump closeVersion and enqueue a new intent set",
+    );
+
+    const detailAfterSecondClose = await httpJson(
+      base,
+      "GET",
+      `${API_PREFIX}/vineyards/${v.id}/seasons/${season.id}`,
+      tokens.viewer,
+    );
+    assert.equal(detailAfterSecondClose.status, 200);
+    assert.equal(
+      (detailAfterSecondClose.body as { data: { summary: { closeVersion: number } } })
+        .data.summary.closeVersion,
+      2,
+    );
+  } finally {
+    config.digestTestRecipients.splice(
+      0,
+      config.digestTestRecipients.length,
+      ...savedAllowlist,
+    );
+    await prisma.user.update({
+      where: { id: ownerId },
+      data: { email: originalEmail },
+    });
+  }
+}
+
 
 
 

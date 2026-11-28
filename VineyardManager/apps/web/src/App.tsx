@@ -25,6 +25,11 @@ const MetricsPage = lazy(() =>
 const NotFoundPage = lazy(() =>
   import("@/pages/NotFoundPage").then((m) => ({ default: m.NotFoundPage })),
 );
+const PastSeasonsPage = lazy(() =>
+  import("@/pages/PastSeasonsPage").then((m) => ({
+    default: m.PastSeasonsPage,
+  })),
+);
 const ResetPasswordPage = lazy(() =>
   import("@/pages/ResetPasswordPage").then((m) => ({
     default: m.ResetPasswordPage,
@@ -32,6 +37,11 @@ const ResetPasswordPage = lazy(() =>
 );
 const RowsPage = lazy(() =>
   import("@/pages/RowsPage").then((m) => ({ default: m.RowsPage })),
+);
+const SeasonDetailPage = lazy(() =>
+  import("@/pages/SeasonDetailPage").then((m) => ({
+    default: m.SeasonDetailPage,
+  })),
 );
 const SettingsPage = lazy(() =>
   import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })),
@@ -69,6 +79,8 @@ export default function App() {
           <Route path="harvests" element={<HarvestsPage />} />
           <Route path="metrics" element={<MetricsPage />} />
           <Route path="activities" element={<ActivitiesPage />} />
+          <Route path="seasons" element={<PastSeasonsPage />} />
+          <Route path="seasons/:seasonId" element={<SeasonDetailPage />} />
           <Route path="setup" element={<SetupPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="home" element={<Navigate to="/" replace />} />

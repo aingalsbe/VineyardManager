@@ -19,6 +19,7 @@ import {
   type SeasonStatus,
   type YieldUnit,
 } from "@vineyard/shared";
+import { config } from "../../config.js";
 import { prisma } from "../../db/prisma.js";
 import { serializeSeason } from "../../lib/serialize.js";
 import { HttpError } from "../../middleware/error-handler.js";
@@ -36,6 +37,10 @@ import {
   type SnapshotTaskInput,
 } from "./season-snapshot.js";
 import { buildSeasonSummaryFromSnapshot } from "./season-summary.js";
+import {
+  dispatchPendingSeasonSummaryMails,
+  enqueueSeasonSummaryMailIntents,
+} from "./season-summary-mail.js";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -705,10 +710,23 @@ export async function closeSeason(
       },
     });
 
+    await enqueueSeasonSummaryMailIntents(tx, {
+      vineyardId,
+      seasonId,
+      closeVersion: nextCloseVersion,
+    });
+
     return {
       season: serializeSeason(updated, { includeSummary: true }),
       dismissedTaskCount: dismissed.count,
     };
+  }).then((result) => {
+    if (config.seasonSummaryMailWorkerEnabled) {
+      void dispatchPendingSeasonSummaryMails().catch(() => {
+        console.error("season_summary_mail post_close_dispatch_error code=DRAIN_FAILED");
+      });
+    }
+    return result;
   });
 }
 

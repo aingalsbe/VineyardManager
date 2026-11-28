@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { CloseSeasonResult, CurrentSeasonState } from "@vineyard/shared";
 import { CloseSeasonDialog } from "@/components/seasons/CloseSeasonDialog";
 import { Badge } from "@/components/ui/badge";
@@ -169,6 +170,9 @@ export function SeasonCard({
                 Reopen {lastClosed.year} season
               </Button>
             ) : null}
+            <Button asChild variant="outline">
+              <Link to="/seasons">Past seasons</Link>
+            </Button>
           </div>
 
           {!canSetup ? (

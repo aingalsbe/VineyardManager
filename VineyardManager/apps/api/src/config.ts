@@ -97,4 +97,15 @@ export const config = {
     .split(",")
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean),
+  /** Season Summary email mode: "test" (default, filters to DIGEST_TEST_RECIPIENTS) or "live" (D-09). */
+  seasonSummaryMailMode:
+    (process.env.SEASON_SUMMARY_MAIL_MODE ?? "test").trim().toLowerCase() === "live"
+      ? ("live" as const)
+      : ("test" as const),
+  /** In-process drain for season_summary_mails (off in tests so tests call dispatcher directly). */
+  seasonSummaryMailWorkerEnabled:
+    (
+      process.env.SEASON_SUMMARY_MAIL_WORKER_ENABLED ??
+      (isTest ? "false" : "true")
+    ).toLowerCase() !== "false",
 };
